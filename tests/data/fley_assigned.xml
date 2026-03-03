@@ -1,0 +1,19 @@
+<FlexQueryResponse queryName="Test_Assigned">
+  <FlexStatements count="1">
+    <FlexStatement>
+      <Trade assetCategory="OPT" symbol="AAPL 20231117C00180000"
+             description="AAPL Nov17'23 180 Call" underlyingSymbol="AAPL"
+             underlyingConid="123456789" conid="987654321"
+             buySell="SELL" multiplier="100" strike="180" expiry="2023-11-17"
+             tradePrice="1.25" quantity="1" currency="USD" tradeID="T1"
+             transactionType="BookTrade" dateTime="17/11/2023;153045"
+             netCash="125.00" ibCommission="-1.00" />
+      <OptionEAE assetCategory="OPT" transactionType="Assignment"
+                 conid="987654321" underlyingConid="123456789"
+                 underlyingSymbol="AAPL" strike="180"
+                 expiry="2023-11-17" multiplier="100"
+                 quantity="-1" currency="USD"
+                 date="17/11/2023" proceeds="-18000.00" />
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

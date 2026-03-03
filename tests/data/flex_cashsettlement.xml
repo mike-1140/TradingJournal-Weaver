@@ -1,0 +1,22 @@
+<FlexQueryResponse queryName="Test_CashSettlement">
+  <FlexStatements count="1">
+    <FlexStatement>
+      <Trade assetCategory="OPT" symbol="SPX 20231117C04500000"
+             description="SPX Nov17'23 4500 Call" underlyingSymbol="SPX"
+             conid="333333" buySell="SELL" multiplier="100"
+             strike="4500" expiry="2023-11-17" tradePrice="5.00"
+             quantity="1" currency="USD" tradeID="T3"
+             transactionType="BookTrade" dateTime="17/11/2023;153045"
+             netCash="500.00" ibCommission="-1.00" />
+      <OptionEAE assetCategory="OPT" transactionType="Assignment"
+                 conid="333333" underlyingSymbol="SPX"
+                 underlyingConid="333331" expiry="2023-11-17"
+                 multiplier="100" quantity="-1" currency="USD"
+                 date="17/11/2023" proceeds="0.0" />
+      <OptionEAE assetCategory="OPT" transactionType="Cash Settlement"
+                 conid="333333" expiry="2023-11-17" multiplier="100"
+                 quantity="-1" currency="USD" date="17/11/2023"
+                 proceeds="-250.0" />
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

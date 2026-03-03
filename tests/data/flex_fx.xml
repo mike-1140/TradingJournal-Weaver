@@ -1,0 +1,10 @@
+<FlexQueryResponse queryName="Test_FX">
+  <FlexStatements count="1">
+    <FlexStatement>
+      <Trade assetCategory="CASH" symbol="EUR.USD"
+             quantity="-1000.00" proceeds="1080.00"
+             tradePrice="1.08" ibCommission="-1.00"
+             tradeID="FX1" dateTime="17/11/2023;153045" />
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

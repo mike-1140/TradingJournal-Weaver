@@ -1,0 +1,16 @@
+<FlexQueryResponse queryName="Test_Expired">
+  <FlexStatements count="1">
+    <FlexStatement>
+      <Trade assetCategory="OPT" symbol="AAPL 20231117P00170000"
+             description="AAPL Nov17'23 170 Put" underlyingSymbol="AAPL"
+             conid="222222" buySell="BUY" multiplier="100" strike="170"
+             expiry="2023-11-17" tradePrice="1.00" quantity="1" currency="USD"
+             tradeID="T2" transactionType="BookTrade" dateTime="17/11/2023;153045"
+             netCash="-100.00" ibCommission="-1.00" />
+      <OptionEAE assetCategory="OPT" transactionType="Expiration"
+                 conid="222222" underlyingSymbol="AAPL"
+                 strike="170" expiry="2023-11-17" multiplier="100"
+                 quantity="1" currency="USD" date="17/11/2023" />
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

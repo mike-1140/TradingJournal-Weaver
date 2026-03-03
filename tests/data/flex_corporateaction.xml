@@ -1,0 +1,11 @@
+<FlexQueryResponse queryName="Test_CA">
+  <FlexStatements count="1">
+    <FlexStatement>
+      <CorporateAction assetCategory="STK" symbol="AAPL"
+                       type="Split" conid="123456"
+                       reportDate="17/11/2023" quantity="2"
+                       netCash="0.0" proceeds="0.0"
+                       actionID="CA1" />
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

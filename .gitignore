@@ -1,0 +1,82 @@
+# === Sensible Daten ===
+.env
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.c
+
+# === Distribution / Packaging ===
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# === Virtual Environments ===
+.venv/
+.venv1/
+env/
+ENV/
+venv/
+venv.bak/
+
+# === Tests / Coverage ===
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# === Jupyter ===
+.ipynb_checkpoints
+
+# === PyCharm / IDE ===
+.idea/
+.vscode/
+
+# === Logs ===
+log/
+logs/
+*.log
+app.log
+
+# === XML-Eingabedaten (IBKR FlexQuery Reports) ===
+input/
+
+# === DB-Backups ===
+database/db/
+
+# === GoodSync ===
+_gsdata_/
+
+# === Windows ===
+Thumbs.db
+desktop.ini
+tmp_*.py
+
+# === PyInstaller ===
+*.manifest
+*.spec
+
+# === Claude Code (lokal, nicht teilen) ===
+.claude/
