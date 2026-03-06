@@ -1,4 +1,5 @@
 import sys
+import uuid
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
@@ -107,6 +108,7 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
     # ===== HAUPTSCHLEIFE =====
     progress = ProgressLine(logger)
     progress.start()
+    last_trade_date = None
 
     for idx, row in df_raw.iterrows():
         raw_trade = row.to_dict()
@@ -124,6 +126,8 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
         dt = str(trade.get('dateTime', ''))[:10]
         progress.update(f"{nr}/{total}  {asset:4}  {symbol:10}  {dt}")
 
+        last_trade_date = row['dateTime']
+
         # Bevor wir den Trade verarbeiten, räumen wir abgelaufene Kampagnen auf
         # basierend auf dem Datum des aktuellen Trades
         tracker._cleanup_expired_campaigns(row['dateTime'])
@@ -140,20 +144,27 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
                 process_stock_split(repo, trade, tracker, campaign_id)
                 # In-memory Bestand an neuen Faktor anpassen
                 if split_symbol in tracker.holdings:
-                    factor = float(trade.get('multiplier', 1))
-                    tracker.holdings[split_symbol]['shares'] = float(tracker.holdings[split_symbol]['shares']) * factor
+                    factor = to_decimal(trade.get('multiplier', 1))
+                    tracker.holdings[split_symbol]['shares'] = to_decimal(tracker.holdings[split_symbol]['shares']) * factor
             continue  # Split vollständig verarbeitet oder wartet auf zweiten Teil
 
-        campaign_id = tracker.process_row_and_get_campaign(row)
+        # Jeder Raw-Trade wird atomar verarbeitet: alle DB-Operationen (Kampagne,
+        # Ledger, Open/Close, processed-Flag) werden gemeinsam committed oder
+        # bei Exception komplett zurückgerollt.
+        with db.transaction():
+            # CASH-Trades gehören zu keiner Kampagne — keinen Inventory-Tracker aufrufen
+            if trade.get('assetCategory') == 'CASH':
+                campaign_id = None
+            else:
+                campaign_id = tracker.process_row_and_get_campaign(row)
 
-        # ===== SCHRITT 5: TRADE VERARBEITUNG =====
-        process_raw_trade(logger, trade, repo, tracker, campaign_id)
+            # ===== SCHRITT 5: TRADE VERARBEITUNG =====
+            process_raw_trade(logger, trade, repo, tracker, campaign_id)
 
     progress.done(f"{total} Trades verarbeitet  [{env_up}]")
 
-    # Nutze das Datum des allerletzten Trades oder das aktuelle Datum
-    last_date = datetime.now()
-    tracker.finalize(last_date)
+    # Letztes Trade-Datum für Kampagnen-Cleanup verwenden (nicht das aktuelle Systemdatum)
+    tracker.finalize(last_trade_date or datetime.now())
 
     logger.info("=" * 80)
     logger.info("Trade-Verarbeitung abgeschlossen")
@@ -217,7 +228,7 @@ def process_stock_split(repo, trade, tracker, campaign_id):
         tracker.link_to_campaign_new(
             assetCategory=tr.get("assetCategory"),
             campaign_id=campaign_id,
-            source_table="trades_open",
+            source_table="TRADES_OPEN",
             source_id=tr.get("id"),
             netcash=0.0,
             proceeds=0.0,
@@ -228,7 +239,10 @@ def process_stock_split(repo, trade, tracker, campaign_id):
             dateTime=tr.get("dateTime"),
             conid=tr.get("conid"),
             currency=tr.get("currency", "USD"),
-            fxRateToBase=tr.get("fxRateToBase", 1)
+            fxRateToBase=tr.get("fxRateToBase", 1),
+            symbol=tr.get("symbol"),
+            trade_price=tr.get("tradePrice"),
+            multiplier=tr.get("multiplier")
         )
 
 
@@ -250,22 +264,26 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 action = f"FX_EXCHANGE_FROM_{base}"
             else:
                 action = f"FX_EXCHANGE_TO_{quote}"
-            tracker.link_to_campaign_new(
-                assetCategory=new_trade.get("assetCategory"),
-                campaign_id=campaign_id,
-                source_table="trades_raw",
-                source_id=raw_trade_id,
-                netcash=to_decimal(new_trade['netCash']),
-                proceeds=Decimal('0'),
-                commission=to_decimal(new_trade['ibCommission']),
-                pnl=Decimal(new_trade['tradePrice']),  # der Umrechnungsfaktor
-                quantity=Decimal('0'),
-                action=action,
-                dateTime=new_trade.get("dateTime"),
-                conid=new_trade.get("conid"),
-                currency=new_trade.get("currency", "USD"),
-                fxRateToBase=new_trade.get("fxRateToBase", 1)
-            )
+            if campaign_id:
+                tracker.link_to_campaign_new(
+                    assetCategory=new_trade.get("assetCategory"),
+                    campaign_id=campaign_id,
+                    source_table="TRADES_RAW",
+                    source_id=raw_trade_id,
+                    netcash=to_decimal(new_trade['netCash']),
+                    proceeds=Decimal('0'),
+                    commission=to_decimal(new_trade['ibCommission']),
+                    pnl=Decimal(new_trade['tradePrice']),  # der Umrechnungsfaktor
+                    quantity=Decimal('0'),
+                    action=action,
+                    dateTime=new_trade.get("dateTime"),
+                    conid=new_trade.get("conid"),
+                    currency=new_trade.get("currency", "USD"),
+                    fxRateToBase=new_trade.get("fxRateToBase", 1),
+                    symbol=new_trade.get("symbol"),
+                    trade_price=new_trade.get("tradePrice"),
+                    link_id=new_trade.get("linkID")
+                )
         repo.mark_trade_processed(TABLE_TRADES_RAW, raw_trade_id)
         return
 
@@ -287,10 +305,14 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         new_id = repo.insert_open_trade(new_trade)
         OpenTradeSchema.log_open_trade(new_trade, "Open", False)
 
+        # Assignment-linkID konsumieren (falls dieser STK-Open durch ein Assignment ausgelöst wurde)
+        h_open = tracker.holdings.get(symbol, {})
+        pending_link_id = h_open.pop('pending_link_id', None) if h_open else None
+
         tracker.link_to_campaign_new(
             assetCategory=new_trade.get("assetCategory"),
             campaign_id=campaign_id,
-            source_table="trades_open",
+            source_table="TRADES_OPEN",
             source_id=new_id,
             netcash=(new_trade.get("netCash") or 0.0),
             proceeds=(new_trade.get("proceeds") or 0.0),
@@ -301,7 +323,15 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             dateTime=new_trade.get("dateTime"),
             conid=new_trade.get("conid"),
             currency=new_trade.get("currency", "USD"),
-            fxRateToBase=new_trade.get("fxRateToBase", 1)
+            fxRateToBase=new_trade.get("fxRateToBase", 1),
+            symbol=new_trade.get("symbol"),
+            trade_price=new_trade.get("tradePrice"),
+            strike=new_trade.get("strike"),
+            expiry=new_trade.get("expiry"),
+            multiplier=new_trade.get("multiplier"),
+            put_call=new_trade.get("putCall"),
+            buy_sell=new_trade.get("buySell"),
+            link_id=pending_link_id or new_trade.get("linkID")
         )
         repo.mark_trade_processed(TABLE_TRADES_RAW, raw_trade_id)
         return
@@ -340,11 +370,18 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             netcash = Decimal('0')
             proceeds = Decimal('0')
             commission = Decimal('0')
+            link_id_2c = cl_trade.get("linkID")
             if cl_trade["assetCategory"] == "OPT":
                 if cl_trade["status"] == "Expired":
                     action = "OPTION_EXPIRATION"
                 elif cl_trade["status"] == "Assigned":
                     action = 'OPTION_EXERCISE'
+                    # linkID erzeugen und im Tracker merken, damit der folgende STK-Open
+                    # (aus dem Assignment) denselben linkID bekommt
+                    link_id_2c = cl_trade.get("linkID") or str(uuid.uuid4())
+                    underlying = cl_trade.get("underlyingSymbol") or cl_trade.get("symbol")
+                    if underlying in tracker.holdings:
+                        tracker.holdings[underlying]['pending_link_id'] = link_id_2c
                 elif cl_trade["status"] == "CashSettled":
                     action = 'CASH_SETTLEMENT'
                     # das bewegte Cash ist im proceedsClose gespeichert!!
@@ -366,7 +403,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             tracker.link_to_campaign_new(
                 assetCategory=cl_trade.get("assetCategory"),
                 campaign_id=campaign_id,
-                source_table="trades_open",
+                source_table="TRADES_OPEN",
                 source_id=tr['id'],
                 netcash=netcash,
                 proceeds=proceeds,
@@ -377,7 +414,15 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 dateTime=cl_trade.get("dateTimeClose"),
                 conid=cl_trade.get("conid"),
                 currency=cl_trade.get("currency", "USD"),
-                fxRateToBase=cl_trade.get("fxRateToBase_close", 1)
+                fxRateToBase=cl_trade.get("fxRateToBase_close", 1),
+                symbol=cl_trade.get("symbol"),
+                trade_price=cl_trade.get("tradePriceClose"),
+                strike=cl_trade.get("strike"),
+                expiry=cl_trade.get("expiry"),
+                multiplier=cl_trade.get("multiplier"),
+                put_call=cl_trade.get("putCall"),
+                buy_sell=cl_trade.get("buySellClose"),
+                link_id=link_id_2c
             )
 
             remaining_qty = Decimal('0')
@@ -425,20 +470,28 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             OpenTradeSchema.log_open_trade(tr, "Open", False)
 
             tracker.link_to_campaign_new(
-                assetCategory=new_trade.get("assetCategory"),
+                assetCategory=cl_trade.get("assetCategory"),
                 campaign_id=campaign_id,
-                source_table="trades_open",
+                source_table="TRADES_OPEN",
                 source_id=tr['id'],
-                netcash=(new_trade.get("netCash") or 0.0),
-                proceeds=(new_trade.get("proceeds") or 0.0),
-                commission=(new_trade.get("ibCommission") or 0.0),
+                netcash=(cl_trade.get("netCashClose") or 0.0),
+                proceeds=(cl_trade.get("proceedsClose") or 0.0),
+                commission=(cl_trade.get("ibCommission") or 0.0),  # anteilige Open- + Close-Kommission
                 pnl=realized_pnl,
                 quantity=new_trade.get("quantity"),
                 action='TRADE_CLOSE_PARTIAL',
-                dateTime=new_trade.get("dateTime"),
-                conid=new_trade.get("conid"),
+                dateTime=cl_trade.get("dateTimeClose"),
+                conid=cl_trade.get("conid"),
                 currency=new_trade.get("currency", "USD"),
-                fxRateToBase=new_trade.get("fxRateToBase", 1)
+                fxRateToBase=new_trade.get("fxRateToBase", 1),
+                symbol=cl_trade.get("symbol"),
+                trade_price=cl_trade.get("tradePriceClose"),
+                strike=cl_trade.get("strike"),
+                expiry=cl_trade.get("expiry"),
+                multiplier=cl_trade.get("multiplier"),
+                put_call=cl_trade.get("putCall"),
+                buy_sell=cl_trade.get("buySellClose"),
+                link_id=cl_trade.get("linkID")
             )
 
             remaining_qty = Decimal('0')
@@ -465,7 +518,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             tracker.link_to_campaign_new(
                 assetCategory=cl_trade.get("assetCategory"),
                 campaign_id=campaign_id,
-                source_table="trades_open",
+                source_table="TRADES_OPEN",
                 source_id=tr['id'],
                 netcash=(cl_trade.get("netCashClose") or 0.0),
                 proceeds=(cl_trade.get("proceedsClose") or 0.0),
@@ -476,7 +529,15 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 dateTime=cl_trade.get("dateTimeClose"),
                 conid=cl_trade.get("conid"),
                 currency=cl_trade.get("currency", "USD"),
-                fxRateToBase=cl_trade.get("fxRateToBase_close", 1)
+                fxRateToBase=cl_trade.get("fxRateToBase_close", 1),
+                symbol=cl_trade.get("symbol"),
+                trade_price=cl_trade.get("tradePriceClose"),
+                strike=cl_trade.get("strike"),
+                expiry=cl_trade.get("expiry"),
+                multiplier=cl_trade.get("multiplier"),
+                put_call=cl_trade.get("putCall"),
+                buy_sell=cl_trade.get("buySellClose"),
+                link_id=cl_trade.get("linkID")
             )
 
             # 2. Den verbleibenden Rest des Tranche berechnen und weitermachen
@@ -514,7 +575,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         tracker.link_to_campaign_new(
             assetCategory=new_trade.get("assetCategory"),
             campaign_id=campaign_id,
-            source_table="trades_open",
+            source_table="TRADES_OPEN",
             source_id=new_id,
             netcash=(new_trade.get("netCash") or 0.0),
             proceeds=(new_trade.get("proceeds") or 0.0),
@@ -525,7 +586,15 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             dateTime=new_trade.get("dateTime"),
             conid=new_trade.get("conid"),
             currency=new_trade.get("currency", "USD"),
-            fxRateToBase=new_trade.get("fxRateToBase", 1)
+            fxRateToBase=new_trade.get("fxRateToBase", 1),
+            symbol=new_trade.get("symbol"),
+            trade_price=new_trade.get("tradePrice"),
+            strike=new_trade.get("strike"),
+            expiry=new_trade.get("expiry"),
+            multiplier=new_trade.get("multiplier"),
+            put_call=new_trade.get("putCall"),
+            buy_sell=new_trade.get("buySell"),
+            link_id=new_trade.get("linkID")
         )
 
     repo.mark_trade_processed(TABLE_TRADES_RAW, raw_trade_id)
@@ -549,7 +618,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 #     tracker.link_to_campaign(
 #         assetCategory=trade.get("assetCategory"),
 #         campaign_id=campaign_id,
-#         source_table="trades_open",
+#         source_table="TRADES_OPEN",
 #         source_id=source_id,
 #         netcash=(trade.get("netCash") or 0.0),
 #         proceeds=(trade.get("proceeds") or 0.0),
@@ -574,7 +643,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 #     tracker.link_to_campaign(
 #         assetCategory=result.get("assetCategory"),
 #         campaign_id=campaign_id,
-#         source_table="trades_open",
+#         source_table="TRADES_OPEN",
 #         source_id=source_id,
 #         netcash=(result.get("netCash") or 0.0),
 #         proceeds=(result.get("proceeds") or 0.0),
@@ -645,7 +714,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 #     tracker.link_to_campaign(
 #         assetCategory=updated_open.get("assetCategory"),
 #         campaign_id=campaign_id,
-#         source_table="trades_open",
+#         source_table="TRADES_OPEN",
 #         source_id=source_id,
 #         netcash=(updated_open.get("netCash") or 0.0),
 #         proceeds=(updated_open.get("proceeds") or 0.0),
@@ -689,7 +758,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 #     tracker.link_to_campaign(
 #         assetCategory=new_open.get("assetCategory"),
 #         campaign_id=campaign_id,
-#         source_table="trades_open",
+#         source_table="TRADES_OPEN",
 #         source_id=source_id,
 #         netcash=(new_open.get("netCash") or 0.0),
 #         proceeds=(new_open.get("proceeds") or 0.0),

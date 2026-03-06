@@ -1,5 +1,6 @@
 # src/db/db_access.py
 
+from contextlib import contextmanager
 from typing import Any, Type, List, Dict, Optional, Literal
 import pandas as pd
 from sqlalchemy import text, inspect
@@ -33,6 +34,7 @@ class DBAccess:
         self.engine = get_engine(environment)
         self.table_prefix = table_prefix or TABLE_PREFIX
         self.db_logger = logger
+        self._conn = None  # aktive Transaktions-Connection (None = kein aktiver TX)
 
     def _prefixed(self, table_name: str) -> str:
         return f"{self.table_prefix}{table_name}" if self.table_prefix else table_name
@@ -109,23 +111,51 @@ class DBAccess:
             return pd.read_sql(query, conn, params=params or {})
 
     # ------------------------
+    # Transaktions-Unterstützung
+    # ------------------------
+
+    @contextmanager
+    def transaction(self):
+        """
+        Context Manager für atomare Operationen.
+        Alle execute_write / insert_and_get_id Aufrufe innerhalb des Blocks
+        teilen sich dieselbe Connection und werden gemeinsam committed oder
+        bei Exception zurückgerollt.
+        """
+        with self.engine.begin() as conn:
+            self._conn = conn
+            try:
+                yield conn
+            finally:
+                self._conn = None
+
+    # ------------------------
     # Write helpers
     # ------------------------
 
     def execute_write(self, sql: str, params: dict = None, force: bool = False) -> int:
         self._log_sql(sql, params, force)
         query = text(sql)
+        if self._conn is not None:
+            result = self._conn.execute(query, params or {})
+            return result.rowcount
         with self.engine.begin() as conn:
             result = conn.execute(query, params or {})
             return result.rowcount
 
     def execute_many(self, sql: str, param_list: List[dict]) -> None:
         query = text(sql)
+        if self._conn is not None:
+            self._conn.execute(query, param_list)
+            return
         with self.engine.begin() as conn:
             conn.execute(query, param_list)
 
     def insert_and_get_id(self, sql: str, params: dict) -> int:
         query = text(sql)
+        if self._conn is not None:
+            result = self._conn.execute(query, params)
+            return result.lastrowid
         with self.engine.begin() as conn:
             result = conn.execute(query, params)
             return result.lastrowid

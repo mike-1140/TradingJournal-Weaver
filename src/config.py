@@ -5,6 +5,7 @@ from pathlib import Path
 
 # Defines
 MAX_TRADE_IDS = 3  # bei Aggregation: max. Anzahl der aufgeführten tradeID's
+MAX_GAP_DAYS = 10  # Kampagnen: max. Tage in PENDING bevor CLOSED (empfohlen 7-14)
 
 # Lade .env aus dem Projekt-Root
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -19,7 +20,7 @@ DB_PORT = int(os.getenv("DB_PORT", 3306))
 # --- Mapping Umgebungen <-> Datenbanken ---
 DB_MAP = {
     "money": os.getenv("DB_NAME_MONEY", "ibkr_money"),
-    "paper": os.getenv("DB_NAME_SIM", "ibkr_paper"),
+    "paper": os.getenv("DB_NAME_PAPER", "ibkr_paper"),
     "test": os.getenv("DB_NAME_TEST", "ibkr_test"),  # gleiche DB wie paper
     "autom_money": os.getenv("DB_NAME_AUTOM_MONEY", "ibkr_autom_money"),
     "autom_paper": os.getenv("DB_NAME_AUTOM_PAPER", "ibkr_autom_paper")

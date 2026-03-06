@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 from sqlalchemy import text
-from src.config import TABLE_PREFIX, TABLE_CAMPAIGN_LEDGER, TABLE_TRADING_CAMPAIGNS
+from src.config import TABLE_PREFIX, TABLE_CAMPAIGN_LEDGER, TABLE_TRADING_CAMPAIGNS, MAX_GAP_DAYS
 from src.utils.div_utils import to_decimal
-
-# empfohlen 7-14 Tage
-MAX_GAP_DAYS = 10  # Wie viele Tage darf die Position "flat" sein?
 
 
 class InventoryTracker:
@@ -71,7 +69,8 @@ class InventoryTracker:
                 'shares': inventory['shares'],
                 'options': inventory['options'],
                 'status': row['status'],
-                'closed_at': row['end_date']
+                'closed_at': row['end_date'],
+                'pending_link_id': None
             }
         return active_camps
 
@@ -90,8 +89,8 @@ class InventoryTracker:
 
         # Falls die Kampagne brandneu ist, liefert SQL NULL, das fangen wir ab:
         return {
-            'shares': float(result['shares'] or 0),
-            'options': float(result['options'] or 0)
+            'shares': to_decimal(result['shares'] or 0),
+            'options': to_decimal(result['options'] or 0)
         }
 
     def _cleanup_expired_campaigns(self, current_trade_date):
@@ -165,7 +164,7 @@ class InventoryTracker:
             self.db_logger.info(f"WARNUNG: Kein Symbol für Row gefunden: {row}")
             return 0
 
-        qty = float(row['quantity'])
+        qty = to_decimal(row['quantity'])
         asset_type = row['assetCategory']
         trade_date = row['dateTime']
 
@@ -174,7 +173,7 @@ class InventoryTracker:
             # Falls das Script gerade erst gestartet ist, wird hier initialisiert
             self.holdings[symbol] = {
                 'shares': 0, 'options': 0, 'campaign_id': None,
-                'closed_at': None, 'status': None
+                'closed_at': None, 'status': None, 'pending_link_id': None
             }
 
         h = self.holdings[symbol]
@@ -188,12 +187,10 @@ class InventoryTracker:
                     # REAKTIVIERUNG
                     h['status'] = 'ACTIVE'
                     h['closed_at'] = None
-                    # self._update_campaign_status_in_db(h['campaign_id'], 'ACTIVE')
-                    actual_end_date = h['closed_at']
                     self._update_campaign_status_in_db(
                         h['campaign_id'],
                         'ACTIVE',
-                        closed_at=actual_end_date
+                        closed_at=None
                     )
                 else:
                     # ABGELAUFEN -> Die alte Kampagne muss jetzt offiziell CLOSED werden
@@ -226,13 +223,13 @@ class InventoryTracker:
 
         # --- INVENTORY UPDATE ---
         if asset_type == 'STK':
-            h['shares'] = float(h['shares']) + qty
+            h['shares'] = to_decimal(h['shares']) + qty
         elif asset_type == 'OPT':
             # Achtung: 'status' Spalte in Raw muss für Expiration geprüft werden
             if row.get('status') == 'Expiration':
-                h['options'] = 0.0
+                h['options'] = Decimal('0')
             else:
-                h['options'] = float(h['options']) + qty
+                h['options'] = to_decimal(h['options']) + qty
 
         # --- STATUS-CHECK (Wann gehen wir Flat?) ---
         is_flat = (h['shares'] == 0 and h['options'] == 0)
@@ -271,8 +268,8 @@ class InventoryTracker:
         campaign_name = self._generate_campaign_name(symbol, strategy, start_date)
 
         sql = f"""
-            INSERT INTO {full_table_name} (name, symbol, strategy, assetCategory, status, start_date, end_date, environment)
-            VALUES (:name, :symbol, :strategy, :asset_type, 'ACTIVE', :start_date, :end_date, :environment)
+            INSERT INTO {full_table_name} (name, symbol, strategy, assetCategory, status, start_date, environment)
+            VALUES (:name, :symbol, :strategy, :asset_type, 'ACTIVE', :start_date, :environment)
         """
         param_dict = {
             "name": campaign_name,
@@ -280,7 +277,6 @@ class InventoryTracker:
             "strategy": strategy,
             "asset_type": asset_type,
             "start_date": start_date,
-            "end_date": start_date,
             "environment": self.env
         }
         # print("StartDate = ", start_date)
@@ -324,10 +320,10 @@ class InventoryTracker:
             # Bestände aus der DB für diese ID holen (oder 0 wenn kein Ledger-Eintrag existiert)
             db_data = db_inventory.get(c_id, {'db_shares': 0, 'db_options': 0})
 
-            diff_shares = float(h['shares']) - float(db_data['db_shares'])
-            diff_options = float(h['options']) - float(db_data['db_options'])
+            diff_shares = to_decimal(h['shares']) - to_decimal(db_data['db_shares'])
+            diff_options = to_decimal(h['options']) - to_decimal(db_data['db_options'])
 
-            if abs(diff_shares) > 0.0001 or abs(diff_options) > 0.0001:
+            if abs(diff_shares) > Decimal('0.0001') or abs(diff_options) > Decimal('0.0001'):
                 self.db_logger.info(f"⚠️ AUDIT WARNING für {symbol} (ID: {c_id}):")
                 self.db_logger.info(f"   Speicher: Shares {h['shares']}, Options {h['options']}")
                 self.db_logger.info(f"   Ledger:   Shares {db_data['db_shares']}, Options {db_data['db_options']}")
@@ -339,20 +335,40 @@ class InventoryTracker:
 
     def link_to_campaign_new(self, assetCategory, campaign_id, source_table, source_id,
                              netcash, proceeds, commission, pnl, quantity, action, dateTime, conid,
-                             currency='USD', fxRateToBase=1):
+                             currency='USD', fxRateToBase=1, symbol=None,
+                             trade_price=None, strike=None, expiry=None,
+                             multiplier=None, put_call=None, buy_sell=None,
+                             link_id=None):
 
         full_table_name = self._prefixed(TABLE_CAMPAIGN_LEDGER)
         sql_ledger = f"""
             INSERT INTO {full_table_name}
-            (assetCategory, campaign_id, source_table, source_id, netcash, proceeds, commission, realized_pnl, inventory_delta, action, dateTime, conid, environment, currency, fxRateToBase, netcash_eur, proceeds_eur, commission_eur)
-            VALUES (:assetCategory, :campaign_id, :source_table, :source_id, :netcash, :proceeds, :commission, :realized_pnl, :inventory_delta, :action, :dateTime, :conid, :environment, :currency, :fxRateToBase, :netcash_eur, :proceeds_eur, :commission_eur)
+            (assetCategory, campaign_id, symbol, source_table, source_id,
+             linkID, tradePrice, strike, expiry, multiplier, putCall, buySell,
+             netcash, proceeds, commission, realized_pnl, inventory_delta,
+             action, dateTime, conid, environment, currency, fxRateToBase,
+             netcash_eur, proceeds_eur, commission_eur)
+            VALUES
+            (:assetCategory, :campaign_id, :symbol, :source_table, :source_id,
+             :link_id, :trade_price, :strike, :expiry, :multiplier, :put_call, :buy_sell,
+             :netcash, :proceeds, :commission, :realized_pnl, :inventory_delta,
+             :action, :dateTime, :conid, :environment, :currency, :fxRateToBase,
+             :netcash_eur, :proceeds_eur, :commission_eur)
         """
         fx = to_decimal(fxRateToBase) if fxRateToBase else to_decimal(1)
         params = {
             "assetCategory": assetCategory,
             "campaign_id": campaign_id,
+            "symbol": symbol,
             "source_table": source_table,
             "source_id": source_id,
+            "link_id": link_id,
+            "trade_price": trade_price,
+            "strike": strike,
+            "expiry": expiry,
+            "multiplier": multiplier,
+            "put_call": put_call,
+            "buy_sell": buy_sell,
             "netcash": netcash,
             "proceeds": proceeds,
             "commission": commission,

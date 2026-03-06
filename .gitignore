@@ -64,7 +64,7 @@ app.log
 input/
 
 # === DB-Backups ===
-database/db/
+database/
 
 # === GoodSync ===
 _gsdata_/

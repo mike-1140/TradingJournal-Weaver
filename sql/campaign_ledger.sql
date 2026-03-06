@@ -12,9 +12,16 @@ CREATE TABLE `__PREFIX__campaign_ledger` (
     `symbol` varchar(50) DEFAULT NULL, -- Optional, zur schnelleren Anzeige
     `currency` varchar(5) NOT NULL DEFAULT 'USD', -- Währung dieser Zeile
 
-    `source_table` ENUM('TRADES_OPEN', 'TRADES_CLOSED', 'TRADES_RAW', 'VIRTUAL') NOT NULL,
+    `source_table` ENUM('TRADES_OPEN', 'TRADES_CLOSE', 'TRADES_RAW', 'VIRTUAL') NOT NULL,
     `source_id` INT NOT NULL,
     `linkID` VARCHAR(50) DEFAULT NULL, -- Zum Gruppieren von FX oder Assignments
+
+    `tradePrice`  DECIMAL(19,4)  DEFAULT NULL, -- Ausführungspreis (Prämie, Aktienkurs)
+    `strike`      DECIMAL(19,4)  DEFAULT NULL, -- Nur OPT: Strike-Preis
+    `expiry`      DATE           DEFAULT NULL, -- Nur OPT: Verfallsdatum
+    `multiplier`  DECIMAL(10,4)  DEFAULT NULL, -- Kontraktgröße (Standard: 100)
+    `putCall`     VARCHAR(5)     DEFAULT NULL, -- 'P' oder 'C'
+    `buySell`     VARCHAR(10)    DEFAULT NULL, -- 'BUY' oder 'SELL'
 
     `netcash` DECIMAL(19, 4) DEFAULT 0.0000, -- Tatsächlicher Cash-Fluss inkl. Gebühr
     `proceeds` DECIMAL(19, 4) DEFAULT 0.0000, -- Reiner Erlös
@@ -35,10 +42,10 @@ CREATE TABLE `__PREFIX__campaign_ledger` (
     PRIMARY KEY (`id`),
     FOREIGN KEY (`campaign_id`) REFERENCES `__PREFIX__trading_campaigns`(`id`) ON DELETE CASCADE,
     INDEX (`source_table`),
-    INDEX (`source_id`)
+    INDEX (`source_id`),
+    INDEX (`linkID`)
     -- INDEX (`campaign_id`),
     -- INDEX (`conid`),
-    -- INDEX (`linkID`),
     -- INDEX (`currency`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
