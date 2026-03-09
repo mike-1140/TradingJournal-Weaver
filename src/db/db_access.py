@@ -14,6 +14,7 @@ from src.config import (
     TABLE_SYMBOLS,
     TABLE_TRADE_NOTES,
     TABLE_TRADE_TAG_PIVOT,
+    TABLE_TRADING_CAMPAIGNS,
     DEBUG_SQL
 )
 from src.trade_schemas import OpenTradeSchema, BaseSchema, ClosedTradeSchema
@@ -318,6 +319,19 @@ class TradeRepository:
         return self.db.fetch_all(
             sql, {"assetCategory": asset_category, "symbol": symbol}
         )
+
+    def get_active_campaign_id_by_symbol(self, symbol: str) -> Optional[int]:
+        """Sucht die aktive oder ausstehende Kampagne für ein Symbol in der DB."""
+        full_table = self._prefixed(TABLE_TRADING_CAMPAIGNS)
+        sql = f"""
+            SELECT id FROM {full_table}
+            WHERE symbol = :symbol
+              AND status IN ('ACTIVE', 'PENDING')
+            ORDER BY id DESC
+            LIMIT 1
+        """
+        row = self.db.fetch_one(sql, {"symbol": symbol})
+        return int(row["id"]) if row else None
 
     def mark_open_trade_processed(self, trade_id):
         return self.mark_trade_processed(TABLE_TRADES_OPEN, trade_id)

@@ -212,6 +212,15 @@ def process_stock_split(repo, trade, tracker, campaign_id):
     factor = trade['multiplier']
     open_tranches = repo.get_open_trades(trade['assetCategory'], trade['symbol'])
 
+    # Fallback: campaign_id aus DB laden, wenn tracker.holdings es nicht kennt
+    if campaign_id is None and open_tranches:
+        campaign_id = repo.get_active_campaign_id_by_symbol(trade['symbol'])
+        if campaign_id is None:
+            logger.warning(
+                f"Split-Verarbeitung: Keine aktive Kampagne für {trade['symbol']} gefunden "
+                f"— Tranche(n) werden aktualisiert, aber kein Ledger-Eintrag."
+            )
+
     for tr in open_tranches:
         old_qty = to_decimal(tr['quantity'])
         new_qty = old_qty * to_decimal(factor)
@@ -225,6 +234,8 @@ def process_stock_split(repo, trade, tracker, campaign_id):
             "tradePrice": new_price
         })
         # 3. Ledger informieren (Nur Bestandsänderung, kein Cash!)
+        if campaign_id is None:
+            continue  # Kein Ledger-Eintrag ohne gültige Kampagne
         tracker.link_to_campaign_new(
             assetCategory=tr.get("assetCategory"),
             campaign_id=campaign_id,
