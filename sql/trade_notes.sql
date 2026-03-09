@@ -17,6 +17,7 @@ CREATE TABLE `__PREFIX__trade_notes` (
   `note_type` ENUM('entry_plan','exit_reason','lesson_learned','general') NOT NULL DEFAULT 'general',
   `title` varchar(200) COLLATE latin1_german1_ci DEFAULT NULL,
   `content` text COLLATE latin1_german1_ci NOT NULL,
+  `opt_strategyID` VARCHAR(255) NULL,
   `environment` ENUM('MONEY','PAPER','TEST','AUTOM_MONEY','AUTOM_PAPER') NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,

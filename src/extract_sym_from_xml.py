@@ -2,169 +2,250 @@ import xml.etree.ElementTree as ET
 import os
 import argparse
 from xml.dom import minidom
+from pathlib import Path
+
+import hashlib
 
 from src.utils.path_utils import get_project_root
-from src.utils.div_utils import compute_checksum, parse_date, parse_time
 
-# --- Konfiguration ---
-INPUT_DIR = get_project_root() / "input"
-PROCESSED_DIR = INPUT_DIR / "processed"
+# Verzeichnisstruktur analog zu import_ibkr_trades.py
+BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
+BASE_XML_FILE_PATH_TEST = get_project_root() / "input"
+OUTPUT_DIR = get_project_root() / "input"
 
 
-def matches_symbol(elem, search_terms, attributes=("underlyingSymbol", "symbol")):
+def matches_symbol(elem, search_terms):
+    """Prüft ob ein XML-Element das gesuchte underlyingSymbol (oder symbol) enthält."""
+    value = elem.get("underlyingSymbol", elem.get("symbol", "")).upper()
+    return value in search_terms
+
+
+def dedup_key(elem, elem_type):
     """
-    Prüft, ob ein XML-Element in einem seiner Attribute einen der gesuchten Symbol-Werte enthält.
+    Berechnet einen stabilen Deduplizierungsschlüssel für ein XML-Element.
+    Kontonummer und andere volatile Felder werden bewusst ausgeschlossen.
+
+    Trade:          tradeID (eindeutig bei IBKR) → Fallback: dateTime|symbol|qty|price
+    OptionEAE:      transactionID → Fallback: date|symbol|quantity|tradePrice
+    CorporateAction: transactionID → Fallback: reportDate|symbol|type|quantity
     """
-    for attr in attributes:
-        value = elem.get(attr, "").upper()
-        if value in search_terms:
-            return True
-    return False
+    if elem_type == "trade":
+        trade_id = elem.get("tradeID", "")
+        if trade_id:
+            return f"T|{trade_id}"
+        fields = ["dateTime", "symbol", "quantity", "tradePrice"]
+
+    elif elem_type == "option":
+        txn_id = elem.get("transactionID", "")
+        if txn_id:
+            return f"O|{txn_id}"
+        fields = ["date", "symbol", "quantity", "tradePrice"]
+
+    else:  # CorporateAction
+        txn_id = elem.get("transactionID", "")
+        if txn_id:
+            return f"C|{txn_id}"
+        fields = ["reportDate", "symbol", "type", "quantity"]
+
+    raw = "|".join(elem.get(f, "") for f in fields)
+    return hashlib.md5(raw.encode()).hexdigest()
 
 
-def remove_empty_elements(elem):
-    for child in list(elem):
-        remove_empty_elements(child)
-        if (len(child) == 0) and (not child.attrib) and (not (child.text and child.text.strip())):
-            elem.remove(child)
-
-
-def extract_elements_by_term(input_file, output_file, search_terms):
+def get_input_files(environment):
     """
-    Extrahiert alle Elemente für mehrere Symbole aus dem IBKR-FlexQuery-XML.
+    Gibt alle flex.*.xml Dateien aus dem Environment-Verzeichnis zurück.
+    Liest sowohl aktive Dateien als auch bereits verarbeitete (processed/).
     """
-    try:
-        search_terms = [s.upper() for s in search_terms]
+    if environment == "test":
+        base = Path(BASE_XML_FILE_PATH_TEST)
+    else:
+        base = Path(BASE_XML_FILE_PATH_PROD)
 
-        # Parse XML
-        tree = ET.parse(input_file)
-        root = tree.getroot()
+    input_dir = base / environment
+    processed_dir = input_dir / "processed"
 
-        # Neue Root-Struktur anlegen
-        new_root = ET.Element(root.tag, root.attrib)
+    files = []
+    for directory in [input_dir, processed_dir]:
+        if directory.exists():
+            files += [
+                directory / f
+                for f in os.listdir(directory)
+                if f.lower().startswith("flex.") and f.lower().endswith(".xml")
+            ]
 
-        # queryName = Output-Dateiname ohne .xml
-        filename_without_ext = os.path.splitext(os.path.basename(output_file))[0]
-        new_root.set("queryName", filename_without_ext)
+    return sorted(files)
 
-        statements_added = 0
-        trades_added = 0
-        ca_added = 0
 
-        flex_statements = root.find("FlexStatements")
-        if flex_statements is not None:
-            new_flex_statements = ET.SubElement(new_root, "FlexStatements", flex_statements.attrib)
+def collect_by_statement(input_files, search_terms):
+    """
+    Sammelt passende Elemente gruppiert nach FlexStatement (Periode).
+    Gleiche Perioden aus verschiedenen Dateien werden zusammengeführt.
+    Duplikate (tradeID / transactionID) werden global übersprungen.
+    Gibt eine nach fromDate sortierte Liste von Statement-Dicts zurück:
+      [{"attrib": {...}, "trades": [...], "options": [...], "cas": [...]}, ...]
+    """
+    # Schlüssel: fromDate|toDate — fasst gleiche Perioden aus verschiedenen Dateien zusammen
+    stmt_map = {}
+    seen_trades, seen_options, seen_cas = set(), set(), set()
+    skipped = 0
+
+    for path in input_files:
+        try:
+            tree = ET.parse(path)
+            root = tree.getroot()
+            flex_statements = root.find("FlexStatements")
+            if flex_statements is None:
+                continue
 
             for statement in flex_statements.findall("FlexStatement"):
-                new_statement = None
+                stmt_key = statement.get("fromDate", "") + "|" + statement.get("toDate", "")
 
-                # --- Trades ---
-                for trades in statement.findall("Trades"):
-                    new_trades = None
-                    for trade in trades.findall("Trade"):
+                stmt_trades, stmt_options, stmt_cas = [], [], []
+
+                for trades_elem in statement.findall("Trades"):
+                    for trade in trades_elem.findall("Trade"):
                         if matches_symbol(trade, search_terms):
-                            if new_statement is None:
-                                new_statement = ET.SubElement(new_flex_statements, "FlexStatement", statement.attrib)
-                            if new_trades is None:
-                                new_trades = ET.SubElement(new_statement, "Trades")
-                            ET.SubElement(new_trades, "Trade", trade.attrib)
-                            trades_added += 1
+                            key = dedup_key(trade, "trade")
+                            if key in seen_trades:
+                                skipped += 1
+                                continue
+                            seen_trades.add(key)
+                            stmt_trades.append(trade)
 
-                # --- OptionEAE ---
-                for option in statement.findall("OptionEAE"):
-                    new_option = None
-                    for child in option:
+                for opt_elem in statement.findall("OptionEAE"):
+                    for child in opt_elem:
                         if matches_symbol(child, search_terms):
-                            if new_statement is None:
-                                new_statement = ET.SubElement(new_flex_statements, "FlexStatement", statement.attrib)
-                            if new_option is None:
-                                new_option = ET.SubElement(new_statement, "OptionEAE")
-                            new_option.append(ET.fromstring(ET.tostring(child)))
+                            key = dedup_key(child, "option")
+                            if key in seen_options:
+                                skipped += 1
+                                continue
+                            seen_options.add(key)
+                            stmt_options.append(child)
 
-                # --- CorporateActions ---
-                for ca in statement.findall("CorporateActions"):
-                    new_ca = None
-                    for action in ca.findall("CorporateAction"):
+                for ca_elem in statement.findall("CorporateActions"):
+                    for action in ca_elem.findall("CorporateAction"):
                         if matches_symbol(action, search_terms):
-                            if new_statement is None:
-                                new_statement = ET.SubElement(new_flex_statements, "FlexStatement", statement.attrib)
-                            if new_ca is None:
-                                new_ca = ET.SubElement(new_statement, "CorporateActions")
-                            ET.SubElement(new_ca, "CorporateAction", action.attrib)
-                            ca_added += 1
+                            key = dedup_key(action, "ca")
+                            if key in seen_cas:
+                                skipped += 1
+                                continue
+                            seen_cas.add(key)
+                            stmt_cas.append(action)
 
-                if new_statement is not None:
-                    statements_added += 1
+                if stmt_trades or stmt_options or stmt_cas:
+                    if stmt_key not in stmt_map:
+                        stmt_map[stmt_key] = {
+                            "attrib": dict(statement.attrib),
+                            "trades": [],
+                            "options": [],
+                            "cas": [],
+                        }
+                    stmt_map[stmt_key]["trades"].extend(stmt_trades)
+                    stmt_map[stmt_key]["options"].extend(stmt_options)
+                    stmt_map[stmt_key]["cas"].extend(stmt_cas)
 
-            # Count aktualisieren
-            new_flex_statements.set("count", str(statements_added))
+        except Exception as ex:
+            print(f"Fehler beim Lesen von {path}: {ex}")
 
-        # --- Ausgabe formatieren ---
-        xml_str = ET.tostring(new_root, encoding="unicode")
-        pretty_xml = minidom.parseString(xml_str).toprettyxml(indent="  ")
-        pretty_lines = [line for line in pretty_xml.split("\n") if line.strip()]
-        pretty_xml = "\n".join(pretty_lines)
+    if skipped:
+        print(f"  {skipped} Duplikat(e) übersprungen")
 
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write(pretty_xml)
+    # FlexStatements chronologisch sortieren
+    sorted_stmts = sorted(stmt_map.values(), key=lambda s: s["attrib"].get("fromDate", ""))
 
-        print(f"Extraktion abgeschlossen → {output_file}")
-        print(f"{statements_added} FlexStatements enthalten {search_terms}")
-        print(f"{trades_added} Trades extrahiert")
-        print(f"{ca_added} CorporateActions extrahiert")
+    # Innerhalb jedes Statements ebenfalls chronologisch sortieren
+    for stmt in sorted_stmts:
+        stmt["trades"].sort(key=lambda x: x.get("dateTime", x.get("tradeDate", "")))
+        stmt["options"].sort(key=lambda x: x.get("dateTime", x.get("date", "")))
+        stmt["cas"].sort(key=lambda x: x.get("dateTime", x.get("reportDate", "")))
 
-        return True
-
-    except Exception as e:
-        print(f"Fehler beim Verarbeiten: {str(e)}")
-        return False
+    return sorted_stmts
 
 
-def generate_output_filename(search_terms):
-    # Alle Symbole verbinden → z. B. KO_PEP_AAPL.xml
-    joined = "_".join(s.upper() for s in search_terms)
-    return os.path.join(INPUT_DIR, f"{joined}.xml")
+def build_output_xml(statements, output_file):
+    """Baut das Ausgabe-XML mit erhaltener FlexStatement-Struktur."""
+    filename_without_ext = os.path.splitext(os.path.basename(output_file))[0]
+
+    root = ET.Element("FlexQueryResponse")
+    root.set("queryName", filename_without_ext)
+
+    flex_statements_elem = ET.SubElement(root, "FlexStatements", {"count": str(len(statements))})
+
+    for stmt in statements:
+        statement = ET.SubElement(flex_statements_elem, "FlexStatement", stmt["attrib"])
+
+        if stmt["trades"]:
+            trades_elem = ET.SubElement(statement, "Trades")
+            for t in stmt["trades"]:
+                ET.SubElement(trades_elem, "Trade", t.attrib)
+
+        if stmt["options"]:
+            opt_elem = ET.SubElement(statement, "OptionEAE")
+            for o in stmt["options"]:
+                opt_elem.append(ET.fromstring(ET.tostring(o)))
+
+        if stmt["cas"]:
+            ca_elem = ET.SubElement(statement, "CorporateActions")
+            for c in stmt["cas"]:
+                ET.SubElement(ca_elem, "CorporateAction", c.attrib)
+
+    xml_str = ET.tostring(root, encoding="unicode")
+    pretty_xml = minidom.parseString(xml_str).toprettyxml(indent="  ")
+    pretty_lines = [line for line in pretty_xml.split("\n") if line.strip()]
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(pretty_lines))
 
 
 def main():
-    """
-    Main function to handle command line arguments
-    """
-    default_input = r"summary.xml"
-
     parser = argparse.ArgumentParser(
-        description="Extract elements from XML file based on one or more search terms"
+        description="Extrahiert Einträge für ein Symbol aus allen FlexQuery-XMLs eines Environments"
     )
     parser.add_argument(
         "-t", "--term",
         required=True,
-        nargs="+",   # mehrere Symbole erlaubt
-        help="Search term(s) to extract, only in 'underlyingSymbol' (e.g., KO PEP AAPL)"
+        nargs="+",
+        help="underlyingSymbol(e) zum Extrahieren, z.B. -t KO oder -t KO PEP AAPL"
     )
     parser.add_argument(
         "-s", "--source",
         required=True,
-        help="Search source to extract Symbol"
+        choices=["test", "paper", "money", "autom_money", "autom_paper"],
+        help="Environment: test | paper | money | autom_money | autom_paper"
     )
 
     args = parser.parse_args()
+    search_terms = [s.upper() for s in args.term]
 
-    if len(args.source) > 1:
-        data_name = args.source
-    else:
-        data_name = "test"
-
-    if data_name in ["test", "paper", "money"]:
-        # SUMMARY_FILE = f"C:/TradeInfo/{data_name}/summary.xml"
-        SUMMARY_FILE = f"C:/TradeInfo/{data_name}/summary.xml"
-        SUMMARY_FILE = f"C:/Users/Mike/PycharmProjects/pythonProject/xml_proj/input/flex/flex.1138728.money_30_report.20250818.20250916.xml"
-        print(f"Extraktion gestartet → {SUMMARY_FILE}")
-        output_filename = generate_output_filename(args.term)
-        extract_elements_by_term(SUMMARY_FILE, output_filename, args.term)
-    else:
-        print(f"No SUMMARY-File found in directory '{data_name}'")
+    input_files = get_input_files(args.source)
+    if not input_files:
+        print(f"Keine flex.*.xml Dateien gefunden für Environment '{args.source}'")
         return
 
+    print(f"Lese {len(input_files)} Datei(en) für Environment '{args.source}'...")
+    for f in input_files:
+        print(f"  {f}")
+
+    statements = collect_by_statement(input_files, search_terms)
+
+    if not statements:
+        print(f"Keine Einträge für {search_terms} gefunden.")
+        return
+
+    joined = "_".join(search_terms)
+    output_file = OUTPUT_DIR / f"flex.{joined}.xml"
+
+    build_output_xml(statements, str(output_file))
+
+    total_trades = sum(len(s["trades"]) for s in statements)
+    total_options = sum(len(s["options"]) for s in statements)
+    total_cas = sum(len(s["cas"]) for s in statements)
+
+    print(f"\nExtraktion abgeschlossen → {output_file}")
+    print(f"  {len(statements)} FlexStatement(s)")
+    print(f"  {total_trades} Trades")
+    print(f"  {total_options} OptionEAE")
+    print(f"  {total_cas} CorporateActions")
 
 
 if __name__ == "__main__":
