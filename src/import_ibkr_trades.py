@@ -26,10 +26,11 @@ log_file = get_project_root() / "log/app.log"
 logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
 
 
-def import_trades(environment: str, table_pref: str) -> None:
+def import_trades(environment: str, table_pref: str, use_summary: bool = False) -> None:
     """
     Importiert Trades, OptionEAE, CorporateActions und FX aus XML-Dateien.
     environment: 'test' oder 'prod' (case-insensitive)
+    use_summary: True → summary.xml importieren statt flex.*.xml (kein Verschieben)
     """
     environment = environment.lower()
     env_up = environment.upper()
@@ -64,8 +65,14 @@ def import_trades(environment: str, table_pref: str) -> None:
         print("Invalid argument. Please provide 'test', 'paper' or 'money' as an argument.")
         return
 
-    # files = [f for f in os.listdir(input_dir) if f.lower().endswith(".xml")]
-    files = [f for f in os.listdir(input_dir) if f.lower().startswith("flex.") and f.lower().endswith(".xml")]
+    if use_summary:
+        summary_path = input_dir / "summary.xml"
+        if not summary_path.exists():
+            print(f"summary.xml nicht gefunden: {summary_path}")
+            return
+        files = ["summary.xml"]
+    else:
+        files = [f for f in os.listdir(input_dir) if f.lower().startswith("flex.") and f.lower().endswith(".xml")]
 
     if not files:
         print("Keine XML-Dateien gefunden.")
@@ -82,7 +89,8 @@ def import_trades(environment: str, table_pref: str) -> None:
         total_inserted += num_inserted
         delete_files = num_inserted == 0 and entry_found == 0
         progress.done(f"({i}/{total_files}) {xml_file}  →  {num_inserted} Trades importiert")
-        move_xml_file(environment, xml_file, Path(input_dir), logger, delete_files)
+        if not use_summary:
+            move_xml_file(environment, xml_file, Path(input_dir), logger, delete_files)
 
     # Logging am Ende
     logger.info(f"Import abgeschlossen: {total_inserted} Trades aus {total_files} Datei(en) [{env_up}]")
@@ -126,16 +134,25 @@ def move_xml_file(environment: str, file_name, orig_dir, log, delete_files=False
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Bitte Environment angeben: money | paper | test | autom_money | autom_paper")
-        print("Optional: Table-Prefix, z.B.: python reset_IBKR_DB.py money mike_")
+        print("Optional: Table-Prefix,   z.B.: python import_ibkr_trades.py money mike_")
+        print("Optional: from_summary    → summary.xml importieren statt flex.*.xml")
         table_prefix = "mike_"
         env = "test"
+        use_summary = False
         # sys.exit(1)
-    elif len(sys.argv) >= 3:
-        # --- OPTIONALER TABLE PREFIX ÜBER COMMANDLINE ---
-        table_prefix = sys.argv[2]
-        print(f"*** TABLE PREFIX via Commandline aktiv: '{table_prefix}' ***")
-        env = sys.argv[1].lower()
     else:
-        table_prefix = TABLE_PREFIX
-        env = sys.argv[1].lower()
-    import_trades(env, table_prefix)
+        # from_summary kann als letztes Argument stehen
+        args = sys.argv[1:]
+        use_summary = "from_summary" in args
+        args = [a for a in args if a != "from_summary"]
+
+        if len(args) >= 2:
+            # --- OPTIONALER TABLE PREFIX ÜBER COMMANDLINE ---
+            table_prefix = args[1]
+            print(f"*** TABLE PREFIX via Commandline aktiv: '{table_prefix}' ***")
+            env = args[0].lower()
+        else:
+            table_prefix = TABLE_PREFIX
+            env = args[0].lower()
+
+    import_trades(env, table_prefix, use_summary=use_summary)

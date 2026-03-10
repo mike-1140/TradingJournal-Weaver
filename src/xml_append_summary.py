@@ -1,233 +1,280 @@
+# src/xml_append_summary.py
+# Erstellt/aktualisiert summary.xml aus den bereits verarbeiteten flex.*.xml-Dateien in processed/.
+# Keine Duplikate (fromDate eindeutig), aufsteigende Reihenfolge, Performance-Cache.
+
+import json
 import os
-import shutil
-import xml.etree.ElementTree as ET
-from datetime import datetime
 import sys
-import glob
+import xml.etree.ElementTree as ET
+import xml.dom.minidom
+from datetime import datetime
+from pathlib import Path
 
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
 
-# Constants (Make it easier to configure)
-BASE_XML_FILE_PATH = r'C:\TradeInfo'
+# Konstanten – analog zu import_ibkr_trades.py
+BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
+BASE_XML_FILE_PATH_TEST = get_project_root() / "input"
+
 SUMMARY_FILE_NAME = "summary.xml"
+CACHE_FILE_NAME   = "summary_cache.json"
+FLEX_FILE_PREFIX  = "flex."
 
 # Logging
 log_file = get_project_root() / "log/app.log"
-logger = setup_logging('my_app', level="simple", log_file=log_file)
-logger.info("----  MAKE SUMMARY (" + datetime.now().strftime('%Y-%m-%d - %H:%M:%S') + ")  ----")
+logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
 
+
+# ---------------------------------------------------------------------------
+# Hilfsfunktionen
+# ---------------------------------------------------------------------------
 
 def parse_date(date_str: str) -> datetime:
-    """Wandelt fromDate (DD/MM/YYYY) in datetime-Objekt um."""
-    return datetime.strptime(date_str, "%d/%m/%Y")
+    """Wandelt fromDate (DD/MM/YYYY oder YYYYMMDD) in datetime-Objekt um."""
+    for fmt in ("%d/%m/%Y", "%Y%m%d"):
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            pass
+    raise ValueError(f"Unbekanntes Datumsformat: {date_str!r}")
 
 
 def prettify_xml(elem: ET.Element) -> str:
     """Erzeugt formatierten XML-String mit Einrückung."""
-    import xml.dom.minidom
     rough_string = ET.tostring(elem, encoding="utf-8")
     reparsed = xml.dom.minidom.parseString(rough_string)
     return reparsed.toprettyxml(indent="  ")
 
 
 def is_statement_empty(statement: ET.Element) -> bool:
-    """Prüft, ob FlexStatement keine inhaltlichen Kinder hat."""
+    """Prüft, ob FlexStatement keine inhaltlichen Kinder mit Daten hat."""
     for child in statement:
-        if len(child):  # Hat das Kind selbst Inhalt
+        if len(child):
             return False
     return True
 
 
-def initialize_summary_file(summary_file: str) -> tuple[ET.Element, ET.Element]:
-    """Erstellt ein neues Summary-File mit der richtigen Struktur."""
-    summary_root = ET.Element("FlexQueryResponse", {"queryName": "Summary_Report", "type": "AF"})
-    summary_statements_elem = ET.SubElement(summary_root, "FlexStatements", {"count": "0"})
+# ---------------------------------------------------------------------------
+# Cache: verarbeitete Dateinamen merken
+# ---------------------------------------------------------------------------
+
+def load_cache(cache_file: Path) -> set:
+    """Lädt die Liste bereits verarbeiteter Dateinamen aus dem Cache."""
+    if cache_file.exists():
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return set(data.get("processed_files", []))
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning(f"Cache-Datei beschädigt, wird neu erstellt: {e}")
+    return set()
+
+
+def save_cache(cache_file: Path, processed_files: set) -> None:
+    """Speichert die Liste verarbeiteter Dateinamen im Cache."""
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump({"processed_files": sorted(processed_files)}, f, indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# Summary-XML laden/erstellen/speichern
+# ---------------------------------------------------------------------------
+
+def _new_summary():
+    """Erstellt leere Summary-Struktur."""
+    root  = ET.Element("FlexQueryResponse", {"queryName": "Summary_Report", "type": "AF"})
+    stmts = ET.SubElement(root, "FlexStatements", {"count": "0"})
+    return root, stmts, set()
+
+
+def load_summary(summary_file: Path):
+    """
+    Lädt bestehendes summary.xml.
+    Gibt (root, statements_elem, known_from_dates) zurück.
+    Erstellt neu, falls nicht vorhanden oder beschädigt.
+    """
+    if summary_file.exists():
+        try:
+            tree  = ET.parse(summary_file)
+            root  = tree.getroot()
+            stmts = root.find("FlexStatements")
+
+            if stmts is None:
+                logger.warning("Kein <FlexStatements> in summary.xml – wird neu erstellt")
+                return _new_summary()
+
+            known_dates = {
+                s.get("fromDate")
+                for s in stmts.findall("FlexStatement")
+                if s.get("fromDate")
+            }
+            count = len(stmts.findall("FlexStatement"))
+            if known_dates:
+                last = max(parse_date(d) for d in known_dates).strftime("%d.%m.%Y")
+            else:
+                last = "–"
+            logger.info(f"Summary geladen: {count} Statements, letztes fromDate: {last}")
+            return root, stmts, known_dates
+
+        except ET.ParseError as e:
+            logger.error(f"Fehler beim Parsen von summary.xml: {e} – wird neu erstellt")
+
+    logger.info("Kein summary.xml gefunden – wird neu erstellt")
+    return _new_summary()
+
+
+def save_summary(summary_file: Path, root: ET.Element, stmts_elem: ET.Element) -> None:
+    """Sortiert alle Statements nach fromDate (aufsteigend) und speichert summary.xml."""
+    all_stmts = stmts_elem.findall("FlexStatement")
+
+    # Alle Kinder entfernen
+    for s in all_stmts:
+        stmts_elem.remove(s)
+
+    # Aufsteigend nach fromDate sortieren
+    all_stmts.sort(key=lambda s: parse_date(s.get("fromDate", "01/01/1900")))
+
+    for s in all_stmts:
+        stmts_elem.append(s)
+
+    stmts_elem.set("count", str(len(all_stmts)))
 
     with open(summary_file, "w", encoding="utf-8") as f:
-        f.write(prettify_xml(summary_root))
+        f.write(prettify_xml(root))
 
-    logger.info(f"Neues Summary-File erstellt: {summary_file}")
-    return summary_root, summary_statements_elem
+    logger.info(f"Summary gespeichert: {len(all_stmts)} Statements → {summary_file}")
 
 
-def append_new_days_to_summary(
-    input_files: list[str],
-    summary_file: str,
-    processed_dir: str | None = None,
-    delete_dir: str | None = None
-) -> bool:
+# ---------------------------------------------------------------------------
+# Haupt-Logik
+# ---------------------------------------------------------------------------
+
+def build_summary(environment: str) -> None:
     """
-    Hängt alle neuen FlexStatements (fromDate > letztem fromDate im Summary)
-    an das Summary-File an. Aktualisiert count, keine Duplikate, keine Merges.
+    Liest neue flex.*.xml-Dateien aus processed/ und aktualisiert summary.xml.
+    environment: paper | money | autom_money | autom_paper | test
     """
-    statements_added = 0
-    statements_skipped_empty = 0
-    files_moved = 0
+    environment = environment.lower()
 
-    try:
-        # Schritt 1: Summary-File laden oder neu erstellen
-        if os.path.exists(summary_file):
-            try:
-                summary_tree = ET.parse(summary_file)
-                summary_root = summary_tree.getroot()
-                summary_statements_elem = summary_root.find("FlexStatements")
+    base_xml_path = BASE_XML_FILE_PATH_TEST if environment == "test" else BASE_XML_FILE_PATH_PROD
+    input_dir     = Path(base_xml_path) / environment
+    processed_dir = input_dir / "processed"
+    summary_file  = input_dir / SUMMARY_FILE_NAME
+    cache_file    = input_dir / CACHE_FILE_NAME
 
-                if summary_statements_elem is None:
-                    logger.error(f"Kein <FlexStatements>-Element in {summary_file}")
-                    return False
+    logger.info("=" * 80)
+    logger.info(
+        f"Summary-Build für Environment: {environment.upper()} "
+        f"({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+    )
+    logger.info(f"  Quelle:  {processed_dir}")
+    logger.info(f"  Summary: {summary_file}")
+    logger.info("=" * 80)
 
-                all_statements = summary_statements_elem.findall("FlexStatement")
-                if all_statements:
-                    last_from_date = max(parse_date(s.get("fromDate")) for s in all_statements if s.get("fromDate"))
-                else:
-                    last_from_date = None
+    if not processed_dir.exists():
+        logger.warning(f"processed/-Verzeichnis nicht gefunden: {processed_dir}")
+        return
 
-                logger.info(f"Letztes fromDate im Summary: {last_from_date or 'none'}")
+    # Cache und bestehendes Summary laden
+    already_done           = load_cache(cache_file)
+    root, stmts_elem, known_dates = load_summary(summary_file)
 
-            except ET.ParseError as e:
-                logger.error(f"Fehler beim Parsen von {summary_file}: {e}")
-                return False
-        else:
-            summary_root, summary_statements_elem = initialize_summary_file(summary_file)
-            last_from_date = None
+    # Alle flex.*.xml in processed/ ermitteln, nur neue (nicht im Cache)
+    all_flex_files = sorted(
+        f for f in processed_dir.iterdir()
+        if f.name.lower().startswith(FLEX_FILE_PREFIX) and f.name.lower().endswith(".xml")
+    )
+    new_files = [f for f in all_flex_files if f.name not in already_done]
 
-        # Schritt 2: Alle Input-Files verarbeiten
-        for input_file in input_files:
-            logger.info(f"Verarbeite Datei: {input_file}")
+    logger.info(f"Dateien in processed/: {len(all_flex_files)}  davon neu: {len(new_files)}")
 
-            try:
-                input_tree = ET.parse(input_file)
-                input_root = input_tree.getroot()
-                input_statements_elem = input_root.find("FlexStatements")
+    if not new_files:
+        logger.info("Keine neuen Dateien – Summary ist aktuell.")
+        return
 
-                if input_statements_elem is None:
-                    logger.warning(f"Keine <FlexStatements> in {input_file}")
+    added_total        = 0
+    skipped_duplicate  = 0
+    skipped_empty      = 0
+    newly_processed    = set()
+
+    for xml_file in new_files:
+        logger.info(f"Verarbeite: {xml_file.name}")
+        try:
+            tree       = ET.parse(xml_file)
+            input_root = tree.getroot()
+            stmts_in   = input_root.find("FlexStatements")
+
+            if stmts_in is None:
+                logger.warning(f"  Kein <FlexStatements> – übersprungen")
+                newly_processed.add(xml_file.name)
+                continue
+
+            file_added = 0
+            for stmt in stmts_in.findall("FlexStatement"):
+                from_date_str = stmt.get("fromDate")
+                if not from_date_str:
                     continue
 
-                file_added = 0
-                file_skipped = 0
+                if is_statement_empty(stmt):
+                    skipped_empty += 1
+                    logger.debug(f"  Leer übersprungen: {from_date_str}")
+                    continue
 
-                for statement in input_statements_elem.findall("FlexStatement"):
-                    from_date_str = statement.get("fromDate")
-                    if not from_date_str:
-                        continue
+                if from_date_str in known_dates:
+                    skipped_duplicate += 1
+                    logger.debug(f"  Duplikat übersprungen: {from_date_str}")
+                    continue
 
-                    if is_statement_empty(statement):
-                        file_skipped += 1
-                        statements_skipped_empty += 1
-                        continue
+                # Tiefe Kopie und hinzufügen
+                new_stmt = ET.fromstring(ET.tostring(stmt))
+                stmts_elem.append(new_stmt)
+                known_dates.add(from_date_str)
+                added_total += 1
+                file_added  += 1
 
-                    from_date = parse_date(from_date_str)
+            logger.info(f"  +{file_added} Statements hinzugefügt")
+            newly_processed.add(xml_file.name)
 
-                    # Nur hinzufügen, wenn neuer Tag
-                    if last_from_date is None or from_date > last_from_date:
-                        # Tiefe Kopie, um Referenzprobleme zu vermeiden
-                        new_stmt = ET.fromstring(ET.tostring(statement))
-                        summary_statements_elem.append(new_stmt)
-                        statements_added += 1
-                        file_added += 1
-                        last_from_date = from_date
-                        logger.debug(f"Angehängt: {from_date_str}")
-                    else:
-                        logger.debug(f"Übersprungen (älter/gleich): {from_date_str}")
-
-                logger.info(f"  Neue Statements: {file_added}, Leere übersprungen: {file_skipped}")
-
-                # Datei verschieben
-                if processed_dir or delete_dir:
-                    dest_dir = processed_dir if file_added > 0 else delete_dir
-                    if dest_dir:
-                        try:
-                            filename = os.path.basename(input_file)
-                            dest_path = os.path.join(dest_dir, filename)
-                            shutil.move(input_file, dest_path)
-                            logger.info(f"Datei verschoben nach {dest_path}")
-                            files_moved += 1
-                        except Exception as move_err:
-                            logger.error(f"Fehler beim Verschieben von {input_file}: {move_err}")
-
-            except ET.ParseError as e:
-                logger.error(f"Fehler beim Parsen von {input_file}: {e}")
-            except Exception as e:
-                logger.error(f"Fehler beim Verarbeiten von {input_file}: {e}")
-
-        # Schritt 3: count aktualisieren
-        summary_statements_elem.set("count", str(len(summary_statements_elem.findall("FlexStatement"))))
-
-        # Schritt 4: Summary speichern
-        try:
-            with open(summary_file, "w", encoding="utf-8") as f:
-                f.write(prettify_xml(summary_root))
-            logger.info(f"Summary aktualisiert ({summary_statements_elem.get('count')} Statements).")
+        except ET.ParseError as e:
+            logger.error(f"  XML-Fehler in {xml_file.name}: {e}")
         except Exception as e:
-            logger.error(f"Fehler beim Speichern von {summary_file}: {e}")
-            return False
+            logger.error(f"  Fehler bei {xml_file.name}: {e}")
 
-        logger.info(f"Total hinzugefügt: {statements_added}")
-        logger.info(f"Leere übersprungen: {statements_skipped_empty}")
-        logger.info(f"Dateien verschoben: {files_moved}")
+    # Summary speichern (nur wenn sich etwas geändert hat)
+    if added_total > 0:
+        save_summary(summary_file, root, stmts_elem)
+    else:
+        logger.info("Keine neuen Statements hinzugefügt – Summary unverändert.")
 
-        return True
+    # Cache immer aktualisieren (auch bei Duplikaten/leeren Dateien)
+    already_done.update(newly_processed)
+    save_cache(cache_file, already_done)
 
-    except Exception as e:
-        logger.critical(f"Kritischer Fehler beim Append-Vorgang: {e}")
-        return False
+    logger.info(
+        f"Fertig: +{added_total} Statements, "
+        f"{skipped_duplicate} Duplikate übersprungen, "
+        f"{skipped_empty} leere übersprungen"
+    )
 
 
-def find_xml_files(directory: str, exclude_file: str | None = None) -> list[str]:
-    """
-    Find all XML files in a directory, excluding a specific file.
-    """
-    xml_pattern = os.path.join(directory, "*.xml")
-    xml_files = glob.glob(xml_pattern)
-
-    if exclude_file:
-        exclude_abs_path = os.path.abspath(exclude_file)
-        xml_files = [f for f in xml_files if os.path.abspath(f) != exclude_abs_path]
-
-    xml_files.sort()
-    return xml_files
-
+# ---------------------------------------------------------------------------
+# Einstiegspunkt
+# ---------------------------------------------------------------------------
 
 def main():
-    """
-    Main function to handle command line arguments.
-    """
     if len(sys.argv) > 1:
-        data_name = sys.argv[1]
+        env = sys.argv[1]
     else:
-        data_name = 'paper'
+        env = "paper"
 
-    if data_name in ['paper', 'money']:
-        input_dir = os.path.join(BASE_XML_FILE_PATH, data_name)
-        dir_processed = os.path.join(BASE_XML_FILE_PATH, f"{data_name}_processed")
-        dir_deleted = os.path.join(BASE_XML_FILE_PATH, f"{data_name}_deleted")
-        file_summary = os.path.join(input_dir, SUMMARY_FILE_NAME)  # Use input_dir instead of data_name
-    else:
-        print("Invalid argument. Please provide 'paper' or 'money' as an argument.")
-        return
+    valid_envs = ["paper", "money", "autom_money", "autom_paper", "test"]
+    if env not in valid_envs:
+        print(f"Ungültiges Environment: {env!r}. Gültig: {', '.join(valid_envs)}")
+        sys.exit(1)
 
-    # Ensure directories exist (safer)
-    for dir_path in [input_dir, dir_processed, dir_deleted]:
-        if dir_path and not os.path.exists(dir_path):
-            try:
-                os.makedirs(dir_path, exist_ok=True)  # exist_ok prevents errors if it exists
-                logger.info(f"Created directory: {dir_path}")
-            except OSError as e:
-                logger.error(f"Error creating directory {dir_path}: {e}")
-                return
+    build_summary(env)
 
-    input_files = find_xml_files(input_dir, file_summary)
-
-    if not input_files:
-        logger.info(f"No XML files found in directory '{input_dir}' (excluding summary file)")
-        print(f"No XML files found in directory '{input_dir}' (excluding summary file)")
-        return
-
-    print(f"Found {len(input_files)} XML files in directory '{input_dir}' (excluding summary file)")
-
-    append_new_days_to_summary(input_files, file_summary, processed_dir=dir_processed, delete_dir=dir_deleted)
 
 if __name__ == "__main__":
     main()

@@ -447,7 +447,8 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             # Wie viel Prozent des neuen Trades verbrauchen wir? (Hier 100% des Rests)
             close_ratio_of_new = new_abs / abs(new_trade['quantity'])
 
-            realized_pnl = ((tr['netCash'] * close_ratio_of_open) + (new_trade['netCash'] * close_ratio_of_new))
+            # realized_pnl = ((tr['netCash'] * close_ratio_of_open) + (new_trade['netCash'] * close_ratio_of_new))
+            # → nicht mehr verwendet; cl_trade['profit'] (= fifoPnlRealized) wird direkt übergeben (konsistent mit Case 2c)
 
             # 1. Alte Tranche schließen
             # new_trade muss ich schließen
@@ -488,7 +489,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 netcash=(cl_trade.get("netCashClose") or 0.0),
                 proceeds=(cl_trade.get("proceedsClose") or 0.0),
                 commission=(cl_trade.get("ibCommission") or 0.0),  # anteilige Open- + Close-Kommission
-                pnl=realized_pnl,
+                pnl=(cl_trade.get('profit') or 0.0),
                 quantity=new_trade.get("quantity"),
                 action='TRADE_CLOSE_PARTIAL',
                 dateTime=cl_trade.get("dateTimeClose"),

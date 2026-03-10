@@ -139,7 +139,8 @@ class OpenTradeSchema(BaseSchema):
 
         # Map common fields that have the same name
         for field in ['symID', 'assetCategory', 'symbol', 'description', 'underlyingSymbol', 'underlyingConid',
-                      'putCall', 'strategy', 'tradeID', 'subCategory', 'quantity', 'environment','fifoPnlRealized',
+                      'putCall', 'strike', 'expiry', 'multiplier',
+                      'strategy', 'tradeID', 'subCategory', 'quantity', 'environment','fifoPnlRealized',
                       'linkID', 'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'closedBy', 'conid']:
             if field in open_trade:
                 closed_trade[field] = open_trade.get(field)
@@ -235,7 +236,8 @@ class OpenTradeSchema(BaseSchema):
 
         # Map common fields that have the same name
         for field in ['symID', 'assetCategory', 'symbol', 'description', 'underlyingSymbol', 'underlyingConid',
-                      'putCall', 'strategy', 'tradeID', 'subCategory', 'quantity', 'environment', 'fifoPnlRealized',
+                      'putCall', 'strike', 'expiry', 'multiplier',
+                      'strategy', 'tradeID', 'subCategory', 'quantity', 'environment', 'fifoPnlRealized',
                       'linkID', 'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'conid']:
             if field in open_trade:
                 closed_trade[field] = open_trade.get(field)
