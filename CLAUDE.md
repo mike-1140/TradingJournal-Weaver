@@ -93,10 +93,24 @@ IBKR sign convention: **BUY → netCash negative, SELL → netCash positive**
 
 ## Configuration
 
-- `.env` — DB credentials, `TABLE_PREFIX` (e.g. `mike_`), environment DB names
+- `.env` — DB credentials, `TABLE_PREFIX` (e.g. `mike_`), environment DB names, API keys (z.B. Mail-Zugang für `get_flexquery_emails.py`)
 - `src/config.py` — `get_engine(env)`, `DB_MAP`, table name constants
+- `.gitignore` — `.env` ist ausgeschlossen (keine Secrets im Repo!)
 
 Table names use an optional prefix (e.g. `mike_trades_raw`) for multi-user support.
+
+---
+
+## Git-Sicherheit
+
+**Secrets gehören ausschließlich in `.env`, nie in den Code.**
+
+Falls versehentlich ein Secret in der Git-History landet:
+1. Secret sofort rotieren/widerrufen
+2. `git filter-repo --path DATEI --invert-paths --force` (löscht Datei aus History + Working Tree + alle Remotes!)
+3. Datei aus Backup/Local History wiederherstellen
+4. `git remote add origin URL` (Remote wurde von filter-repo entfernt)
+5. `git add`, `git commit`, `git push origin master --force`
 
 ---
 

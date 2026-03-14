@@ -10,7 +10,7 @@ import re
 
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
-from src.utils.div_utils import compute_checksum, parse_date, parse_time
+from src.utils.div_utils import compute_checksum, parse_datetime_flex
 
 # Constants (Make it easier to configure)
 BASE_XML_FILE_PATH = r'C:\TradeInfo'
@@ -18,7 +18,7 @@ SUMMARY_FILE_NAME = "summary.xml"
 
 # Logging
 log_file = get_project_root() / "log/app.log"
-logger = setup_logging('my_app', level="simple", log_file=log_file)
+logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
 logger.info("----  MAKE SUMMARY (" + datetime.now().strftime('%Y-%m-%d - %H:%M:%S') + ")  ----")
 
 # Einheitliche Zahlenerkennung (mit Tausendertrennzeichen)
@@ -287,7 +287,7 @@ def merge_xml_files(input_files: list[str], summary_file: str, processed_dir: st
                 logger.error(f"Error processing {input_file}: {file_err}")
 
         # Sort all statements by date and add them back to the summary
-        sorted_dates = sorted(statement_dict.keys(), key=lambda date_str: parse_date(date_str, logger))
+        sorted_dates = sorted(statement_dict.keys(), key=lambda date_str: parse_datetime_flex(date_str, logger))
 
         for date in sorted_dates:
             summary_statements_elem.append(statement_dict[date])
@@ -338,13 +338,13 @@ def main():
     else:
         data_name = 'paper'
 
-    if data_name in ['test', 'paper', 'money']:
+    if data_name in ['test', 'paper', 'money', 'autom_money', 'autom_paper']:
         input_dir = os.path.join(BASE_XML_FILE_PATH, data_name)
         dir_processed = os.path.join(BASE_XML_FILE_PATH, f"{data_name}_processed")
         dir_deleted = os.path.join(BASE_XML_FILE_PATH, f"{data_name}_deleted")
         file_summary = os.path.join(input_dir, SUMMARY_FILE_NAME)  # Use input_dir instead of data_name
     else:
-        print("Invalid argument. Please provide 'test', 'paper' or 'money' as an argument.")
+        print("Invalid argument. Please provide 'test', 'paper', 'money', 'autom_money' or 'autom_paper' as an argument.")
         return
 
     # Ensure directories exist (safer)
