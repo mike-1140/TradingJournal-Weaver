@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VALID_STEPS = ["fetch_emails", "import", "process", "summary"]
+VALID_STEPS = ["fetch_emails", "import", "process", "summary", "reset"]
 
 # Module-Notation (-m) statt Dateipfad: Projektwurzel bleibt in sys.path,
 # dadurch funktionieren "from src.xyz import ..." Importe in den Scripts korrekt.
@@ -21,6 +21,7 @@ STEP_SCRIPTS = {
     "import":       "src.import_ibkr_trades",
     "process":      "src.process_ibkr_trades",
     "summary":      "src.xml_append_summary",
+    "reset":        "src.reset_IBKR_DB",
 }
 
 
@@ -39,7 +40,10 @@ def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str
     Erstellt die geordnete Liste aller auszufuehrenden Tasks.
     Jeder Task ist ein Dict mit: step, user (optional), env (optional), args.
     """
-    steps_to_run = [s for s in config["settings"]["steps"] if s in filter_steps]
+    # filter_steps kommt entweder aus --steps (CLI) oder aus pipeline.toml.
+    # Nicht nochmals gegen die TOML-Liste filtern — sonst fallen explizit
+    # uebergebene Steps wie "reset" heraus, die bewusst nicht in den Default-Steps stehen.
+    steps_to_run = filter_steps
     users_cfg = config.get("users", {})
 
     # Aktive User filtern
@@ -67,7 +71,7 @@ def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str
                     })
 
         elif step == "summary":
-            # Pro eindeutigem Env (ueber alle aktiven User)
+            # Pro eindeutigem Env (ueber alle aktiven User — summary ist nicht user-spezifisch)
             seen_envs: set[str] = set()
             for ucfg in active_users.values():
                 for env in ucfg["environments"]:
@@ -78,6 +82,18 @@ def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str
                             "label": f"summary [{env}]",
                             "args": [env],
                         })
+
+        elif step == "reset":
+            # Pro User x Env — Prefix wird mitgegeben (DESTRUKTIV: loescht und legt Tabellen neu an)
+            for user, ucfg in active_users.items():
+                envs = [e for e in ucfg["environments"] if not filter_envs or e in filter_envs]
+                for env in envs:
+                    tasks.append({
+                        "step": step,
+                        "label": f"reset [{user} / {env}]",
+                        "args": [env, ucfg["prefix"]],
+                        "destructive": True,
+                    })
 
     return tasks
 
@@ -130,10 +146,13 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Beispiele:
-  python run_pipeline.py                              # alles ausfuehren
+  python run_pipeline.py                              # alles ausfuehren (ohne reset)
   python run_pipeline.py --users mike                 # nur mike
   python run_pipeline.py --envs money                 # alle User, nur money
   python run_pipeline.py --steps import process       # nur Import + Verarbeitung
+  python run_pipeline.py --steps summary              # Summaries fuer alle Envs
+  python run_pipeline.py --steps reset --users mike   # DB-Reset fuer alle Envs von mike
+  python run_pipeline.py --steps reset --force        # DB-Reset ohne Rueckfrage
   python run_pipeline.py --dry-run                    # zeige Steps ohne Ausfuehrung
         """,
     )
@@ -146,6 +165,8 @@ Beispiele:
                         help=f"Nur diese Steps: {' | '.join(VALID_STEPS)}")
     parser.add_argument("--dry-run", action="store_true",
                         help="Steps anzeigen ohne auszufuehren")
+    parser.add_argument("--force", action="store_true",
+                        help="Sicherheitsabfrage bei 'reset' ueberspringen")
     parser.add_argument("--config", default="pipeline.toml", metavar="FILE",
                         help="Pfad zur TOML-Konfiguration (Standard: pipeline.toml)")
     return parser.parse_args()
@@ -169,6 +190,18 @@ def main() -> None:
     print(f"\nTrading Journal 3.0 — Pipeline {modus}")
     print(f"Konfiguration: {args.config}")
     print(f"Tasks: {len(tasks)}")
+
+    # Sicherheitsabfrage bei destruktiven Steps (reset)
+    destructive_tasks = [t for t in tasks if t.get("destructive")]
+    if destructive_tasks and not args.dry_run and not args.force:
+        print(f"\n  WARNUNG: {len(destructive_tasks)} destruktiver Step(s) enthalten:")
+        for t in destructive_tasks:
+            print(f"    - {t['label']}")
+        print("\n  Alle Tabellen werden GELOESCHT und neu erstellt (Datenverlust!).")
+        antwort = input("  Fortfahren? [ja/NEIN]: ").strip().lower()
+        if antwort != "ja":
+            print("  Abgebrochen.")
+            sys.exit(0)
 
     results: list[tuple[str, bool]] = []
     for task in tasks:

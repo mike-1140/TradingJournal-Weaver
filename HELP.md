@@ -48,6 +48,11 @@ python run_pipeline.py --steps fetch_emails import process summary
 python run_pipeline.py --users mike --envs money
 python run_pipeline.py --users mike --envs money --steps import process
 
+# DB-Reset (destruktiv — Sicherheitsabfrage erscheint)
+python run_pipeline.py --steps reset --users mike
+python run_pipeline.py --steps reset --users mike --envs money
+python run_pipeline.py --steps reset --force        # ohne Rückfrage
+
 # Vorschau ohne Ausführung (zeigt alle Steps und Befehle)
 python run_pipeline.py --dry-run
 python run_pipeline.py --users mike --dry-run
@@ -58,12 +63,13 @@ python run_pipeline.py --config meine_pipeline.toml
 
 **Verfügbare Steps:**
 
-| Step | Script | Läuft pro |
+| Step | Modul | Läuft pro |
 |---|---|---|
-| `fetch_emails` | `src/get_flexquery_emails.py` | Einmal gesamt |
-| `import` | `src/import_ibkr_trades.py` | User × Environment |
-| `process` | `src/process_ibkr_trades.py` | User × Environment |
-| `summary` | `src/xml_append_summary.py` | Environment (einmal je Env) |
+| `fetch_emails` | `src.get_flexquery_emails` | Einmal gesamt |
+| `import` | `src.import_ibkr_trades` | User × Environment |
+| `process` | `src.process_ibkr_trades` | User × Environment |
+| `summary` | `src.xml_append_summary` | Environment (einmal je Env) |
+| `reset` | `src.reset_IBKR_DB` | User × Environment ⚠️ destruktiv |
 
 ---
 
@@ -73,7 +79,7 @@ Lädt IBKR FlexQuery XML-Anhänge aus dem Mail-Postfach und speichert sie
 in die entsprechenden Environment-Ordner (`C:\Trade_XML\{env}\`).
 
 ```bash
-python src/get_flexquery_emails.py
+python -m src.get_flexquery_emails
 ```
 
 Keine Argumente. Zugangsdaten aus `.env` (`IMAP_USERNAME`, `IMAP_PASSWORD`, `IMAP_SERVER`).
@@ -86,19 +92,19 @@ Liest XML-Dateien aus dem Environment-Ordner und schreibt sie in `trades_raw`.
 
 ```bash
 # Pflichtargument: Environment
-python src/import_ibkr_trades.py money
-python src/import_ibkr_trades.py paper
-python src/import_ibkr_trades.py test
-python src/import_ibkr_trades.py autom_money
-python src/import_ibkr_trades.py autom_paper
+python -m src.import_ibkr_trades money
+python -m src.import_ibkr_trades paper
+python -m src.import_ibkr_trades test
+python -m src.import_ibkr_trades autom_money
+python -m src.import_ibkr_trades autom_paper
 
 # Mit Table-Prefix (überschreibt TABLE_PREFIX aus .env)
-python src/import_ibkr_trades.py money mike_
-python src/import_ibkr_trades.py money karola_
+python -m src.import_ibkr_trades money mike_
+python -m src.import_ibkr_trades money karola_
 
 # Aus summary.xml importieren statt einzelner XML-Dateien
-python src/import_ibkr_trades.py money from_summary
-python src/import_ibkr_trades.py money mike_ from_summary
+python -m src.import_ibkr_trades money from_summary
+python -m src.import_ibkr_trades money mike_ from_summary
 ```
 
 **Argumente:**
@@ -117,15 +123,15 @@ Schreibt Ergebnisse in `trades_open`, `trades_close`, `trading_campaigns`, `camp
 
 ```bash
 # Pflichtargument: Environment
-python src/process_ibkr_trades.py money
-python src/process_ibkr_trades.py paper
-python src/process_ibkr_trades.py test
-python src/process_ibkr_trades.py autom_money
-python src/process_ibkr_trades.py autom_paper
+python -m src.process_ibkr_trades money
+python -m src.process_ibkr_trades paper
+python -m src.process_ibkr_trades test
+python -m src.process_ibkr_trades autom_money
+python -m src.process_ibkr_trades autom_paper
 
 # Mit Table-Prefix (überschreibt TABLE_PREFIX aus .env)
-python src/process_ibkr_trades.py money mike_
-python src/process_ibkr_trades.py money karola_
+python -m src.process_ibkr_trades money mike_
+python -m src.process_ibkr_trades money karola_
 ```
 
 **Argumente:**
@@ -143,14 +149,14 @@ Keine Duplikate (fromDate eindeutig), aufsteigende Reihenfolge, Performance-Cach
 
 ```bash
 # Standard: paper
-python src/xml_append_summary.py
+python -m src.xml_append_summary
 
 # Mit Environment-Angabe
-python src/xml_append_summary.py money
-python src/xml_append_summary.py paper
-python src/xml_append_summary.py test
-python src/xml_append_summary.py autom_money
-python src/xml_append_summary.py autom_paper
+python -m src.xml_append_summary money
+python -m src.xml_append_summary paper
+python -m src.xml_append_summary test
+python -m src.xml_append_summary autom_money
+python -m src.xml_append_summary autom_paper
 ```
 
 **Argumente:**
@@ -167,15 +173,15 @@ Legt die Datenbank und alle Tabellen neu an (aus `sql/`-Schemas).
 
 ```bash
 # Pflichtargument: Environment
-python src/reset_IBKR_DB.py money
-python src/reset_IBKR_DB.py paper
-python src/reset_IBKR_DB.py test
-python src/reset_IBKR_DB.py autom_money
-python src/reset_IBKR_DB.py autom_paper
+python -m src.reset_IBKR_DB money
+python -m src.reset_IBKR_DB paper
+python -m src.reset_IBKR_DB test
+python -m src.reset_IBKR_DB autom_money
+python -m src.reset_IBKR_DB autom_paper
 
 # Mit Table-Prefix
-python src/reset_IBKR_DB.py money mike_
-python src/reset_IBKR_DB.py money karola_
+python -m src.reset_IBKR_DB money mike_
+python -m src.reset_IBKR_DB money karola_
 ```
 
 **Argumente:**
@@ -190,16 +196,16 @@ python src/reset_IBKR_DB.py money karola_
 
 ### Erster Setup (einmalig)
 ```bash
-python src/reset_IBKR_DB.py money mike_
-python src/reset_IBKR_DB.py paper mike_
+python -m src.reset_IBKR_DB money mike_
+python -m src.reset_IBKR_DB paper mike_
 ```
 
 ### Täglicher Lauf (manuell, Schritt für Schritt)
 ```bash
-python src/get_flexquery_emails.py
-python src/import_ibkr_trades.py money mike_
-python src/process_ibkr_trades.py money mike_
-python src/xml_summary_creator.py money
+python -m src.get_flexquery_emails
+python -m src.import_ibkr_trades money mike_
+python -m src.process_ibkr_trades money mike_
+python -m src.xml_append_summary money
 ```
 
 ### Täglicher Lauf (automatisch, alle User/Envs)
