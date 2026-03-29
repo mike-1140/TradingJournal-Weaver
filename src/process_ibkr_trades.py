@@ -366,6 +366,8 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         if open_abs == new_abs:
             # realized_pnl = (tr['netCash'] + (new_trade['netCash'] * (new_abs / abs(new_trade['quantity']))))
             ratio = new_abs / abs(new_trade['quantity'])
+            # Nur die Schließ-Kommission ans Ledger — Opening-Kommission wurde beim TRADE_OPEN bereits gebucht
+            close_commission_2c = to_decimal(new_trade.get('ibCommission', 0) or 0) * to_decimal(ratio)
 
             cl_trade = OpenTradeSchema.to_closed_trade(tr, new_trade, ratio)
             # print_selected(cl_trade, 'cl_trade',
@@ -396,20 +398,20 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 elif cl_trade["status"] == "CashSettled":
                     action = 'CASH_SETTLEMENT'
                     # das bewegte Cash ist im proceedsClose gespeichert!!
-                    # netcash und commission = 0!! (der Code ist Fleißaufgabe)
+                    # netcash und commission = 0!! (BookTrade hat ibCommission=0)
                     netcash = (cl_trade.get("netCashClose") or 0.0)
                     proceeds = (cl_trade.get("proceedsClose") or 0.0)
-                    commission = (cl_trade.get('ibCommission') or 0.0)
+                    commission = close_commission_2c  # BookTrade → 0
                 else:
                     action = 'TRADE_CLOSE_FULL'  # Normaler Verkauf vor Ablauf
                     netcash = (cl_trade.get("netCashClose") or 0.0)
                     proceeds = (cl_trade.get("proceedsClose") or 0.0)
-                    commission = (cl_trade.get('ibCommission') or 0.0)
+                    commission = close_commission_2c
             else:
                 action = "TRADE_CLOSE_FULL"
                 netcash = (cl_trade.get("netCashClose") or 0.0)
                 proceeds = (cl_trade.get("proceedsClose") or 0.0)
-                commission = (cl_trade.get('ibCommission') or 0.0)
+                commission = close_commission_2c
 
             tracker.link_to_campaign_new(
                 assetCategory=cl_trade.get("assetCategory"),
@@ -481,6 +483,9 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             # input("Drücken Sie die Eingabetaste, um fortzufahren...")
             OpenTradeSchema.log_open_trade(tr, "Open", False)
 
+            # Nur die Schließ-Kommission (new_trade) — Opening-Kommission bereits beim TRADE_OPEN gebucht
+            close_commission_2a = to_decimal(new_trade.get('ibCommission', 0) or 0)
+
             tracker.link_to_campaign_new(
                 assetCategory=cl_trade.get("assetCategory"),
                 campaign_id=campaign_id,
@@ -488,7 +493,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 source_id=tr['id'],
                 netcash=(cl_trade.get("netCashClose") or 0.0),
                 proceeds=(cl_trade.get("proceedsClose") or 0.0),
-                commission=(cl_trade.get("ibCommission") or 0.0),  # anteilige Open- + Close-Kommission
+                commission=close_commission_2a,
                 pnl=(cl_trade.get('profit') or 0.0),
                 quantity=new_trade.get("quantity"),
                 action='TRADE_CLOSE_PARTIAL',
@@ -513,6 +518,8 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         else:  # new_abs > open_abs
             # Wir verbrauchen 100% der offenen Tranche
             close_ratio_of_new = open_abs / abs(new_trade['quantity'])
+            # Nur die anteilige Schließ-Kommission — Opening-Kommission bereits beim TRADE_OPEN gebucht
+            close_commission_2b = to_decimal(new_trade.get('ibCommission', 0) or 0) * to_decimal(close_ratio_of_new)
 
             # realized_pnl = -(tr['netCash'] + (new_trade['netCash'] * close_ratio_of_new))
 
@@ -534,7 +541,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 source_id=tr['id'],
                 netcash=(cl_trade.get("netCashClose") or 0.0),
                 proceeds=(cl_trade.get("proceedsClose") or 0.0),
-                commission=(cl_trade.get("ibCommission") or 0.0),
+                commission=close_commission_2b,
                 pnl=(cl_trade.get("profit") or 0.0),
                 quantity=-cl_trade.get("quantity"),
                 action='TRADE_CLOSE_FULL',

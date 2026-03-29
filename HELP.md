@@ -48,6 +48,11 @@ python run_pipeline.py --steps fetch_emails import process summary
 python run_pipeline.py --users mike --envs money
 python run_pipeline.py --users mike --envs money --steps import process
 
+# Import aus summary.xml statt einzelner XML-Dateien
+python run_pipeline.py --steps import --from-summary
+python run_pipeline.py --steps import --from-summary --users mike
+python run_pipeline.py --steps import --from-summary --envs autom_paper
+
 # DB-Reset (destruktiv — Sicherheitsabfrage erscheint)
 python run_pipeline.py --steps reset --users mike
 python run_pipeline.py --steps reset --users mike --envs money

@@ -156,7 +156,7 @@ def process_flexquery(trades_in, eae_in, ca_in, logger):
                 return d_f
 
             others = d_f[~mask].copy()
-            group_cols = ['conid', 'symbol', 'buySell']
+            group_cols = ['conid', 'symbol', 'buySell', 'ibOrderID']
             to_agg['volume'] = to_agg['tradePrice'] * to_agg['quantity']
 
             # Dynamische Regeln für alle Spalten

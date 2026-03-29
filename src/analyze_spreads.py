@@ -127,14 +127,21 @@ def print_day_block(day_df: pd.DataFrame, date_str: str) -> None:
     print(f"  \u251c{'─' * WIDTH}\u2524")
 
     # Zusammenfassung
-    netto = premium_open + settlement_cash + total_comm
-    ok    = '\u2713' if netto >= 0 else '\u2717'
+    # Hinweis: premium_open basiert auf netcash (Kommission bereits enthalten)
+    # → total_comm NICHT nochmals zum Netto addieren (würde doppelt zählen)
+    netto    = premium_open + settlement_cash
+    ok       = '\u2713' if netto >= 0 else '\u2717'
+    pnl_netto = total_pnl + total_comm
+    pnl_ok   = '\u2713' if pnl_netto >= 0 else '\u2717'
 
     print(f"  \u2502  {'Netto-Prämie (Open):':<{_SUMMARY_LABEL_W}} {fmt_cash(premium_open)}  \u2502")
     if abs(settlement_cash) > 0.001:
         print(f"  \u2502  {'Settlement:':<{_SUMMARY_LABEL_W}} {fmt_cash(settlement_cash)}  \u2502")
-    print(f"  \u2502  {'Kommission:':<{_SUMMARY_LABEL_W}} {fmt_cash(total_comm)}  \u2502")
-    print(f"  \u2502  {'Netto:':<{_SUMMARY_LABEL_W - 2}} {ok} {fmt_cash(netto)}  \u2502")
+    print(f"  \u2502  {'Netto (Cashflow):':<{_SUMMARY_LABEL_W - 2}} {ok} {fmt_cash(netto)}  \u2502")
+    print(f"  \u2502  {'  davon Kommission (in Cashflow):':<{_SUMMARY_LABEL_W}} {fmt_cash(total_comm)}  \u2502")
+    print(f"  \u251c{'─' * WIDTH}\u2524")
+    print(f"  \u2502  {'realized_pnl (Brutto, proceeds-Basis):':<{_SUMMARY_LABEL_W}} {fmt_cash(total_pnl)}  \u2502")
+    print(f"  \u2502  {'realized_pnl + Komm:':<{_SUMMARY_LABEL_W - 2}} {pnl_ok} {fmt_cash(pnl_netto)}  \u2502")
     print(f"  \u2514{'─' * WIDTH}\u2518")
 
 

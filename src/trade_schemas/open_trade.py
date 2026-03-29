@@ -176,8 +176,11 @@ class OpenTradeSchema(BaseSchema):
         closed_trade['totalSeconds'] = total_seconds
         closed_trade['durationStr'] = duration_text
 
-        open_commission = to_decimal(open_trade.get('ibCommission', 0) or 0) * close_portion
-        close_commission = to_decimal(close_data.get('ibCommission', 0) or 0)
+        # Open-Commission wird IMMER vollständig zugerechnet (offene Position wird
+        # bei to_closed_trade immer zu 100% geschlossen — Case 2b/2c).
+        # close_portion skaliert nur den Anteil des Closing-Trades, nicht die Open-Commission.
+        open_commission  = to_decimal(open_trade.get('ibCommission', 0) or 0)
+        close_commission = to_decimal(close_data.get('ibCommission', 0) or 0) * close_portion
         closed_trade['ibCommission'] = to_decimal(open_commission + close_commission)
 
         # EUR-Werte: FX-Kurse zum jeweiligen Handelszeitpunkt
@@ -194,8 +197,6 @@ class OpenTradeSchema(BaseSchema):
         # Kommission: Open-Anteil mit Open-Kurs, Close-Anteil mit Close-Kurs
         closed_trade['ibCommission_EUR'] = to_decimal(open_commission * fxRate_open + close_commission * fxRate_close)
 
-        closed_trade['profit_EUR'] = closed_trade['netCashOpen_EUR'] + closed_trade['netCashClose_EUR']
-
         def calculate_roi(cost_of_investment, net_profit):
             if cost_of_investment == 0:
                 return 100
@@ -204,11 +205,12 @@ class OpenTradeSchema(BaseSchema):
                 roi = -roi
             return roi
 
-        # profit = to_decimal(net_cash_close + open_trade.get('netCash'))
-        profit_open = to_decimal(open_trade.get('fifoPnlRealized'))
-        profit_close = to_decimal(close_data.get('fifoPnlRealized')) * close_portion
-        print(f"Open Pnl: {profit_open}, Close Pnl: {profit_close}")
-        profit = profit_open + profit_close
+        # Profit: Brutto-Prämien (proceeds), Commission separat — funktioniert für alle Fälle
+        # inkl. Cash Settlement (wo netCashClose = 0, aber proceeds den Settlement-Betrag enthält)
+        proceeds_open  = to_decimal(open_trade.get('proceeds', 0) or 0)
+        proceeds_close = to_decimal(close_data.get('proceeds', 0) or 0) * close_portion
+        profit = proceeds_open + proceeds_close
+        closed_trade['profit_EUR'] = proceeds_open * fxRate_open + proceeds_close * fxRate_close
         closed_trade['profit'] = to_decimal(profit)
         closed_trade['ROI'] = to_decimal(calculate_roi(closed_trade['netCashOpen'], profit))
 
@@ -217,6 +219,16 @@ class OpenTradeSchema(BaseSchema):
         if pd.isna(status) or status in ('', None):
             status = 'Closed'
         closed_trade['status'] = status
+
+        # closedBy aus status und buySellClose ableiten
+        if status in ('Expired', 'CashSettled'):
+            closed_trade['closedBy'] = 'EXPIRY'
+        elif status == 'Assigned':
+            closed_trade['closedBy'] = 'ASSIGNMENT'
+        elif status == 'Exercised':
+            closed_trade['closedBy'] = 'EXERCISE'
+        else:
+            closed_trade['closedBy'] = str(close_data.get('buySell') or '').upper()
 
         return closed_trade
 
@@ -286,11 +298,10 @@ class OpenTradeSchema(BaseSchema):
                 roi = -roi
             return roi
 
-        # profit = to_decimal(net_cash_open + close_data.get('netCash'))
-        profit_open = to_decimal(open_trade.get('fifoPnlRealized'))
-        profit_close = to_decimal(close_data.get('fifoPnlRealized'))
-        print(f"Open Pnl: {profit_open}, Close Pnl: {profit_close}")
-        profit = profit_open + profit_close
+        # Profit: Brutto-Prämien (proceeds), Commission separat
+        proceeds_open_partial = to_decimal(open_trade.get('proceeds', 0) or 0) * close_portion
+        proceeds_close        = to_decimal(close_data.get('proceeds', 0) or 0)
+        profit = proceeds_open_partial + proceeds_close
         closed_trade['profit'] = to_decimal(profit)
         closed_trade['ROI'] = to_decimal(calculate_roi(net_cash_open, profit))
 
@@ -298,6 +309,17 @@ class OpenTradeSchema(BaseSchema):
         closed_trade['status'] = close_data.get('status', 'Closed')
         if closed_trade['status'] in (None, ''):
             closed_trade['status'] = 'Closed'
+
+        # closedBy aus status und buySellClose ableiten
+        status = closed_trade['status']
+        if status in ('Expired', 'CashSettled'):
+            closed_trade['closedBy'] = 'EXPIRY'
+        elif status == 'Assigned':
+            closed_trade['closedBy'] = 'ASSIGNMENT'
+        elif status == 'Exercised':
+            closed_trade['closedBy'] = 'EXERCISE'
+        else:
+            closed_trade['closedBy'] = str(close_data.get('buySell') or '').upper()
 
         return closed_trade
 

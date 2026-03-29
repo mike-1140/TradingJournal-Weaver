@@ -35,7 +35,7 @@ def load_config(config_path: Path) -> dict:
 
 
 def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str],
-                    filter_steps: list[str]) -> list[dict]:
+                    filter_steps: list[str], from_summary: bool = False) -> list[dict]:
     """
     Erstellt die geordnete Liste aller auszufuehrenden Tasks.
     Jeder Task ist ein Dict mit: step, user (optional), env (optional), args.
@@ -64,10 +64,15 @@ def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str
             for user, ucfg in active_users.items():
                 envs = [e for e in ucfg["environments"] if not filter_envs or e in filter_envs]
                 for env in envs:
+                    args = [env, ucfg["prefix"]]
+                    # from_summary gilt nur fuer den import-Step
+                    if from_summary and step == "import":
+                        args.append("from_summary")
+                    label_suffix = " [from_summary]" if from_summary and step == "import" else ""
                     tasks.append({
                         "step": step,
-                        "label": f"{step} [{user} / {env}]",
-                        "args": [env, ucfg["prefix"]],
+                        "label": f"{step}{label_suffix} [{user} / {env}]",
+                        "args": args,
                     })
 
         elif step == "summary":
@@ -153,6 +158,8 @@ Beispiele:
   python run_pipeline.py --steps summary              # Summaries fuer alle Envs
   python run_pipeline.py --steps reset --users mike   # DB-Reset fuer alle Envs von mike
   python run_pipeline.py --steps reset --force        # DB-Reset ohne Rueckfrage
+  python run_pipeline.py --steps import --from-summary              # Import aus summary.xml
+  python run_pipeline.py --users mike --from-summary                # nur mike, aus summary.xml
   python run_pipeline.py --dry-run                    # zeige Steps ohne Ausfuehrung
         """,
     )
@@ -163,6 +170,8 @@ Beispiele:
     parser.add_argument("--steps", nargs="+", metavar="STEP",
                         choices=VALID_STEPS,
                         help=f"Nur diese Steps: {' | '.join(VALID_STEPS)}")
+    parser.add_argument("--from-summary", action="store_true",
+                        help="Import aus summary.xml statt einzelner XML-Dateien (nur fuer 'import'-Step)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Steps anzeigen ohne auszufuehren")
     parser.add_argument("--force", action="store_true",
@@ -180,7 +189,8 @@ def main() -> None:
     filter_users = args.users or []
     filter_envs = args.envs or []
 
-    tasks = build_task_list(config, filter_users, filter_envs, filter_steps)
+    tasks = build_task_list(config, filter_users, filter_envs, filter_steps,
+                            from_summary=args.from_summary)
 
     if not tasks:
         print("Keine Tasks gefunden — Filter pruefen (--users, --envs, --steps).")
