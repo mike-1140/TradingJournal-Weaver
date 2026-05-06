@@ -65,70 +65,7 @@ BEISPIELE:
 import pandas as pd
 import uuid
 from src.logger_setup import print_log
-
-"""
-IBKR Options Booktrade Processing
-==================================
-
-Dieses Modul verarbeitet Interactive Brokers FlexQuery Trades und OptionEAE Events
-und fügt sie korrekt zusammen.
-
-WICHTIGE KONZEPTE:
------------------
-
-1. **Booktrades**: IBKR erzeugt automatische "BookTrade" Einträge, wenn Optionen
-   expired, assigned oder exercised werden. Diese haben transactionType="BookTrade".
-
-2. **OptionEAE Events**: In separaten OptionEAE-Einträgen wird der Grund für den
-   Booktrade dokumentiert (Assignment, Exercise, Expiration, Cash Settlement).
-
-3. **TradeID Matching**: 
-   - Assignment/Exercise/Expiration Events haben ein tradeID-Feld, das auf den
-     entsprechenden Booktrade verweist.
-   - Cash Settlement Events haben EIGENE tradeIDs und müssen über conid+datum
-     gematched werden.
-
-4. **Mehrere EAE pro Trade**:
-   Bei SPX Optionen (Cash Settlement) gibt es ZWEI EAE-Events für einen Booktrade:
-   - Assignment/Exercise Event (erklärt den Booktrade)
-   - Cash Settlement Event (zeigt den Cashflow)
-
-VERARBEITUNGSLOGIK:
-------------------
-
-1. Filtere nur Options-EAE (assetCategory='OPT'), keine Stock-EAE
-2. Separiere Cash Settlement Events von anderen EAE-Events
-3. Matche Assignment/Exercise/Expiration Events über tradeID
-4. Matche Cash Settlement Events separat über conid+datum (nur bei BookTrades)
-5. Verarbeite jeden Trade:
-   - Bei Assignment: Status setzen, linkID vergeben, Stock-Trade suchen
-   - Bei Exercise: Status setzen
-   - Bei Expiration: Status setzen
-   - Bei Cash Settlement: proceeds übernehmen
-
-BEISPIELE:
----------
-
-**Fall 1: ON - Normale Option mit Assignment (Stock Delivery)**
-- ExchTrade: SELL Call Option
-- Booktrade: BUY Call Option (schließt Position)
-- Booktrade: SELL Stock (Lieferung der Aktien)
-- OptionEAE: Assignment (verweist auf Options-Booktrade)
-→ Ergebnis: Options-Booktrade status="Assigned" mit linkID, Stock-Trade bekommt gleiche linkID
-
-**Fall 2: SPX - Option mit Cash Settlement**
-- ExchTrade: BUY Put Option
-- Booktrade: SELL Put Option (schließt Position)
-- OptionEAE: Exercise (verweist auf Booktrade)
-- OptionEAE: Cash Settlement (eigene tradeID, enthält proceeds)
-→ Ergebnis: Booktrade status="Exercised", cashSettlement_proceeds=2819.0
-
-**Fall 3: SPX - Expired Option**
-- ExchTrade: SELL Call Option
-- Booktrade: BUY Call Option (schließt Position)
-- OptionEAE: Expiration (verweist auf Booktrade)
-→ Ergebnis: Booktrade status="Expired"
-"""
+from src.utils.div_utils import parse_datetime_flex
 
 
 def handle_booktrades(trades, eae, date_col_trade, date_col_eae, days_tolerance, logger):
@@ -196,9 +133,9 @@ def handle_booktrades(trades, eae, date_col_trade, date_col_eae, days_tolerance,
         if col not in trades.columns:
             trades[col] = None
 
-    # Datumskonvertierung (IBKR verwendet DD/MM/YYYY Format)
-    trades[date_col_trade] = pd.to_datetime(trades[date_col_trade], errors="coerce", dayfirst=True)
-    eae[date_col_eae] = pd.to_datetime(eae[date_col_eae], errors="coerce", dayfirst=True)
+    # Datumskonvertierung — beide IBKR-Formate werden unterstützt
+    trades[date_col_trade] = trades[date_col_trade].apply(parse_datetime_flex)
+    eae[date_col_eae] = eae[date_col_eae].apply(parse_datetime_flex)
 
     # Filtere leere EAE-Zeilen und nur Options-EAE (nicht Stock-EAE)
     if 'transactionType' in eae.columns:
@@ -403,9 +340,9 @@ def handle_booktrades_debug(trades, eae, date_col_trade, date_col_eae, days_tole
         if col not in trades.columns:
             trades[col] = None
 
-    # Datumskonvertierung
-    trades[date_col_trade] = pd.to_datetime(trades[date_col_trade], errors="coerce", dayfirst=True)
-    eae[date_col_eae] = pd.to_datetime(eae[date_col_eae], errors="coerce", dayfirst=True)
+    # Datumskonvertierung — beide IBKR-Formate werden unterstützt
+    trades[date_col_trade] = trades[date_col_trade].apply(parse_datetime_flex)
+    eae[date_col_eae] = eae[date_col_eae].apply(parse_datetime_flex)
 
     # DEBUG: Zeige Trade-Typen
     logger.info("=" * 60)

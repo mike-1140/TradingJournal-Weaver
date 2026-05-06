@@ -102,11 +102,19 @@ def parse_datetime_flex(dt_raw, logger=None):
     # 3. "10:29:24" (Nur Zeit - heute)
 
     try:
-        # Versuch 1: Das Standard-IBKR Format mit Semikolon
+        # Versuch 1: IBKR-Format mit Semikolon (Paper: DD/MM/YYYY;HHMMSS, Echtgeld: YYYYMMDD;HHMMSS)
         if ';' in str(dt_raw):
-            return pd.to_datetime(dt_raw, format="%d/%m/%Y;%H%M%S")
+            try:
+                return pd.to_datetime(dt_raw, format="%d/%m/%Y;%H%M%S")
+            except ValueError:
+                return pd.to_datetime(dt_raw, format="%Y%m%d;%H%M%S")
 
-        # Versuch 2: Flexibler Parser für den Rest (ISO, DD-MM-YYYY etc.)
+        # Versuch 2: YYYYMMDD ohne Trennzeichen (IBKR-Format)
+        s = str(dt_raw).strip()
+        if s.isdigit() and len(s) == 8:
+            return pd.to_datetime(s, format="%Y%m%d")
+
+        # Versuch 3: Flexibler Parser für den Rest (ISO, DD-MM-YYYY etc.)
         # dayfirst=True ist wichtig für europäischen Kontext
         return pd.to_datetime(dt_raw, dayfirst=True)
 

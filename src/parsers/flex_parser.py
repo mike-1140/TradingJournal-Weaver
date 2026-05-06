@@ -10,12 +10,13 @@ from typing import Any
 import pandas as pd
 import uuid
 from decimal import Decimal
-from src.utils.div_utils import compute_checksum, print_selected, to_decimal
+from src.utils.div_utils import compute_checksum, to_decimal
 from src.parsers.day_trade_processor import extract_trades_for_db, extract_optioneae_for_db, \
     extract_corporateaction_for_db
 from src.parsers.option_strategies import detect_strategies
 from src.logger_setup import print_log
 from src.config import TABLE_TRADES_RAW, TABLE_TRADES_FX
+from src.trade_enums import AssetCategory, TransactionType
 from src.book_trades import handle_booktrades
 from src.options_pnl import calculate_pnl, get_position_summary
 
@@ -66,13 +67,6 @@ def process_flex_file(xml_path, db, repo, logger, environment: str) -> int | tup
         logger.info(f"🧾 [{idx}/{len(flex_statements)}] Verarbeite Statement "
                     f"{stmt_date or 'Unbekannt'} ({account_id}) ...")
 
-        # prüfe, ob das Statement leer ist
-        # trades = stmt.find("Trades")
-        # option_eae = stmt.find("OptionEAE")
-        # corp = stmt.find("CorporateActions")
-        # if is_empty(trades):
-        #     continue
-
         # === 1️⃣ Trades extrahieren ===
         df_trades, df_cashfx = extract_trades_for_db(stmt, logger)
         df_eae = extract_optioneae_for_db(stmt, logger)
@@ -80,16 +74,13 @@ def process_flex_file(xml_path, db, repo, logger, environment: str) -> int | tup
 
         # === 2️⃣ verarbeite die Trades (vor allem die BOOKTRADES)
         trades_df = process_flexquery(df_trades, df_eae, df_ca, logger)
-        # print_selected(trades_new_df,'trades_new_df',["assetCategory", "symbol", "tradeTime", "quantity", "tradePrice", "netCash", "ibCommission"])
 
         # === 3️⃣ verarbeite die FX-Trades
-        # print_selected(df_cashfx,'df_cashfx', ["assetCategory", "symbol"])
         cashfx_df = process_flexquery_fx(df_cashfx)
 
         # aktuallisiere die Datenbank
         if not trades_df.empty:
             some_entries = 1
-            # pairs = trades_df[["symbol", "assetCategory"]].drop_duplicates()
             # Gruppiert nach den Key-Spalten und nimmt den ersten Wert der restlichen Spalten
             pairs = trades_df.groupby(["symbol", "assetCategory"]).first().reset_index()
             # Alle bekannten Symbole abfragen
@@ -109,10 +100,6 @@ def process_flex_file(xml_path, db, repo, logger, environment: str) -> int | tup
             )
             trades_df["environment"] = env_up  # setzt automatisch MONEY | PAPER | TEST
 
-            # print(trades_df[["symbol", "multiplier", "transactionType", "quantity", "strike", "status", "netCash",
-            #                  "ibCommission", "opt_strategy", "opt_strategyName", "opt_strategyID"]])
-            # print(cashfx_df[
-            #           ["symbol", "baseCurrency", "baseAmount", "quoteCurrency", "fxRate", "commission", "dateTime"]])
             # checksums in Liste umwandeln, checksums aus DB holen, und die nicht existierenden Zeilen ausgeben
             checksums = trades_df["checksum"].unique().tolist()
             existing = db.get_existing_trades_checksums(checksums)
@@ -150,7 +137,7 @@ def process_flexquery(trades_in, eae_in, ca_in, logger):
 
         # Hilfsfunktion für Aggregation (wie zuvor besprochen)
         def aggregate_trades(d_f, category):
-            mask = (d_f['assetCategory'] == category) & (d_f['transactionType'] == 'ExchTrade')
+            mask = (d_f['assetCategory'] == category) & (d_f['transactionType'] == TransactionType.EXCH_TRADE)
             to_agg = d_f[mask].copy()
             if to_agg.empty:
                 return d_f
@@ -174,28 +161,23 @@ def process_flexquery(trades_in, eae_in, ca_in, logger):
             return pd.concat([others, aggregated.drop(columns=['volume'])], ignore_index=True)
 
         # Aggregationen durchführen
-        trades_processed = aggregate_trades(trades_processed, 'STK')
-        # print_selected(trades_processed, 'trades_processed_STK',
-        #                ["symbol", "multiplier", "transactionType", "buySell", "quantity", "datetime", "status", "linkID"])
-        trades_processed = aggregate_trades(trades_processed, 'OPT')
-        # print_selected(trades_processed, 'trades_processed_OPT',
-        #                ["symbol", "multiplier", "transactionType", "buySell", "quantity", "datetime", "status", "linkID"])
+        trades_processed = aggregate_trades(trades_processed, AssetCategory.STOCK)
+        trades_processed = aggregate_trades(trades_processed, AssetCategory.OPTION)
 
-        # Strategien erkennen
+        # Strategien erkennen (dateTime muss datetime64 sein für .dt-Accessor)
+        trades_processed['dateTime'] = pd.to_datetime(trades_processed['dateTime'], errors='coerce')
         trades_processed = detect_strategies(trades_processed)
 
         # EAE / Booktrades Logik (nur wenn EAE Daten da sind)
         if eae_in is not None and not eae_in.empty:
-            eae_opt = eae_in.query('assetCategory == "OPT"').copy()
-            is_book = trades_processed['transactionType'] == "BookTrade"
+            eae_opt = eae_in[eae_in['assetCategory'] == AssetCategory.OPTION].copy()
+            is_book = trades_processed['transactionType'] == TransactionType.BOOK_TRADE
             book_trades = trades_processed[is_book].copy()
             normal_trades = trades_processed[~is_book].copy()
 
             handled_books = handle_booktrades(book_trades, eae_opt, "dateTime", "dateTime", 1, logger)
 
             trades_processed = pd.concat([handled_books, normal_trades], ignore_index=True)
-            # print_selected(trades_processed, 'trades_processed',
-            #                ["symbol", "multiplier", "transactionType", "quantity", "strike", "status", "linkID"])
 
             print_log(logger, f"{len(handled_books)} Booktrades verarbeitet")
 
@@ -245,10 +227,10 @@ def process_flexquery(trades_in, eae_in, ca_in, logger):
 
     for df in cleaned_dfs:
         if 'expiry' not in df.columns:
-            # Erstelle die Spalte leer, aber mit festem Datentyp (Objekt/String)
             df['expiry'] = None
-        df['expiry'] = df['expiry'].astype(str)
-        # reindex fügt fehlende Spalten hinzu und entfernt überschüssige
+        df['expiry'] = df['expiry'].apply(
+            lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) and x is not None else None
+        )
         reindexed_dfs.append(df.reindex(columns=desired_columns))
 
     trades_out = pd.concat(reindexed_dfs, ignore_index=True)
@@ -259,7 +241,6 @@ def process_flexquery(trades_in, eae_in, ca_in, logger):
     # berechne jetzt PnL für alles
     trades_out = calculate_pnl(trades_out, logger)
     summary = get_position_summary(trades_out, logger)
-    # print_selected(summary, 'summary',
     #                ['symbol', 'total_realized_pnl', 'trade_count', 'status_types'])
     if summary.empty:
         trades_out["profit"] = to_decimal('0.0')
@@ -279,7 +260,7 @@ def sort_corporate_actions(df):
     # -----------------------------
     # STOCK SPLITS
     # -----------------------------
-    stk = df[df["assetCategory"] == "STK"].copy()
+    stk = df[df["assetCategory"] == AssetCategory.STOCK].copy()
     if not stk.empty:
         stk["is_old"] = stk["symbol"].str.endswith(".OLD").astype(int)
         stk["is_negative"] = (stk["quantity"] < 0).astype(int)
@@ -293,7 +274,7 @@ def sort_corporate_actions(df):
     # -----------------------------
     # OPTION SPLITS
     # -----------------------------
-    opt = df[df["assetCategory"] == "OPT"].copy()
+    opt = df[df["assetCategory"] == AssetCategory.OPTION].copy()
     if not opt.empty:
         # 2. Hilfskolonnen für die Sortierung erstellen
         # Wir nutzen Decimal(str(x)) für den Strike, um exakt zu bleiben
@@ -322,163 +303,6 @@ def sort_corporate_actions(df):
 
 def process_flexquery_fx(df_cashfx):
     df_cashfx = df_cashfx.copy()
-    # print_log(logger, f"{len(df_cashfx)} neue Trades in {xml_file} gefunden")
-    # Calculat the checksum for every row
     df_cashfx["checksum"] = df_cashfx.apply(compute_checksum, axis=1)
 
     return df_cashfx
-
-
-def handle_booktrades_old(trades, eae, date_col_trade, date_col_eae, days_tolerance, logger):
-    trades = trades.copy()
-    eae = eae.copy()
-
-    # Initialisierung von Hilfsspalten
-    for col in ["status", "linkID", "isDummy", "originalIndex", "assignedEaeType"]:
-        if col not in trades.columns:
-            trades[col] = None
-
-    # Datumskonvertierung
-    trades[date_col_trade] = pd.to_datetime(trades[date_col_trade], errors="coerce")
-    eae[date_col_eae] = pd.to_datetime(eae[date_col_eae], errors="coerce")
-
-    # Vorbereitung für Merging
-    trades["conid_str"] = trades["conid"].astype(str).replace(['nan', 'None', '<NA>'], '')
-    eae["conid_str"] = eae["conid"].astype(str).replace(['nan', 'None', '<NA>'], '')
-
-    # ERSTES Merging (nur zur Analyse)
-    merged = pd.merge(
-        trades.reset_index(),
-        eae,
-        left_on=["conid_str", "assetCategory", "currency"],
-        right_on=["conid_str", "assetCategory", "currency"],
-        suffixes=("_t", "_e")
-    )
-
-    # Zeitfilter
-    merged = merged[
-        (merged[f"{date_col_trade}_t"] - merged[f"{date_col_eae}_e"]).abs() <= pd.Timedelta(days=days_tolerance)
-        ]
-
-    type_col = "transactionType_e" if "transactionType_e" in merged.columns else "transactionType"
-
-    # DUMMY-TRADES ERZEUGEN UND TYP ZUWEISEN
-    dummy_trades = []
-    next_dummy_idx = trades.index.max() + 1 if len(trades) > 0 else 0
-
-    for t_idx, grp in merged.groupby("index"):
-        possible_types = grp[type_col].unique().tolist()
-
-        # Wenn mehr als ein Booktrade-Typ: Dummy-Trades erzeugen
-        if len(possible_types) > 1:
-            logger.info(f"Trade {t_idx}: Mehrere Booktrades gefunden ({possible_types}), erzeuge Dummy-Trades")
-
-            # Priorisierung für Original-Trade: Assignment > Cash Settlement > Expiration
-            if "Assignment" in possible_types:
-                original_type = "Assignment"
-                remaining_types = [t for t in possible_types if t != "Assignment"]
-            elif "Cash Settlement" in possible_types:
-                original_type = "Cash Settlement"
-                remaining_types = [t for t in possible_types if t != "Cash Settlement"]
-            else:
-                original_type = possible_types[0]
-                remaining_types = possible_types[1:]
-
-            # Original-Trade bekommt den ersten Typ zugewiesen
-            trades.loc[t_idx, "assignedEaeType"] = original_type
-
-            # Für jeden weiteren Typ einen Dummy erzeugen
-            for trans_type in remaining_types:
-                dummy = trades.loc[t_idx].copy()
-                dummy["isDummy"] = True
-                dummy["originalIndex"] = t_idx
-                dummy["assignedEaeType"] = trans_type  # WICHTIG: Typ-Zuweisung
-
-                row_cs = grp[grp[type_col] == "Cash Settlement"].iloc[0]
-                dummy["proceeds"] = row_cs.get("proceeds_e", 0)
-
-                dummy["quantity"] = 0
-                dummy.name = next_dummy_idx
-                dummy_trades.append(dummy)
-                next_dummy_idx += 1
-        else:
-            # Nur ein Booktrade-Typ: einfach zuweisen
-            trades.loc[t_idx, "assignedEaeType"] = possible_types[0] if possible_types else None
-
-    # Dummy-Trades hinzufügen
-    if dummy_trades:
-        dummy_df = pd.DataFrame(dummy_trades)
-        trades = pd.concat([trades, dummy_df], ignore_index=False)
-        trades["conid_str"] = trades["conid"].astype(str).replace(['nan', 'None', '<NA>'], '')
-
-    # ZWEITES Merging - diesmal MIT Typ-Filter
-    merged = pd.merge(
-        trades.reset_index(),
-        eae,
-        left_on=["conid_str", "assetCategory", "currency"],
-        right_on=["conid_str", "assetCategory", "currency"],
-        suffixes=("_t", "_e")
-    )
-
-    # Zeitfilter
-    merged = merged[
-        (merged[f"{date_col_trade}_t"] - merged[f"{date_col_eae}_e"]).abs() <= pd.Timedelta(days=days_tolerance)
-        ]
-
-    # NEU: Filtere nach zugewiesenem Typ
-    type_col = "transactionType_e" if "transactionType_e" in merged.columns else "transactionType"
-    assignedType_col = "assignedEaeType_t" if "assignedEaeType_t" in merged.columns else "assignedEaeType"
-
-    # Nur Zeilen behalten, wo der EAE-Typ zum zugewiesenen Typ passt
-    merged = merged[merged[type_col] == merged[assignedType_col]]
-
-    used_stk_indices = set()
-
-    # VERARBEITUNG - jetzt hat jeder Trade genau EINEN passenden Booktrade
-    for t_idx, grp in merged.groupby("index"):
-        if len(grp) == 0:
-            continue
-
-        type_col = "transactionType_e" if "transactionType_e" in grp.columns else "transactionType"
-        underlyingConid_col = "underlyingConid_e" if "underlyingConid_e" in grp.columns else "underlyingConid"
-        quantity_col = "quantity_e" if "quantity_e" in grp.columns else "quantity"
-        multiplier_col = "multiplier_e" if "multiplier_e" in grp.columns else "multiplier"
-
-        # Jetzt sollte nur noch EIN Typ vorhanden sein
-        selected_type = grp[type_col].iloc[0]
-        link_id = str(uuid.uuid4())
-
-        # URSPRÜNGLICHE IF/ELIF LOGIK
-        if selected_type == "Expiration":
-            trades.loc[t_idx, "status"] = "Expired"
-
-        elif selected_type == "Cash Settlement":
-            trades.loc[t_idx, "status"] = "CashSettled"
-            row_cs = grp.iloc[0]
-            trades.loc[t_idx, "netCash"] = row_cs.get("proceeds", 0)
-
-        elif selected_type == "Assignment":
-            trades.loc[t_idx, "status"] = "Assigned"
-            trades.loc[t_idx, "linkID"] = link_id
-
-            assignment_info = grp.iloc[0]
-            u_conid = str(assignment_info.get(underlyingConid_col, ""))
-            target_qty = abs(assignment_info.get(quantity_col, 0) * assignment_info.get(multiplier_col, 1))
-
-            stk_mask = (
-                    (trades["assetCategory"] == "STK") &
-                    (trades["conid"].astype(str) == u_conid) &
-                    (~trades.index.isin(used_stk_indices)) &
-                    (abs(trades["quantity"]) == target_qty)
-            )
-            stk_candidates = trades[stk_mask]
-
-            if not stk_candidates.empty:
-                stk_idx = (stk_candidates[date_col_trade] - assignment_info[f"{date_col_eae}_e"]).abs().idxmin()
-                trades.loc[stk_idx, "linkID"] = link_id
-                trades.loc[stk_idx, "status"] = "Assigned"
-                used_stk_indices.add(stk_idx)
-        else:
-            trades.loc[t_idx, "status"] = "Unknown"
-
-    return trades.drop(columns=["conid_str"])

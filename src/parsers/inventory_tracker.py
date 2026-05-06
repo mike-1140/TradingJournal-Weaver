@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy import text
 from src.config import TABLE_PREFIX, TABLE_CAMPAIGN_LEDGER, TABLE_TRADING_CAMPAIGNS, MAX_GAP_DAYS
 from src.utils.div_utils import to_decimal
+from src.trade_enums import AssetCategory, CampaignStatus
 
 
 class InventoryTracker:
@@ -37,11 +38,11 @@ class InventoryTracker:
     @staticmethod
     def _determine_strategy(asset_type, qty):
         """Bestimmt die Strategie basierend auf dem Eröffnungs-Trade."""
-        if asset_type == 'OPT':
+        if asset_type == AssetCategory.OPTION:
             if qty < 0:
                 return 'BONUS/CASHFLOW'  # Short Put/Call
             return 'HEDGE/SPECULATION'  # Long Put/Call
-        elif asset_type == 'STK':
+        elif asset_type == AssetCategory.STOCK:
             return 'DIRECT_INVEST'  # Klassischer Aktienkauf
         return 'OTHER'
 
@@ -99,7 +100,7 @@ class InventoryTracker:
         überschritten sind, werden sie in der DB auf CLOSED gesetzt.
         """
         for symbol, h in list(self.holdings.items()):
-            if h['status'] == 'PENDING' and h['closed_at']:
+            if h['status'] == CampaignStatus.PENDING and h['closed_at']:
                 days_passed = (current_trade_date - h['closed_at']).days
 
                 if days_passed > self.max_gap_days:
@@ -109,7 +110,7 @@ class InventoryTracker:
                     actual_end_date = h['closed_at']
                     self._update_campaign_status_in_db(
                         h['campaign_id'],
-                        'CLOSED',
+                        CampaignStatus.CLOSED,
                         closed_at=actual_end_date
                     )
 
@@ -168,6 +169,10 @@ class InventoryTracker:
         asset_type = row['assetCategory']
         trade_date = row['dateTime']
 
+        if not trade_date:
+            self.db_logger.warning(f"dateTime fehlt für {symbol} ({asset_type}) — Trade übersprungen")
+            return 0
+
         # 1. Sicherstellen, dass das Symbol im Speicher existiert
         if symbol not in self.holdings:
             # Falls das Script gerade erst gestartet ist, wird hier initialisiert
@@ -181,15 +186,15 @@ class InventoryTracker:
         # --- KAMPAGNEN LOGIK (Start / Reaktivierung) ---
         if qty != 0:
             # Fall A: Reaktivierung einer PENDING Kampagne
-            if h['campaign_id'] is not None and h['status'] == 'PENDING':
+            if h['campaign_id'] is not None and h['status'] == CampaignStatus.PENDING:
                 days_passed = (trade_date - h['closed_at']).days
                 if days_passed <= self.max_gap_days:
                     # REAKTIVIERUNG
-                    h['status'] = 'ACTIVE'
+                    h['status'] = CampaignStatus.ACTIVE
                     h['closed_at'] = None
                     self._update_campaign_status_in_db(
                         h['campaign_id'],
-                        'ACTIVE',
+                        CampaignStatus.ACTIVE,
                         closed_at=None
                     )
                 else:
@@ -197,7 +202,7 @@ class InventoryTracker:
                     actual_end_date = h['closed_at']
                     self._update_campaign_status_in_db(
                         h['campaign_id'],
-                        'CLOSED',
+                        CampaignStatus.CLOSED,
                         closed_at=actual_end_date
                     )
                     self.db_logger.info(f"Kampagne abgelaufen: ID {h['campaign_id']} CLOSED")
@@ -205,26 +210,24 @@ class InventoryTracker:
                     # NEUSTART
                     strategy = self._determine_strategy(asset_type, qty)
                     h['campaign_id'] = self._insert_new_campaign_into_db(symbol, trade_date, strategy, asset_type)
-                    h['status'] = 'ACTIVE'
+                    h['status'] = CampaignStatus.ACTIVE
                     h['closed_at'] = None
                     h['shares'], h['options'] = 0, 0
-                    # print("1 neue Kampagne gestartet = ", trade_date)
                     self.db_logger.info(f"Neue Kampagne gestartet: Symbol {symbol}, ID {h['campaign_id']}")
 
             # Fall B: Initialer Start
             elif h['campaign_id'] is None:
                 strategy = self._determine_strategy(asset_type, qty)
                 h['campaign_id'] = self._insert_new_campaign_into_db(symbol, trade_date, strategy, asset_type)
-                h['status'] = 'ACTIVE'
+                h['status'] = CampaignStatus.ACTIVE
                 h['closed_at'] = None
                 h['shares'], h['options'] = 0, 0
-                # print("2 neue Kampagne gestartet = ", trade_date)
                 self.db_logger.info(f"Neue Kampagne gestartet: Symbol {symbol}, ID {h['campaign_id']}")
 
         # --- INVENTORY UPDATE ---
-        if asset_type == 'STK':
+        if asset_type == AssetCategory.STOCK:
             h['shares'] = to_decimal(h['shares']) + qty
-        elif asset_type == 'OPT':
+        elif asset_type == AssetCategory.OPTION:
             # Achtung: 'status' Spalte in Raw muss für Expiration geprüft werden
             if row.get('status') == 'Expiration':
                 h['options'] = Decimal('0')
@@ -233,13 +236,13 @@ class InventoryTracker:
 
         # --- STATUS-CHECK (Wann gehen wir Flat?) ---
         is_flat = (h['shares'] == 0 and h['options'] == 0)
-        if is_flat and h['status'] == 'ACTIVE':
-            h['status'] = 'PENDING'
+        if is_flat and h['status'] == CampaignStatus.ACTIVE:
+            h['status'] = CampaignStatus.PENDING
             h['closed_at'] = trade_date
             actual_end_date = h['closed_at']
             self._update_campaign_status_in_db(
                 h['campaign_id'],
-                'PENDING',
+                CampaignStatus.PENDING,
                 closed_at=actual_end_date
             )
         return h['campaign_id']
@@ -250,7 +253,7 @@ class InventoryTracker:
         Erzeugt einen lesbaren Namen wie: 'WHEEL: NVDA (2023-10-12)'
         """
         # Formatierung des Datums (nur Jahr-Monat-Tag)
-        date_str = start_date.strftime('%Y-%m-%d')
+        date_str = start_date.strftime('%Y-%m-%d') if start_date else 'unbekannt'
 
         # Mapping für schönere Strategie-Namen
         friendly_names = {
@@ -279,7 +282,6 @@ class InventoryTracker:
             "start_date": start_date,
             "environment": self.env
         }
-        # print("StartDate = ", start_date)
         return self.db_conn.insert_and_get_id(sql, param_dict)
 
     def _update_campaign_status_in_db(self, campaign_id, status, closed_at=None):

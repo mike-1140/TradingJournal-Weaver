@@ -179,8 +179,8 @@ class OpenTradeSchema(BaseSchema):
         # Open-Commission wird IMMER vollständig zugerechnet (offene Position wird
         # bei to_closed_trade immer zu 100% geschlossen — Case 2b/2c).
         # close_portion skaliert nur den Anteil des Closing-Trades, nicht die Open-Commission.
-        open_commission  = to_decimal(open_trade.get('ibCommission', 0) or 0)
-        close_commission = to_decimal(close_data.get('ibCommission', 0) or 0) * close_portion
+        open_commission  = to_decimal(open_trade.get('ibCommission'))
+        close_commission = to_decimal(close_data.get('ibCommission')) * close_portion
         closed_trade['ibCommission'] = to_decimal(open_commission + close_commission)
 
         # EUR-Werte: FX-Kurse zum jeweiligen Handelszeitpunkt
@@ -207,8 +207,8 @@ class OpenTradeSchema(BaseSchema):
 
         # Profit: Brutto-Prämien (proceeds), Commission separat — funktioniert für alle Fälle
         # inkl. Cash Settlement (wo netCashClose = 0, aber proceeds den Settlement-Betrag enthält)
-        proceeds_open  = to_decimal(open_trade.get('proceeds', 0) or 0)
-        proceeds_close = to_decimal(close_data.get('proceeds', 0) or 0) * close_portion
+        proceeds_open  = to_decimal(open_trade.get('proceeds'))
+        proceeds_close = to_decimal(close_data.get('proceeds')) * close_portion
         profit = proceeds_open + proceeds_close
         closed_trade['profit_EUR'] = proceeds_open * fxRate_open + proceeds_close * fxRate_close
         closed_trade['profit'] = to_decimal(profit)
@@ -257,7 +257,7 @@ class OpenTradeSchema(BaseSchema):
         # Map fields with different names
         closed_trade['dateTimeOpen'] = open_trade.get('dateTime')
         closed_trade['buySellOpen'] = open_trade.get('buySell')
-        closed_trade['quantity'] = close_data.get('quantity')  # für den Closeteil diesmal aus den clse_data
+        closed_trade['quantity'] = close_data.get('quantity')  # für den Close-teil diesmal aus den close_data
         closed_trade['tradePriceOpen'] = open_trade.get('tradePrice')
         net_cash_open = open_trade.get('netCash') * close_portion
         closed_trade['netCashOpen'] = net_cash_open
@@ -286,8 +286,8 @@ class OpenTradeSchema(BaseSchema):
         closed_trade['durationStr'] = duration_text
 
         # Sum commissions from open and close
-        open_commission = to_decimal(open_trade.get('ibCommission', 0) or 0) * close_portion
-        close_commission = to_decimal(close_data.get('ibCommission', 0) or 0)
+        open_commission = to_decimal(open_trade.get('ibCommission')) * close_portion
+        close_commission = to_decimal(close_data.get('ibCommission'))
         closed_trade['ibCommission'] = to_decimal(open_commission + close_commission)
 
         def calculate_roi(cost_of_investment, net_profit):
@@ -299,8 +299,8 @@ class OpenTradeSchema(BaseSchema):
             return roi
 
         # Profit: Brutto-Prämien (proceeds), Commission separat
-        proceeds_open_partial = to_decimal(open_trade.get('proceeds', 0) or 0) * close_portion
-        proceeds_close        = to_decimal(close_data.get('proceeds', 0) or 0)
+        proceeds_open_partial = to_decimal(open_trade.get('proceeds')) * close_portion
+        proceeds_close        = to_decimal(close_data.get('proceeds'))
         profit = proceeds_open_partial + proceeds_close
         closed_trade['profit'] = to_decimal(profit)
         closed_trade['ROI'] = to_decimal(calculate_roi(net_cash_open, profit))
@@ -332,16 +332,16 @@ class OpenTradeSchema(BaseSchema):
         updated_trade = open_trade.copy()
 
         # Calculate new total quantity
-        old_qty = open_trade.get('quantity', 0) or 0
-        new_qty = new_trade.get('quantity', 0) or 0
+        old_qty = to_decimal(open_trade.get('quantity'))
+        new_qty = to_decimal(new_trade.get('quantity'))
         total_qty = old_qty + new_qty
 
         if total_qty == 0:
             return updated_trade  # Avoid division by zero
 
         # Calculate weighted average price
-        old_price = open_trade.get('tradePrice', 0) or 0
-        new_price = new_trade.get('tradePrice', 0) or 0
+        old_price = to_decimal(open_trade.get('tradePrice'))
+        new_price = to_decimal(new_trade.get('tradePrice'))
         avg_price = ((old_price * old_qty) + (new_price * new_qty)) / total_qty
 
         # Update the values
@@ -349,21 +349,18 @@ class OpenTradeSchema(BaseSchema):
         updated_trade['tradePrice'] = round(avg_price, 4)
 
         # Sum the cash values
-        updated_trade['netCash'] = (open_trade.get('netCash', 0) or 0) + (new_trade.get('netCash', 0) or 0)
-        updated_trade['proceeds'] = (open_trade.get('proceeds', 0) or 0) + (new_trade.get('proceeds', 0) or 0)
-        updated_trade['ibCommission'] = (open_trade.get('ibCommission', 0) or 0) + (
-                new_trade.get('ibCommission', 0) or 0)
+        updated_trade['netCash'] = to_decimal(open_trade.get('netCash')) + to_decimal(new_trade.get('netCash'))
+        updated_trade['proceeds'] = to_decimal(open_trade.get('proceeds')) + to_decimal(new_trade.get('proceeds'))
+        updated_trade['ibCommission'] = to_decimal(open_trade.get('ibCommission')) + to_decimal(new_trade.get('ibCommission'))
 
         # Use the latest trade date/time
         if new_trade.get('dateTime'):
             try:
-                old_date = datetime.strptime(open_trade.get('dateTime', '1900-01-01'), '%Y-%m-%d')
-                new_date = datetime.strptime(new_trade.get('dateTime', '1900-01-01'), '%Y-%m-%d')
-
+                old_date = open_trade.get('dateTime') or datetime(1900, 1, 1)
+                new_date = new_trade.get('dateTime') or datetime(1900, 1, 1)
                 if new_date > old_date:
                     updated_trade['dateTime'] = new_trade.get('dateTime')
             except (ValueError, TypeError):
-                # Keep the old date if there's an error
                 pass
 
         return updated_trade
@@ -372,20 +369,20 @@ class OpenTradeSchema(BaseSchema):
     def to_update_split_trade(cls, open_trade: Dict[str, Any], new_trade: Dict[str, Any]) -> Dict[str, Any]:
         """
         Update an existing open trade after a split -> the factor is in 'multiplier'
-        calculate new quantiy and price
+        calculate new quantity and price
         """
         updated_trade = open_trade.copy()
 
-        factor = new_trade.get('multiplier', 0) or 0
+        factor = to_decimal(new_trade.get('multiplier'))
         if factor == 0:
             return updated_trade  # Avoid division by zero
 
         # Calculate new total quantity
-        old_qty = open_trade.get('quantity', 0) or 0
+        old_qty = to_decimal(open_trade.get('quantity'))
         new_qty = old_qty * factor
 
         # Calculate weighted average price
-        old_price = open_trade.get('tradePrice', 0) or 0
+        old_price = to_decimal(open_trade.get('tradePrice'))
         new_price = old_price / factor
 
         # Update the values
@@ -395,111 +392,14 @@ class OpenTradeSchema(BaseSchema):
         # Use the latest trade date/time
         if new_trade.get('dateTime'):
             try:
-                old_date = datetime.strptime(open_trade.get('dateTime', '1900-01-01'), '%Y-%m-%d')
-                new_date = datetime.strptime(new_trade.get('dateTime', '1900-01-01'), '%Y-%m-%d')
-
+                old_date = open_trade.get('dateTime') or datetime(1900, 1, 1)
+                new_date = new_trade.get('dateTime') or datetime(1900, 1, 1)
                 if new_date > old_date:
                     updated_trade['dateTime'] = new_trade.get('dateTime')
             except (ValueError, TypeError):
-                # Keep the old date if there's an error
                 pass
 
         return updated_trade
-
-    # @classmethod
-    # def handle_trades(cls, open_trade: Dict[str, Any], new_trade: Dict[str, Any]) -> tuple:
-    #     """
-    #     Handle trade processing based on trade directions
-    #     Returns (action, result) where:
-    #     - action is 'update', 'close', or 'close_new'
-    #     - result is the relevant trade data
-    #     """
-    #     # Normalisiere Datums- und Zeitfelder
-    #     open_trade = cls.normalize_date_fields(open_trade)
-    #     new_trade = cls.normalize_date_fields(new_trade)
-    #
-    #     # # Handle Split - Trades
-    #     # # if new_trade['source'] == 'split' and new_trade['is_split'] == 1 and new_trade['split_type'] in ("RS", "SS", "FS"):
-    #     # # Wenn split_type schon "RS", "SS" oder "FS" ist,
-    #     # # muss es nicht nochmal gegen die Liste geprüft werden.
-    #     # if new_trade['source'] == 'split' and new_trade['split_type']:
-    #     #     # found
-    #     #     updated_trade = cls.to_update_split_trade(open_trade, new_trade)
-    #     #     return 'update_split', updated_trade
-    #
-    #     open_sign = math.copysign(1, open_trade['quantity'])
-    #     new_sign = math.copysign(1, new_trade['quantity'])
-    #
-    #     # Case 1: Same sign - combine positions
-    #     if open_sign == new_sign:
-    #         updated_trade = cls.to_update_trade(open_trade, new_trade)
-    #         return 'update', updated_trade
-    #
-    #     # Case 2: Different signs - various closing scenarios
-    #     total_quantity = open_trade['quantity'] + new_trade['quantity']
-    #
-    #     # Case 2c: Quantities sum to zero - full close
-    #     if abs(total_quantity) < 0.0001:
-    #         closed_trade = cls.to_closed_trade(open_trade, new_trade)
-    #         return 'close', closed_trade
-    #
-    #     # Determine which trade is larger
-    #     open_abs = abs(open_trade['quantity'])
-    #     new_abs = abs(new_trade['quantity'])
-    #
-    #     if open_abs > new_abs:
-    #         # Case 2a: Open trade larger - partial close, update open trade
-    #
-    #         # Erstelle eine angepasste Kopie des open_trade für to_closed_trade
-    #         open_trade_adjusted = open_trade.copy()
-    #
-    #         # Proportionale Anpassung der Werte für den zu schließenden Teil
-    #         closing_proportion = new_abs / open_abs
-    #         open_trade_adjusted['quantity'] = open_trade['quantity'] * closing_proportion
-    #         open_trade_adjusted['netCash'] = open_trade.get('netCash', 0) * closing_proportion
-    #         open_trade_adjusted['proceeds'] = open_trade.get('proceeds', 0) * closing_proportion
-    #         open_trade_adjusted['ibCommission'] = open_trade.get('ibCommission', 0) * closing_proportion
-    #
-    #         # Create closed trade record für diesen angepassten Teil
-    #         closed_trade = cls.to_closed_trade(open_trade_adjusted, new_trade)
-    #
-    #         # Update open trade mit der verbleibenden Menge
-    #         updated_open = open_trade.copy()
-    #         updated_open['quantity'] = total_quantity
-    #
-    #         # Anpassung der finanziellen Werte für den verbleibenden Teil
-    #         remaining_proportion = Decimal('1.0') - closing_proportion
-    #         updated_open['netCash'] = open_trade.get('netCash', 0) * remaining_proportion
-    #         updated_open['proceeds'] = open_trade.get('proceeds', 0) * remaining_proportion
-    #         updated_open['ibCommission'] = open_trade.get('ibCommission', 0) * remaining_proportion
-    #
-    #         return 'close_update', (closed_trade, updated_open)
-    #     else:
-    #         # Case 2b: New trade larger - close open trade, create new trade
-    #
-    #         # Erstelle eine angepasste Kopie des new_trade für to_closed_trade
-    #         new_trade_adjusted = new_trade.copy()
-    #
-    #         # Proportionale Anpassung der Werte für den zu schließenden Teil
-    #         closing_proportion = open_abs / new_abs
-    #         new_trade_adjusted['quantity'] = new_trade['quantity'] * closing_proportion
-    #         new_trade_adjusted['netCash'] = new_trade.get('netCash', 0) * closing_proportion
-    #         new_trade_adjusted['ibCommission'] = new_trade.get('ibCommission', 0) * closing_proportion
-    #
-    #         # Create closed trade record für den vollen open_trade
-    #         closed_trade = cls.to_closed_trade(open_trade, new_trade_adjusted)
-    #
-    #         # Create new open trade mit der verbleibenden Menge
-    #         new_open = new_trade.copy()
-    #         new_open['quantity'] = total_quantity
-    #         new_open['status'] = 'Open'
-    #
-    #         # Anpassung der finanziellen Werte für den verbleibenden Teil
-    #         remaining_proportion = 1.0 - closing_proportion
-    #         new_open['netCash'] = new_trade.get('netCash', 0) * remaining_proportion
-    #         new_open['ibCommission'] = new_trade.get('ibCommission', 0) * remaining_proportion
-    #
-    #         return 'close_new', (closed_trade, new_open)
 
     @classmethod
     def log_open_trade(cls, open_trade, prefix: str = "Op", flag: bool = False):

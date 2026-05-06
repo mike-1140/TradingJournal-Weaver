@@ -16,6 +16,7 @@
 # -------------------------------------------------------------
 import uuid
 import pandas as pd
+from src.trade_enums import AssetCategory, TransactionType
 
 
 def _is_valid_order_id(val) -> bool:
@@ -31,7 +32,7 @@ def detect_strategies(trades_df: pd.DataFrame) -> pd.DataFrame:
     if trades_df.empty:
         return trades_df
 
-    df = trades_df[trades_df["transactionType"] == "ExchTrade"].copy()
+    df = trades_df[trades_df["transactionType"] == TransactionType.EXCH_TRADE].copy()
     if df.empty:
         return trades_df
 
@@ -48,7 +49,7 @@ def detect_strategies(trades_df: pd.DataFrame) -> pd.DataFrame:
     valid_order_mask = df["ibOrderID"].apply(_is_valid_order_id)
 
     for order_id, group in df[valid_order_mask].groupby("ibOrderID"):
-        opt_group = group[group["assetCategory"] == "OPT"]
+        opt_group = group[group["assetCategory"] == AssetCategory.OPTION]
         if len(opt_group) < 2:
             continue
 
@@ -68,7 +69,7 @@ def detect_strategies(trades_df: pd.DataFrame) -> pd.DataFrame:
     unprocessed = df[~df.index.isin(processed_indices)]
 
     for _, cluster in unprocessed.groupby(["underlyingSymbol", "time_cluster"]):
-        opt_cluster = cluster[cluster["assetCategory"] == "OPT"]
+        opt_cluster = cluster[cluster["assetCategory"] == AssetCategory.OPTION]
         if len(opt_cluster) < 2:
             continue
 
@@ -155,7 +156,7 @@ def _classify_3_legs(legs: pd.DataFrame) -> str:
     qtys = sorted(legs["quantity"].abs().tolist())
     if qtys[0] == qtys[1] and qtys[2] == qtys[0] * 2:
         opt_type = legs["putCall"].iloc[0]
-        return f"{'Call' if opt_type == 'C' else 'Put'} Butterfly"
+        return f"{'Call' if opt_type == 'C' else 'Put'} Butterfly"  # 'C'/'P' sind IBKR-Rohdaten aus putCall-Feld
 
     return ""
 
@@ -170,8 +171,8 @@ def _classify_4_legs(legs: pd.DataFrame) -> str:
     if legs["expiry"].nunique() != 1:
         return ""
 
-    calls = legs[legs["putCall"] == "C"]
-    puts = legs[legs["putCall"] == "P"]
+    calls = legs[legs["putCall"] == "C"]  # IBKR-Rohdaten
+    puts = legs[legs["putCall"] == "P"]   # IBKR-Rohdaten
     if len(calls) != 2 or len(puts) != 2:
         return ""
     if calls["quantity"].sum() != 0 or puts["quantity"].sum() != 0:

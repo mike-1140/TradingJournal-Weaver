@@ -125,7 +125,6 @@ def move_xml_file(environment: str, file_name, orig_dir, log, delete_files=False
             pass
         else:
             shutil.move(orig_path, target_path)
-        # print(f"'{file_name}' verschoben nach: {target_path}")
         print_log(log, f"{file_name} verschoben nach: {target_txt}", True)
     else:
         print_log(log, f"Datei existiert nicht: {orig_path}", True)

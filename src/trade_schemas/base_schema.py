@@ -1,10 +1,11 @@
 # trade_schemas/base_schema.py
 
+import pandas as pd
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any
+from src.utils.div_utils import parse_datetime_flex
 
 # imports, um darüberliegende zufriedenzustellen !!!
-# from .raw_trade import  RawTradeSchema
 # from .open_trade import OpenTradeSchema
 # from .closed_trade import ClosedTradeSchema
 
@@ -54,7 +55,8 @@ class BaseSchema:
         errors = []
         # Check for missing required fields
         for field in cls.REQUIRED_FIELDS:
-            if field not in data or data[field] is None:
+            val = data.get(field)
+            if val is None or (isinstance(val, float) and pd.isna(val)):
                 errors.append(f"Missing required field: {field}")
 
         # Check for unexpected fields (not defined in schema)
@@ -92,13 +94,10 @@ class BaseSchema:
                     normalized[field] = datetime.combine(value, datetime.min.time())
 
                 # Falls es bereits ein datetime ist: Einfach so lassen!
-                # Falls es ein String ist (z.B. aus CSV), hier parsen:
+                # Falls es ein String ist (z.B. aus CSV oder IBKR), hier parsen:
                 elif isinstance(value, str):
-                    try:
-                        # Beispiel für ISO-Format: 2024-12-05 09:30:01
-                        normalized[field] = datetime.fromisoformat(value.replace('Z', ''))
-                    except ValueError:
-                        # Fallback für andere Formate
-                        pass
+                    parsed = parse_datetime_flex(value)
+                    if parsed is not None:
+                        normalized[field] = parsed
 
         return normalized

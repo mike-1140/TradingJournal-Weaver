@@ -4,5 +4,3 @@
 from .base_schema import BaseSchema
 from .closed_trade import ClosedTradeSchema
 from .open_trade import OpenTradeSchema
-from .position_schema import PositionSchema
-from .raw_trade import RawTradeSchema

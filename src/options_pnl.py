@@ -203,84 +203,6 @@ def calculate_pnl(trades_df, logger=None):
 
     return df
 
-    df = trades_df.copy()
-
-    # Initialisiere neue Spalten
-    df['realized_pnl'] = None
-    df['pnl_source'] = None
-    df['verification_ok'] = None
-
-    # Nur Options berechnen
-    opt_mask = df['assetCategory'] == 'OPT'
-
-    # REGEL 1: BookTrades haben fifoPnlRealized
-    booktrade_mask = opt_mask & (df['transactionType'] == 'BookTrade')
-
-    if booktrade_mask.any():
-        # Verwende IBKR's fifoPnlRealized
-        df.loc[booktrade_mask, 'realized_pnl'] = pd.to_numeric(
-            df.loc[booktrade_mask, 'fifoPnlRealized'],
-            errors='coerce'
-        )
-        df.loc[booktrade_mask, 'pnl_source'] = 'BookTrade_fifoPnl'
-
-        logger.info(f"Berechnet P&L für {booktrade_mask.sum()} BookTrades")
-
-    # REGEL 2: ExchTrades (Opening Trades) haben keinen realized P&L
-    exchtrade_mask = opt_mask & (df['transactionType'] == 'ExchTrade')
-
-    if exchtrade_mask.any():
-        df.loc[exchtrade_mask, 'realized_pnl'] = 0
-        df.loc[exchtrade_mask, 'pnl_source'] = 'Opening_Trade'
-
-        logger.info(f"{exchtrade_mask.sum()} Opening Trades (kein realized P&L)")
-
-    # REGEL 3: Verifikation bei Cash Settlement
-    cs_mask = booktrade_mask & df['cashSettlement_proceeds'].notna()
-
-    if cs_mask.any():
-        logger.info(f"Verifikation für {cs_mask.sum()} Cash Settlement Trades")
-
-        for idx in df[cs_mask].index:
-            # Finde den Opening Trade (ExchTrade) für diese Position
-            symbol = df.loc[idx, 'symbol']
-            conid = df.loc[idx, 'conid']
-
-            # Suche Opening Trade mit gleichem Symbol/Conid
-            opening_mask = (
-                    (df['symbol'] == symbol) &
-                    (df['conid'] == conid) &
-                    (df['transactionType'] == 'ExchTrade') &
-                    (df.index < idx)  # Vor dem BookTrade
-            )
-
-            if opening_mask.any():
-                opening_idx = df[opening_mask].index[-1]  # Letzter Opening Trade
-
-                # Berechne: Premium + Cash Settlement
-                premium = pd.to_numeric(df.loc[opening_idx, 'netCash'], errors='coerce')
-                cs_proceeds = pd.to_numeric(df.loc[idx, 'cashSettlement_proceeds'], errors='coerce')
-                calculated_pnl = premium + cs_proceeds
-
-                # Vergleiche mit fifoPnlRealized
-                fifo_pnl = pd.to_numeric(df.loc[idx, 'fifoPnlRealized'], errors='coerce')
-
-                diff = abs(calculated_pnl - fifo_pnl)
-                tolerance = 0.01  # 1 Cent Toleranz
-
-                if diff < tolerance:
-                    df.loc[idx, 'verification_ok'] = True
-                    logger.info(f"  ✓ Trade {idx} ({symbol}): "
-                                f"Premium={premium:.2f} + CS={cs_proceeds:.2f} "
-                                f"= {calculated_pnl:.2f} (FIFO: {fifo_pnl:.2f})")
-                else:
-                    df.loc[idx, 'verification_ok'] = False
-                    logger.warning(f"  ⚠ Trade {idx} ({symbol}): "
-                                   f"Calculated={calculated_pnl:.2f} "
-                                   f"≠ FIFO={fifo_pnl:.2f} (diff={diff:.2f})")
-
-    return df
-
 
 def get_position_summary(trades_df, logger=None):
     """
@@ -321,23 +243,3 @@ def get_position_summary(trades_df, logger=None):
     summary = summary.sort_values('total_realized_pnl', ascending=False)
 
     return summary
-
-
-# BEISPIEL VERWENDUNG
-    # 1. Lade und verarbeite Trades
-    trades = parse_flex_query('your_file.xml')
-    eae = parse_option_eae('your_file.xml')
-
-    # 2. Handle Booktrades
-    from handle_booktrades_final import handle_booktrades
-    handled = handle_booktrades(trades, eae, 'dateTime', 'dateTime', 1, logger)
-
-    # 3. Berechne P&L
-    with_pnl = calculate_options_pnl(handled, logger)
-
-    # 4. Zeige Ergebnisse
-    print(with_pnl[['symbol', 'status', 'realized_pnl', 'pnl_source', 'verification_ok']])
-
-    # 5. Zusammenfassung
-    summary = get_position_summary(with_pnl, logger)
-    print(summary)

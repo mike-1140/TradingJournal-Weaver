@@ -1,6 +1,9 @@
-# src/reset_DB.py
+# tools/maintenance/reset_IBKR_DB.py
 
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parents[2]))  # xml_proj/ in sys.path
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import ProgrammingError
 from datetime import datetime

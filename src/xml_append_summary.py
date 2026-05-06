@@ -3,8 +3,8 @@
 # Keine Duplikate (fromDate eindeutig), aufsteigende Reihenfolge, Performance-Cache.
 
 import json
-import os
 import sys
+from pathlib import Path
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 from datetime import datetime

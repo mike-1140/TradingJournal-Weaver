@@ -1,6 +1,9 @@
 import xml.etree.ElementTree as ET
 import os
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parents[2]))  # xml_proj/ in sys.path
+
 import glob
 import shutil
 from xml.dom import minidom
