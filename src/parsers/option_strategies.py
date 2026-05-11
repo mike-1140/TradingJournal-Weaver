@@ -6,7 +6,7 @@
 #   Fallback: Zeitfenster (3s) für manuell gestaffelte Legs
 #
 #   Unterstützte Strategien:
-#     - Vertical Spread  (gleicher Typ, gleiche Expiry, verschiedener Strike)
+#     - Bull Put Spread / Bear Put Spread / Bear Call Spread / Bull Call Spread (Vertical)
 #     - Calendar Spread  (gleicher Typ, gleicher Strike, verschiedene Expiry)
 #     - Diagonal Spread  (gleicher Typ, verschiedener Strike, verschiedene Expiry)
 #     - Straddle         (C+P, gleicher Strike, gleiche Expiry, gleiche Richtung)
@@ -106,6 +106,20 @@ def _classify_strategy(legs: pd.DataFrame) -> str:
     return ""
 
 
+def _classify_vertical(legs: pd.DataFrame) -> str:
+    """Unterscheidet Bull Put / Bear Put / Bear Call / Bull Call Spread anhand Strike-Richtung."""
+    opt_type = legs["putCall"].iloc[0]  # 'P' oder 'C'
+    higher = legs.loc[legs["strike"].idxmax()]
+    lower  = legs.loc[legs["strike"].idxmin()]
+
+    if opt_type == "P":
+        # Bull Put: höherer Strike verkauft (qty < 0, short)
+        return "Bull Put Spread" if higher["quantity"] < 0 else "Bear Put Spread"
+    else:
+        # Bear Call: niedrigerer Strike verkauft (qty < 0, short)
+        return "Bear Call Spread" if lower["quantity"] < 0 else "Bull Call Spread"
+
+
 def _classify_2_legs(legs: pd.DataFrame) -> str:
     q1, q2 = legs["quantity"].iloc[0], legs["quantity"].iloc[1]
     pc1, pc2 = legs["putCall"].iloc[0], legs["putCall"].iloc[1]
@@ -126,7 +140,7 @@ def _classify_2_legs(legs: pd.DataFrame) -> str:
         if same_dir:
             return ""
         if same_expiry and not same_strike:
-            return "Vertical Spread"
+            return _classify_vertical(legs)
         if not same_expiry and same_strike:
             return "Calendar Spread"
         if not same_expiry and not same_strike:

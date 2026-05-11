@@ -124,7 +124,9 @@ class OpenTradeSchema(BaseSchema):
 
         OPEN_STATUSES = {'OPEN', 'REV_OPEN', 'SPLIT_REST'}
         if 'status' in data:
-            if str(data['status']).upper() not in OPEN_STATUSES:
+            raw = data['status']
+            status_str = raw.value if hasattr(raw, 'value') else str(raw)
+            if status_str.upper() not in OPEN_STATUSES:
                 errors.append("Invalid status for open trade")
         return errors
 

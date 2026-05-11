@@ -139,7 +139,9 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
             split_result = _handle_split_trade(trade, split_buffer, repo, table_trades_raw)
             if split_result == 'processed':
                 # Campaign-ID direkt aus holdings lesen — ohne Inventory-Update
-                split_symbol = trade.get('underlyingSymbol') or trade.get('symbol')
+                # Nach _handle_split_trade ist trade['symbol'] bereits auf das neue Symbol gesetzt;
+                # underlyingSymbol des alten Split-Legs wäre sonst z.B. "APDN.OLD" statt "APDN".
+                split_symbol = trade.get('symbol')
                 campaign_id = (tracker.holdings.get(split_symbol) or {}).get('campaign_id')
                 process_stock_split(repo, trade, tracker, campaign_id)
                 # In-memory Bestand an neuen Faktor anpassen
@@ -490,7 +492,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             tr['netCash'] = tr['netCash'] * rem_factor
             tr['proceeds'] = tr['proceeds'] * rem_factor
             tr['ibCommission'] = tr['ibCommission'] * rem_factor
-            tr['status'] = 'SPLIT_REST'
+            tr['status'] = TradeStatus.SPLIT_REST
             #                 "ibCommission"])
             repo.insert_open_trade(tr)
 
