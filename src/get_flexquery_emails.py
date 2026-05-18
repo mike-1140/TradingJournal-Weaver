@@ -1,8 +1,8 @@
 import imaplib
 import email
-from email.header import decode_header
 import os
 from datetime import datetime
+from email.header import decode_header
 from dotenv import load_dotenv
 
 from src.logger_setup import setup_logging
@@ -10,116 +10,157 @@ from src.utils.path_utils import get_project_root
 
 load_dotenv()
 
-IN_FOLDER_TEST = r'C:\Trade_XML\test'
-IN_FOLDER_PAPER = r'C:\Trade_XML\paper'
-IN_FOLDER_MONEY = r'C:\Trade_XML\money'
-IN_FOLDER_AUTOM_PAPER = r'C:\Trade_XML\autom_paper'
-IN_FOLDER_AUTOM_MONEY = r'C:\Trade_XML\autom_money'
+# --- Eingangsordner — Routing erfolgt beim Import per accountId ---
+IN_FOLDER_XML_INCOMING = r'C:\Trade_XML\incoming'
+IN_FOLDER_CSV_INCOMING = r'C:\Trade_CSV\incoming'
 
-# Credentials aus .env laden
-username = os.getenv("IMAP_USERNAME")
-password = os.getenv("IMAP_PASSWORD")
-imap_server = os.getenv("IMAP_SERVER", "imap.gmx.com")
+# IMAP-Credentials aus .env
+username             = os.getenv("IMAP_USERNAME")
+password             = os.getenv("IMAP_PASSWORD")
+imap_server          = os.getenv("IMAP_SERVER", "imap.gmx.com")
+activity_subject     = os.getenv("IBKR_ACTIVITY_SUBJECT", "Activity Statement")
+
+
+def _ensure_dirs():
+    """Erstellt Eingangsordner falls nötig."""
+    for folder in [IN_FOLDER_XML_INCOMING, IN_FOLDER_CSV_INCOMING]:
+        os.makedirs(folder, exist_ok=True)
 
 
 def clean(text):
-    # Sonderzeichen fuer Ordnernamen bereinigen
     return "".join(c if c.isalnum() else "_" for c in text)
 
 
-def main():
-    # Logging
-    log_file = get_project_root() / "log/app.log"
-    logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
-    logger.info("=" * 80)
-    logger.info(f"---- FlexQueryEmails (" + datetime.now().strftime('%Y-%m-%d - %H:%M:%S') + ")")
-    logger.info("=" * 80)
-
-    logger.info('Start Process Flex Query Mails')
-    logger.info('Process Mail-Account: ' + username)
-    cnt = 0
-
-    # IMAP-Verbindung mit SSL aufbauen
+def _connect_imap() -> imaplib.IMAP4_SSL:
     imap = imaplib.IMAP4_SSL(imap_server)
     imap.login(username, password)
     imap.select("INBOX")
+    return imap
 
-    # Suche: Mails von IBKR mit einem der beiden Subjects
-    # OR verknuepft genau zwei Kriterien — FROM als aeusseres AND korrekt verschachtelt
+
+def _decode_header_value(value) -> str:
+    decoded, enc = decode_header(value)[0]
+    if isinstance(decoded, bytes):
+        return decoded.decode(enc or 'utf-8')
+    return decoded
+
+
+def _save_attachment(part, filepath: str, logger) -> None:
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "wb") as f:
+        f.write(part.get_payload(decode=True))
+    logger.info(f"Anhang gespeichert: {os.path.basename(filepath)} -> {filepath}")
+
+
+def _process_flexquery_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
+    """
+    Sucht FlexQuery-Mails (XML/CSV mit Environment-Keyword im Dateinamen)
+    und speichert Anhaenge in die XML-Zielordner.
+    """
+    cnt = 0
     status, data = imap.search(
         None,
         '(FROM "donotreply@interactivebrokers.com")',
         '(OR SUBJECT "Trade Confirmation Flex" SUBJECT "Activity Flex for")'
     )
+    if status != 'OK':
+        return cnt
 
-    if status == 'OK':
-        for num in data[0].split():
-            status, msg = imap.fetch(num, '(RFC822)')
-            for response in msg:
-                if isinstance(response, tuple):
-                    # Bytes-Email in Message-Objekt parsen
-                    msg = email.message_from_bytes(response[1])
+    for num in data[0].split():
+        status, msg_data = imap.fetch(num, '(RFC822)')
+        for response in msg_data:
+            if not isinstance(response, tuple):
+                continue
+            msg = email.message_from_bytes(response[1])
+            if not msg.is_multipart():
+                continue
 
-                    # Subject dekodieren
-                    subject, encoding = decode_header(msg["Subject"])[0]
-                    if isinstance(subject, bytes):
-                        subject = subject.decode(encoding or 'utf-8')
+            for part in msg.walk():
+                if "attachment" not in str(part.get("Content-Disposition")):
+                    continue
+                filename = part.get_filename()
+                if not filename or not filename.lower().endswith('.xml'):
+                    continue
 
-                    # Absender dekodieren
-                    From, encoding = decode_header(msg.get("From"))[0]
-                    if isinstance(From, bytes):
-                        From = From.decode(encoding or 'utf-8')
+                _save_attachment(part, os.path.join(IN_FOLDER_XML_INCOMING, filename), logger)
+                imap.store(num, '+FLAGS', '\\Deleted')
+                cnt += 1
 
-                    # Multipart-Mail verarbeiten
-                    if msg.is_multipart():
-                        for part in msg.walk():
-                            content_type = part.get_content_type()
-                            content_disposition = str(part.get("Content-Disposition"))
+    return cnt
 
-                            try:
-                                body = part.get_payload(decode=True).decode()
-                            except Exception:
-                                pass
 
-                            if content_type == "text/plain" and "attachment" not in content_disposition:
-                                pass
-                            elif "attachment" in content_disposition:
-                                filename = part.get_filename()
-                                filepath = ""
+def _process_activity_statement_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
+    """
+    Sucht IBKR Activity Statement Mails (Betreff enthaelt IBKR_ACTIVITY_SUBJECT)
+    und speichert CSV-Anhaenge in die CSV-Zielordner.
+    Routing per Env-Keyword im Dateinamen (z.B. autom_money.1961241.20260513.csv).
+    """
+    cnt = 0
+    status, data = imap.search(
+        None,
+        '(FROM "donotreply@interactivebrokers.com")',
+        f'(SUBJECT "{activity_subject}")'
+    )
+    if status != 'OK':
+        return cnt
 
-                                if filename and ("xml" in filename or "csv" in filename):
-                                    # Reihenfolge wichtig: autom_* vor den einfachen Namen pruefen
-                                    if "autom_money" in filename:
-                                        filepath = os.path.join(IN_FOLDER_AUTOM_MONEY, filename)
-                                        cnt += 1
-                                    elif "autom_paper" in filename:
-                                        filepath = os.path.join(IN_FOLDER_AUTOM_PAPER, filename)
-                                        cnt += 1
-                                    elif "money" in filename:
-                                        filepath = os.path.join(IN_FOLDER_MONEY, filename)
-                                        cnt += 1
-                                    elif "paper" in filename:
-                                        filepath = os.path.join(IN_FOLDER_PAPER, filename)
-                                        cnt += 1
-                                    elif "test" in filename:
-                                        filepath = os.path.join(IN_FOLDER_TEST, filename)
-                                        cnt += 1
+    for num in data[0].split():
+        status, msg_data = imap.fetch(num, '(RFC822)')
+        for response in msg_data:
+            if not isinstance(response, tuple):
+                continue
+            msg = email.message_from_bytes(response[1])
+            if not msg.is_multipart():
+                continue
 
-                                if filepath:
-                                    # Anhang speichern (with-Statement schliesst File-Handle sicher)
-                                    with open(filepath, "wb") as f:
-                                        f.write(part.get_payload(decode=True))
-                                    logger.info('Attachment saved: ' + filename)
-                                    # Mail vom Server loeschen
-                                    imap.store(num, '+FLAGS', '\\Deleted')
+            for part in msg.walk():
+                if "attachment" not in str(part.get("Content-Disposition")):
+                    continue
+                filename = part.get_filename()
+                if not filename or not filename.lower().endswith('.csv'):
+                    continue
 
-    # Verbindung schliessen
+                filepath = os.path.join(IN_FOLDER_CSV_INCOMING, filename)
+                if os.path.exists(filepath):
+                    logger.info(f"Bereits vorhanden, uebersprungen: {filename}")
+                    continue
+
+                _save_attachment(part, filepath, logger)
+                imap.store(num, '+FLAGS', '\\Deleted')
+                cnt += 1
+                logger.info(f"Activity CSV gespeichert: {filename} → incoming/")
+
+    return cnt
+
+
+def main():
+    log_file = get_project_root() / "log/app.log"
+    logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
+    logger.info("=" * 80)
+    logger.info(f"---- FlexQueryEmails ({datetime.now().strftime('%Y-%m-%d - %H:%M:%S')})")
+    logger.info("=" * 80)
+    logger.info(f"Mail-Account: {username}")
+
+    _ensure_dirs()
+
+    imap = _connect_imap()
+
+    cnt_flex     = _process_flexquery_mails(imap, logger)
+    cnt_activity = _process_activity_statement_mails(imap, logger)
+
+    # Geloeschte Mails endgueltig entfernen
+    imap.expunge()
     imap.close()
     imap.logout()
-    logger.info('End Process Flex Query Mails\n')
-    return cnt
+
+    total = cnt_flex + cnt_activity
+    logger.info(
+        f"Fertig: {cnt_flex} FlexQuery-Datei(en), "
+        f"{cnt_activity} Activity-CSV(s) gespeichert"
+    )
+    return total
 
 
 if __name__ == '__main__':
     dateien_verarbeitet = main()
-    print('Fertig, Dateien verarbeitet: ' + str(dateien_verarbeitet))
+    print(f"Fertig, Dateien verarbeitet: {dateien_verarbeitet}")

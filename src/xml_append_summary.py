@@ -17,9 +17,10 @@ from src.utils.path_utils import get_project_root
 BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
 BASE_XML_FILE_PATH_TEST = get_project_root() / "input"
 
-SUMMARY_FILE_NAME = "summary.xml"
-CACHE_FILE_NAME   = "summary_cache.json"
-FLEX_FILE_PREFIX  = "flex."
+FLEX_FILE_PREFIX = "flex."
+# Dateinamen werden dynamisch aus table_prefix + environment gebildet:
+# summary_{table_prefix}{environment}.xml  z.B. summary_mike_money.xml
+# summary_{table_prefix}{environment}_cache.json
 
 # Logging
 log_file = get_project_root() / "log/app.log"
@@ -150,9 +151,10 @@ def save_summary(summary_file: Path, root: ET.Element, stmts_elem: ET.Element) -
 # Haupt-Logik
 # ---------------------------------------------------------------------------
 
-def build_summary(environment: str) -> None:
+def build_summary(environment: str, table_prefix: str) -> None:
     """
-    Liest neue flex.*.xml-Dateien aus processed/ und aktualisiert summary.xml.
+    Liest neue flex.*.xml-Dateien aus processed/ und aktualisiert die account-spezifische Summary.
+    Dateiname: summary_{table_prefix}{environment}.xml  z.B. summary_mike_money.xml
     environment: paper | money | autom_money | autom_paper | test
     """
     environment = environment.lower()
@@ -160,12 +162,12 @@ def build_summary(environment: str) -> None:
     base_xml_path = BASE_XML_FILE_PATH_TEST if environment == "test" else BASE_XML_FILE_PATH_PROD
     input_dir     = Path(base_xml_path) / environment
     processed_dir = input_dir / "processed"
-    summary_file  = input_dir / SUMMARY_FILE_NAME
-    cache_file    = input_dir / CACHE_FILE_NAME
+    summary_file  = input_dir / f"summary_{table_prefix}{environment}.xml"
+    cache_file    = input_dir / f"summary_{table_prefix}{environment}_cache.json"
 
     logger.info("=" * 80)
     logger.info(
-        f"Summary-Build für Environment: {environment.upper()} "
+        f"Summary-Build: {table_prefix}{environment.upper()} "
         f"({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
     )
     logger.info(f"  Quelle:  {processed_dir}")
@@ -263,17 +265,20 @@ def build_summary(environment: str) -> None:
 # ---------------------------------------------------------------------------
 
 def main():
-    if len(sys.argv) > 1:
-        env = sys.argv[1]
-    else:
-        env = "paper"
+    if len(sys.argv) < 3:
+        print("Usage: python xml_append_summary.py <environment> <table_prefix>")
+        print("  Beispiel: python xml_append_summary.py money mike_")
+        sys.exit(1)
+
+    env    = sys.argv[1].lower()
+    prefix = sys.argv[2]
 
     valid_envs = ["paper", "money", "autom_money", "autom_paper", "test"]
     if env not in valid_envs:
         print(f"Ungültiges Environment: {env!r}. Gültig: {', '.join(valid_envs)}")
         sys.exit(1)
 
-    build_summary(env)
+    build_summary(env, prefix)
 
 
 if __name__ == "__main__":

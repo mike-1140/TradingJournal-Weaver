@@ -63,5 +63,28 @@ TABLE_TRADE_NOTES = os.getenv("TABLE_TRADE_NOTES", "trade_notes")
 TABLE_TRADE_TAG_PIVOT = os.getenv("TABLE_TRADE_TAG_PIVOT", "trade_tag_pivot")
 TABLE_CAMPAIGN_LEDGER = os.getenv("TABLE_CAMPAIGN_LEDGER", "campaign_ledger")
 TABLE_TRADING_CAMPAIGNS = os.getenv("TABLE_TRADING_CAMPAIGNS", "trading_campaigns")
+TABLE_ACCOUNT_SNAPSHOTS = os.getenv("TABLE_ACCOUNT_SNAPSHOTS", "account_snapshots")
 
 DEBUG_SQL = os.getenv("DEBUG_SQL", "false").lower() == "true"
+
+
+# === Account-Mapping: IBKR accountId → User / Environment / Prefix ===
+
+def _normalize_account_id(raw: str) -> str:
+    """Letzte 4 Ziffern — maskiert ('U***9360') und unmaskiert ('U12369360') ergeben denselben Key."""
+    digits = ''.join(filter(str.isdigit, raw))
+    return digits[-4:]
+
+# Key = letzte 4 Ziffern der IBKR accountId
+# Beispiele: "U***65466" → "5466",  "U12368145" → "8145",  "DU***4049" → "4049"
+ACCOUNT_MAP: dict[str, dict] = {
+    "5466": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_money"},
+    "9254": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_paper"},
+    "9360": {"user": "mike",   "table_prefix": "mike_",   "environment": "money"},
+    "4049": {"user": "mike",   "table_prefix": "mike_",   "environment": "paper"},
+    "8145": {"user": "karola", "table_prefix": "karola_", "environment": "money"},
+}
+
+def get_account_config(raw_account_id: str) -> dict | None:
+    """Gibt {user, table_prefix, environment} für eine accountId zurück (maskiert oder voll)."""
+    return ACCOUNT_MAP.get(_normalize_account_id(raw_account_id))
