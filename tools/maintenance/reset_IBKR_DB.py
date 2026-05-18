@@ -74,7 +74,8 @@ def process_setup_data(environment: str, table_prefix: str) -> str:
         'trading_campaigns',
         'campaign_ledger',
         'trade_planner',
-        'trade_planner_legs'
+        'trade_planner_legs',
+        'account_snapshots'
     ]
 
     with db_engine.connect() as conn:
