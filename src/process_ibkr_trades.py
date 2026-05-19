@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any
 
-from src.config import TABLE_PREFIX, TABLE_TRADES_RAW, TABLE_TRADES_OPEN
+from src.config import TABLE_PREFIX, TABLE_TRADES_RAW, TABLE_TRADES_OPEN, load_active_targets
 from src.db.db_access import DBAccess, TradeRepository
 from src.logger_setup import setup_logging, print_log
 from src.parsers.inventory_tracker import InventoryTracker
@@ -628,18 +628,17 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Bitte Environment angeben: money | paper | test | autom_money | autom_paper")
-        print("Optional: Table-Prefix, z.B.: python reset_IBKR_DB.py money mike_")
-        table_prefix = "mike_"
-        env = "test"
-        # sys.exit(1)
-    elif len(sys.argv) >= 3:
-        # --- OPTIONALER TABLE PREFIX ÜBER COMMANDLINE ---
-        table_prefix = sys.argv[2]
-        print(f"*** TABLE PREFIX via Commandline aktiv: '{table_prefix}' ***")
-        env = sys.argv[1].lower()
+    if len(sys.argv) >= 2:
+        # CLI-Override: explizites Environment hat Vorrang vor pipeline.toml
+        env          = sys.argv[1].lower()
+        table_prefix = sys.argv[2] if len(sys.argv) >= 3 else TABLE_PREFIX
+        logger.info(f"CLI-Modus: {env} / {table_prefix}")
+        process_trades(env, table_prefix, TABLE_TRADES_RAW)
     else:
-        table_prefix = TABLE_PREFIX
-        env = sys.argv[1].lower()
-    process_trades(env, table_prefix, TABLE_TRADES_RAW)
+        # Auto-Modus: alle aktiven Targets aus pipeline.toml
+        targets = load_active_targets()
+        if not targets:
+            print("Keine aktiven Targets in pipeline.toml gefunden.")
+            sys.exit(0)
+        for t in targets:
+            process_trades(t["environment"], t["prefix"], TABLE_TRADES_RAW)

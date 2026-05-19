@@ -19,6 +19,7 @@ username             = os.getenv("IMAP_USERNAME")
 password             = os.getenv("IMAP_PASSWORD")
 imap_server          = os.getenv("IMAP_SERVER", "imap.gmx.com")
 activity_subject     = os.getenv("IBKR_ACTIVITY_SUBJECT", "Activity Statement")
+activity_subject_de  = os.getenv("IBKR_ACTIVITY_SUBJECT_DE", "Kontoauszug")
 
 
 def _ensure_dirs():
@@ -99,7 +100,7 @@ def _process_activity_statement_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
     status, data = imap.search(
         None,
         '(FROM "donotreply@interactivebrokers.com")',
-        f'(SUBJECT "{activity_subject}")'
+        f'(OR SUBJECT "{activity_subject}" SUBJECT "{activity_subject_de}")'
     )
     if status != 'OK':
         return cnt

@@ -55,38 +55,24 @@ def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str
     tasks = []
 
     for step in steps_to_run:
-        if step == "fetch_emails":
-            # Laeuft einmal, keine User/Env-Parameter
-            tasks.append({"step": step, "label": "fetch_emails", "args": []})
+        if step in ("fetch_emails", "process", "summary"):
+            # Laufen einmal ohne Args — Scripts iterieren intern ueber pipeline.toml
+            tasks.append({"step": step, "label": step, "args": []})
 
-        elif step in ("import", "process"):
-            # Pro User x Env
+        elif step == "import":
+            # Pro User x Env (import bleibt pro-User, wegen from_summary-Modus)
             for user, ucfg in active_users.items():
                 envs = [e for e in ucfg["environments"] if not filter_envs or e in filter_envs]
                 for env in envs:
                     args = [env, ucfg["prefix"]]
-                    # from_summary gilt nur fuer den import-Step
-                    if from_summary and step == "import":
+                    if from_summary:
                         args.append("from_summary")
-                    label_suffix = " [from_summary]" if from_summary and step == "import" else ""
+                    label_suffix = " [from_summary]" if from_summary else ""
                     tasks.append({
                         "step": step,
-                        "label": f"{step}{label_suffix} [{user} / {env}]",
+                        "label": f"import{label_suffix} [{user} / {env}]",
                         "args": args,
                     })
-
-        elif step == "summary":
-            # Pro eindeutigem Env (ueber alle aktiven User — summary ist nicht user-spezifisch)
-            seen_envs: set[str] = set()
-            for ucfg in active_users.values():
-                for env in ucfg["environments"]:
-                    if (not filter_envs or env in filter_envs) and env not in seen_envs:
-                        seen_envs.add(env)
-                        tasks.append({
-                            "step": step,
-                            "label": f"summary [{env}]",
-                            "args": [env],
-                        })
 
         elif step == "reset":
             # Pro User x Env — Prefix wird mitgegeben (DESTRUKTIV: loescht und legt Tabellen neu an)
