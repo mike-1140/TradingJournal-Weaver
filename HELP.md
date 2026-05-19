@@ -21,11 +21,27 @@ Jeder User hat einen eigenen Tabellen-Prefix. Standard aus `.env` (`TABLE_PREFIX
 
 Beispiel: Prefix `mike_` → Tabellen `mike_trades_raw`, `mike_trades_open`, ...
 
+## Verzeichnisstruktur (XML-Dateien)
+
+```
+C:\Trade_XML\
+  incoming\                    ← alle eingehenden XML-Dateien (accountId-Routing)
+  <env>\
+    <user>\
+      processed\               ← erfolgreich importierte Dateien
+      deleted\                 ← Dateien ohne neue Trades
+    summary_<prefix><env>.xml  ← zusammengefasste Summary
+C:\Trade_CSV\
+  incoming\                    ← eingehende Activity-CSVs
+    <user>\
+      processed\               ← erfolgreich importierte CSVs
+```
+
 ---
 
 ## run_pipeline.py — Vollständiger Pipeline-Runner
 
-Konfiguration in `pipeline.toml`. Führt alle 4 Schritte automatisch aus.
+Konfiguration in `pipeline.toml`. Führt alle Steps automatisch aus.
 
 ```bash
 # Alles ausführen (laut pipeline.toml)
@@ -72,52 +88,56 @@ python run_pipeline.py --config meine_pipeline.toml
 |---|---|---|
 | `fetch_emails` | `src.get_flexquery_emails` | Einmal gesamt |
 | `import` | `src.import_ibkr_trades` | User × Environment |
-| `process` | `src.process_ibkr_trades` | User × Environment |
-| `summary` | `src.xml_append_summary` | Environment (einmal je Env) |
+| `process` | `src.process_ibkr_trades` | Einmal gesamt (intern pipeline.toml) |
+| `summary` | `src.xml_append_summary` | Einmal gesamt (intern pipeline.toml) |
 | `reset` | `src.reset_IBKR_DB` | User × Environment ⚠️ destruktiv |
 
 ---
 
 ## get_flexquery_emails.py — E-Mails abrufen
 
-Lädt IBKR FlexQuery XML-Anhänge aus dem Mail-Postfach und speichert sie
-in die entsprechenden Environment-Ordner (`C:\Trade_XML\{env}\`).
+Lädt IBKR FlexQuery XML- und Activity-CSV-Anhänge aus dem Mail-Postfach und speichert
+sie in `C:\Trade_XML\incoming\` bzw. `C:\Trade_CSV\incoming\`. Routing (welcher User /
+welches Environment) erfolgt erst beim Import per accountId.
 
 ```bash
 python -m src.get_flexquery_emails
 ```
 
-Keine Argumente. Zugangsdaten aus `.env` (`IMAP_USERNAME`, `IMAP_PASSWORD`, `IMAP_SERVER`).
+Keine Argumente. Relevante `.env`-Variablen:
+
+| Variable | Bedeutung |
+|---|---|
+| `IMAP_USERNAME` | Mail-Adresse |
+| `IMAP_PASSWORD` | Mail-Passwort |
+| `IMAP_SERVER` | IMAP-Server (Standard: `imap.gmx.com`) |
+| `IBKR_ACTIVITY_SUBJECT` | Betreff Activity Statement EN (Standard: `Activity Statement`) |
+| `IBKR_ACTIVITY_SUBJECT_DE` | Betreff Activity Statement DE (Standard: `Kontoauszug`) |
 
 ---
 
 ## import_ibkr_trades.py — XML → trades_raw
 
-Liest XML-Dateien aus dem Environment-Ordner und schreibt sie in `trades_raw`.
+Scannt `C:\Trade_XML\incoming\` nach `flex.*.xml`-Dateien. Routing erfolgt automatisch
+per `accountId` aus der XML → `ACCOUNT_MAP` → Environment + User + Prefix.
+Verarbeitete Dateien landen in `C:\Trade_XML\<env>\<user>\processed\`.
 
 ```bash
-# Pflichtargument: Environment
-python -m src.import_ibkr_trades money
-python -m src.import_ibkr_trades paper
-python -m src.import_ibkr_trades test
-python -m src.import_ibkr_trades autom_money
-python -m src.import_ibkr_trades autom_paper
+# Auto-Modus: scannt incoming/, Routing per accountId (kein Argument nötig)
+python -m src.import_ibkr_trades
 
-# Mit Table-Prefix (überschreibt TABLE_PREFIX aus .env)
-python -m src.import_ibkr_trades money mike_
-python -m src.import_ibkr_trades money karola_
-
-# Aus summary.xml importieren statt einzelner XML-Dateien
-python -m src.import_ibkr_trades money from_summary
-python -m src.import_ibkr_trades money mike_ from_summary
+# Aus summary.xml importieren (explizites Environment + Prefix erforderlich)
+python -m src.import_ibkr_trades from_summary money mike_
+python -m src.import_ibkr_trades from_summary money karola_
+python -m src.import_ibkr_trades from_summary autom_paper mike_
 ```
 
-**Argumente:**
+**Argumente (nur für `from_summary`):**
 | Position | Wert | Pflicht |
 |---|---|---|
-| 1 | Environment (`money` \| `paper` \| `test` \| `autom_money` \| `autom_paper`) | Ja |
-| 2 | Table-Prefix (z.B. `mike_`) | Nein (Standard aus `.env`) |
-| - | `from_summary` (beliebige Position) | Nein |
+| 1 | `from_summary` | Ja (schaltet Modus um) |
+| 2 | Environment | Ja |
+| 3 | Table-Prefix (z.B. `mike_`) | Ja |
 
 ---
 
@@ -127,47 +147,45 @@ Verarbeitet unverarbeitete Einträge aus `trades_raw` per FIFO-Matching.
 Schreibt Ergebnisse in `trades_open`, `trades_close`, `trading_campaigns`, `campaign_ledger`.
 
 ```bash
-# Pflichtargument: Environment
-python -m src.process_ibkr_trades money
-python -m src.process_ibkr_trades paper
-python -m src.process_ibkr_trades test
-python -m src.process_ibkr_trades autom_money
-python -m src.process_ibkr_trades autom_paper
+# Auto-Modus: alle aktiven Targets aus pipeline.toml (kein Argument nötig)
+python -m src.process_ibkr_trades
 
-# Mit Table-Prefix (überschreibt TABLE_PREFIX aus .env)
+# CLI-Override: explizites Environment (überschreibt pipeline.toml)
+python -m src.process_ibkr_trades money
 python -m src.process_ibkr_trades money mike_
 python -m src.process_ibkr_trades money karola_
 ```
 
-**Argumente:**
+**Argumente (CLI-Override):**
 | Position | Wert | Pflicht |
 |---|---|---|
-| 1 | Environment | Ja |
+| 1 | Environment | Ja (für CLI-Override) |
 | 2 | Table-Prefix | Nein (Standard aus `.env`) |
 
 ---
 
 ## xml_append_summary.py — Einzel-XMLs zu summary.xml zusammenfassen
 
-Liest neue `flex.*.xml`-Dateien aus `{env}/processed/` und aktualisiert `summary.xml`.
-Keine Duplikate (fromDate eindeutig), aufsteigende Reihenfolge, Performance-Cache.
+Liest neue `flex.*.xml`-Dateien aus `<env>/<user>/processed/` und aktualisiert
+`summary_<prefix><env>.xml`. Keine Duplikate (fromDate eindeutig), aufsteigende
+Reihenfolge, Performance-Cache.
 
 ```bash
-# Standard: paper
+# Auto-Modus: alle aktiven Targets aus pipeline.toml (kein Argument nötig)
 python -m src.xml_append_summary
 
-# Mit Environment-Angabe
-python -m src.xml_append_summary money
-python -m src.xml_append_summary paper
-python -m src.xml_append_summary test
-python -m src.xml_append_summary autom_money
-python -m src.xml_append_summary autom_paper
+# CLI-Override: explizites Environment + Prefix (überschreibt pipeline.toml)
+python -m src.xml_append_summary money mike_
+python -m src.xml_append_summary paper mike_
+python -m src.xml_append_summary autom_money mike_
+python -m src.xml_append_summary money karola_
 ```
 
-**Argumente:**
+**Argumente (CLI-Override):**
 | Position | Wert | Pflicht |
 |---|---|---|
-| 1 | Environment | Nein (Standard: `paper`) |
+| 1 | Environment | Ja (für CLI-Override) |
+| 2 | Table-Prefix | Ja (für CLI-Override) |
 
 ---
 
@@ -177,16 +195,12 @@ Legt die Datenbank und alle Tabellen neu an (aus `sql/`-Schemas).
 **Achtung: Löscht alle bestehenden Daten!** Nur beim ersten Setup oder nach Reset verwenden.
 
 ```bash
-# Pflichtargument: Environment
-python -m src.reset_IBKR_DB money
-python -m src.reset_IBKR_DB paper
-python -m src.reset_IBKR_DB test
-python -m src.reset_IBKR_DB autom_money
-python -m src.reset_IBKR_DB autom_paper
-
-# Mit Table-Prefix
+# Pflichtargument: Environment + Prefix
 python -m src.reset_IBKR_DB money mike_
+python -m src.reset_IBKR_DB paper mike_
 python -m src.reset_IBKR_DB money karola_
+python -m src.reset_IBKR_DB autom_money mike_
+python -m src.reset_IBKR_DB autom_paper mike_
 ```
 
 **Argumente:**
@@ -203,19 +217,20 @@ python -m src.reset_IBKR_DB money karola_
 ```bash
 python -m src.reset_IBKR_DB money mike_
 python -m src.reset_IBKR_DB paper mike_
+python -m src.reset_IBKR_DB money karola_
+```
+
+### Täglicher Lauf (automatisch, alle User/Envs laut pipeline.toml)
+```bash
+python run_pipeline.py
 ```
 
 ### Täglicher Lauf (manuell, Schritt für Schritt)
 ```bash
-python -m src.get_flexquery_emails
-python -m src.import_ibkr_trades money mike_
-python -m src.process_ibkr_trades money mike_
-python -m src.xml_append_summary money
-```
-
-### Täglicher Lauf (automatisch, alle User/Envs)
-```bash
-python run_pipeline.py
+python -m src.get_flexquery_emails       # Mails holen → incoming/
+python -m src.import_ibkr_trades         # XML importieren (auto-routing per accountId)
+python -m src.process_ibkr_trades        # FIFO-Verarbeitung (alle Targets)
+python -m src.xml_append_summary         # Summary aktualisieren (alle Targets)
 ```
 
 ### Nur einen User neu verarbeiten
@@ -226,4 +241,10 @@ python run_pipeline.py --users mike --steps process
 ### Nur Emails holen und importieren
 ```bash
 python run_pipeline.py --steps fetch_emails import
+```
+
+### Einzelnen Account aus summary.xml neu importieren
+```bash
+python -m src.import_ibkr_trades from_summary money mike_
+python -m src.process_ibkr_trades money mike_
 ```
