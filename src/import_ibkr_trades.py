@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
-from src.config import get_account_config
+from src.config import get_account_config, is_environment_active, load_active_targets
 from src.db.db_access import DBAccess, TradeRepository
 from src.import_activity_statement import import_activity_statement
 from src.logger_setup import setup_logging, print_log
@@ -35,6 +35,12 @@ def import_trades() -> None:
 
     _import_xml_files()
 
+    # TEST-Import: eigenes Verzeichnis, kein accountId-Routing
+    for t in load_active_targets():
+        if t["environment"] == "test":
+            cnt_test = _import_test_files(t["prefix"])
+            logger.info(f"TEST-Import abgeschlossen: {cnt_test} Trade(s)")
+
     cnt_csv = _import_activity_csvs()
     logger.info(f"CSV-Import abgeschlossen: {cnt_csv} Snapshot(s)")
 
@@ -54,9 +60,11 @@ def _read_account_id_from_xml(xml_path: Path) -> str | None:
         return None
 
 
-def _ensure_env_dirs(environment: str) -> None:
-    """Erstellt processed/ und deleted/ für ein Environment falls nötig."""
+def _ensure_env_dirs(environment: str, user: str = "") -> None:
+    """Erstellt processed/ und deleted/ für ein Environment (optional mit User-Unterordner)."""
     base = Path(BASE_XML_FILE_PATH_PROD) / environment
+    if user:
+        base = base / user
     for sub in ['processed', 'deleted']:
         (base / sub).mkdir(parents=True, exist_ok=True)
 
@@ -64,8 +72,8 @@ def _ensure_env_dirs(environment: str) -> None:
 def _import_xml_files() -> None:
     """
     Scannt C:\\Trade_XML\\incoming\\ nach flex.*.xml-Dateien.
-    Routing: accountId → ACCOUNT_MAP → environment + table_prefix.
-    Verarbeitete Dateien werden nach <env>/processed/ bzw. <env>/deleted/ verschoben.
+    Routing: accountId → ACCOUNT_MAP → environment + user + table_prefix.
+    Verarbeitete Dateien werden nach <env>/<user>/processed/ bzw. <env>/<user>/deleted/ verschoben.
     """
     incoming = Path(BASE_XML_INCOMING)
     incoming.mkdir(parents=True, exist_ok=True)
@@ -94,19 +102,24 @@ def _import_xml_files() -> None:
 
         environment  = cfg['environment']
         table_prefix = cfg['table_prefix']
+        user         = cfg['user']
+
+        if not is_environment_active(environment, table_prefix):
+            logger.info(f"Environment '{environment}' inaktiv (pipeline.toml) — {xml_file} übersprungen")
+            continue
         env_up       = environment.upper()
 
-        _ensure_env_dirs(environment)
+        _ensure_env_dirs(environment, user)
         db   = DBAccess(logger, environment, table_prefix)
         repo = TradeRepository(db)
 
-        progress.start(f"({i}/{total}): {xml_file} [{env_up} / {table_prefix}]")
+        progress.start(f"({i}/{total}): {xml_file} [{env_up} / {user}]")
         num_inserted, entry_found = process_flex_file(xml_path, db, repo, logger, environment)
         total_inserted += num_inserted
         delete_file = num_inserted == 0 and entry_found == 0
-        progress.done(f"({i}/{total}) {xml_file} → {num_inserted} Trades [{env_up}]")
+        progress.done(f"({i}/{total}) {xml_file} → {num_inserted} Trades [{env_up} / {user}]")
 
-        target_base = Path(BASE_XML_FILE_PATH_PROD) / environment
+        target_base = Path(BASE_XML_FILE_PATH_PROD) / environment / user
         move_xml_file(xml_file, incoming, logger, delete_file, target_base)
 
     logger.info(f"XML-Import abgeschlossen: {total_inserted} Trades aus {total} Datei(en)")
@@ -138,14 +151,50 @@ def _import_xml_from_summary(environment: str, table_prefix: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# TEST-Import (manuelles Environment, kein accountId-Routing)
+# ---------------------------------------------------------------------------
+
+def _import_test_files(prefix: str) -> int:
+    """
+    Scannt C:\\Trade_XML\\test\\incoming\\ nach flex.*.xml-Dateien.
+    Kein accountId-Routing — Environment ist durch Verzeichnis fixiert.
+    """
+    incoming = Path(BASE_XML_FILE_PATH_PROD) / "test" / "incoming"
+    incoming.mkdir(parents=True, exist_ok=True)
+
+    files = [f for f in os.listdir(incoming) if f.lower().startswith("flex.") and f.lower().endswith(".xml")]
+    if not files:
+        return 0
+
+    _ensure_env_dirs("test")
+    db   = DBAccess(logger, "test", prefix)
+    repo = TradeRepository(db)
+
+    progress    = ProgressLine(logger)
+    total       = len(files)
+    total_inserted = 0
+
+    for i, xml_file in enumerate(files, start=1):
+        xml_path = incoming / xml_file
+        progress.start(f"TEST ({i}/{total}): {xml_file} [{prefix}]")
+        num_inserted, entry_found = process_flex_file(xml_path, db, repo, logger, "test")
+        total_inserted += num_inserted
+        delete_file = num_inserted == 0 and entry_found == 0
+        progress.done(f"TEST ({i}/{total}) {xml_file} → {num_inserted} Trades")
+        move_xml_file(xml_file, incoming, logger, delete_file, Path(BASE_XML_FILE_PATH_PROD) / "test")
+
+    return total_inserted
+
+
+# ---------------------------------------------------------------------------
 # CSV-Import
 # ---------------------------------------------------------------------------
 
 def _import_activity_csvs() -> int:
     """
     Scannt C:\\Trade_CSV\\incoming\\ nach Activity Statement CSVs.
-    Routing: accountId aus Dateiinhalt → ACCOUNT_MAP → environment + table_prefix.
-    Verarbeitete Dateien werden nach incoming/processed/ verschoben.
+    Routing: accountId aus Dateiinhalt → ACCOUNT_MAP → environment + user + table_prefix.
+    Verarbeitete Dateien werden nach incoming/<user>/processed/ verschoben.
     """
     incoming = Path(BASE_CSV_INCOMING)
     incoming.mkdir(parents=True, exist_ok=True)
@@ -154,7 +203,6 @@ def _import_activity_csvs() -> int:
     if not csv_files:
         return 0
 
-    processed_dir = incoming / "processed"
     cnt = 0
 
     for csv_file in csv_files:
@@ -174,9 +222,11 @@ def _import_activity_csvs() -> int:
 
         environment  = cfg['environment']
         table_prefix = cfg['table_prefix']
+        user         = cfg['user']
 
         imported = import_activity_statement(str(csv_path), environment, table_prefix)
-        processed_dir.mkdir(exist_ok=True)
+        processed_dir = incoming / user / "processed"
+        processed_dir.mkdir(parents=True, exist_ok=True)
         shutil.move(str(csv_path), str(processed_dir / csv_file))
 
         if imported:
