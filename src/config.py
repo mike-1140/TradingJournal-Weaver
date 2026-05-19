@@ -1,4 +1,5 @@
 import os
+import tomllib
 from sqlalchemy import create_engine, event
 from dotenv import load_dotenv
 from pathlib import Path
@@ -88,3 +89,42 @@ ACCOUNT_MAP: dict[str, dict] = {
 def get_account_config(raw_account_id: str) -> dict | None:
     """Gibt {user, table_prefix, environment} für eine accountId zurück (maskiert oder voll)."""
     return ACCOUNT_MAP.get(_normalize_account_id(raw_account_id))
+
+
+# === Pipeline-Konfiguration ===
+
+def load_active_targets() -> list[dict]:
+    """
+    Liest pipeline.toml und gibt alle aktiven Targets zurück.
+    Format: [{"environment": str, "prefix": str}]
+    Reihenfolge: Users in TOML-Reihenfolge, TEST zuletzt (nur wenn enabled=true).
+    """
+    toml_path = ROOT_DIR / "pipeline.toml"
+    if not toml_path.exists():
+        return []
+    with open(toml_path, "rb") as f:
+        cfg = tomllib.load(f)
+
+    targets = []
+    for user_name, user_cfg in cfg.get("users", {}).items():
+        prefix = user_cfg["prefix"]
+        for env in user_cfg.get("environments", []):
+            targets.append({"environment": env, "prefix": prefix, "user": user_name})
+
+    test_cfg = cfg.get("test", {})
+    if test_cfg.get("enabled", False):
+        targets.append({
+            "environment": "test",
+            "prefix": test_cfg.get("prefix", TABLE_PREFIX),
+            "user": "test",
+        })
+
+    return targets
+
+
+def is_environment_active(environment: str, prefix: str) -> bool:
+    """Prüft ob (environment, prefix) in pipeline.toml als aktiv konfiguriert ist."""
+    return any(
+        t["environment"] == environment and t["prefix"] == prefix
+        for t in load_active_targets()
+    )

@@ -10,12 +10,12 @@ import xml.dom.minidom
 from datetime import datetime
 from pathlib import Path
 
+from src.config import DB_MAP, load_active_targets
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
 
 # Konstanten – analog zu import_ibkr_trades.py
 BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
-BASE_XML_FILE_PATH_TEST = get_project_root() / "input"
 
 FLEX_FILE_PREFIX = "flex."
 # Dateinamen werden dynamisch aus table_prefix + environment gebildet:
@@ -151,19 +151,20 @@ def save_summary(summary_file: Path, root: ET.Element, stmts_elem: ET.Element) -
 # Haupt-Logik
 # ---------------------------------------------------------------------------
 
-def build_summary(environment: str, table_prefix: str) -> None:
+def build_summary(environment: str, table_prefix: str, user: str = "") -> None:
     """
     Liest neue flex.*.xml-Dateien aus processed/ und aktualisiert die account-spezifische Summary.
     Dateiname: summary_{table_prefix}{environment}.xml  z.B. summary_mike_money.xml
     environment: paper | money | autom_money | autom_paper | test
+    user: Unterordner in <env>/<user>/processed/ — leer für Legacy-Pfad ohne User-Ebene.
     """
     environment = environment.lower()
 
-    base_xml_path = BASE_XML_FILE_PATH_TEST if environment == "test" else BASE_XML_FILE_PATH_PROD
-    input_dir     = Path(base_xml_path) / environment
-    processed_dir = input_dir / "processed"
-    summary_file  = input_dir / f"summary_{table_prefix}{environment}.xml"
-    cache_file    = input_dir / f"summary_{table_prefix}{environment}_cache.json"
+    env_dir       = Path(BASE_XML_FILE_PATH_PROD) / environment
+    user_dir      = env_dir / user if user else env_dir
+    processed_dir = user_dir / "processed"
+    summary_file  = env_dir / f"summary_{table_prefix}{environment}.xml"
+    cache_file    = env_dir / f"summary_{table_prefix}{environment}_cache.json"
 
     logger.info("=" * 80)
     logger.info(
@@ -265,20 +266,27 @@ def build_summary(environment: str, table_prefix: str) -> None:
 # ---------------------------------------------------------------------------
 
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) >= 3:
+        # CLI-Override: explizites Environment + Prefix haben Vorrang
+        env    = sys.argv[1].lower()
+        prefix = sys.argv[2]
+        valid_envs = list(DB_MAP.keys())
+        if env not in valid_envs:
+            print(f"Ungültiges Environment: {env!r}. Gültig: {', '.join(valid_envs)}")
+            sys.exit(1)
+        build_summary(env, prefix)
+    elif len(sys.argv) == 1:
+        # Auto-Modus: alle aktiven Targets aus pipeline.toml
+        targets = load_active_targets()
+        if not targets:
+            print("Keine aktiven Targets in pipeline.toml gefunden.")
+            sys.exit(0)
+        for t in targets:
+            build_summary(t["environment"], t["prefix"], t.get("user", ""))
+    else:
         print("Usage: python xml_append_summary.py <environment> <table_prefix>")
-        print("  Beispiel: python xml_append_summary.py money mike_")
+        print("  Oder ohne Parameter: alle aktiven Environments aus pipeline.toml")
         sys.exit(1)
-
-    env    = sys.argv[1].lower()
-    prefix = sys.argv[2]
-
-    valid_envs = ["paper", "money", "autom_money", "autom_paper", "test"]
-    if env not in valid_envs:
-        print(f"Ungültiges Environment: {env!r}. Gültig: {', '.join(valid_envs)}")
-        sys.exit(1)
-
-    build_summary(env, prefix)
 
 
 if __name__ == "__main__":
