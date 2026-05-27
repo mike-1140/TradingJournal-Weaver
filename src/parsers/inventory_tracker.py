@@ -7,15 +7,16 @@ from src.trade_enums import AssetCategory, CampaignStatus
 
 
 class InventoryTracker:
-    def __init__(self, logger, db_conn, table_prefix, env="TEST", max_gap_days=MAX_GAP_DAYS):
+    def __init__(self, logger, db_conn, table_prefix, env="TEST", max_gap_days=MAX_GAP_DAYS, reference_date=None):
         self.db_conn = db_conn
         self.table_prefix = table_prefix or TABLE_PREFIX
         self.max_gap_days = max_gap_days
         self.db_logger = logger
         self.env = env
 
-        # schließe alle abgelaufenen Kampagnen
-        self.close_old_pending_campaigns()
+        # schließe abgelaufene Kampagnen — reference_date ist der erste zu verarbeitende Trade-Zeitpunkt,
+        # NICHT datetime.now(), da Trades mit Verzögerung importiert werden können (AUTOM-Pipeline).
+        self.close_old_pending_campaigns(reference_date=reference_date)
         # Lade laufende Kampagnen aus der DB
         self.holdings = self._load_active_campaigns_from_db()
 
@@ -129,6 +130,8 @@ class InventoryTracker:
         """
         if reference_date is None:
             reference_date = datetime.now().date()
+        elif hasattr(reference_date, 'date'):
+            reference_date = reference_date.date()
 
         full_table_name = self._prefixed(TABLE_TRADING_CAMPAIGNS)
 
@@ -335,6 +338,24 @@ class InventoryTracker:
 
         self.db_logger.info("--- AUDIT FINISHED ---\n")
 
+    def _get_running_totals(self, campaign_id: int) -> dict:
+        """Liest die aktuellen kumulierten Salden für eine Kampagne aus dem Ledger."""
+        full_table_name = self._prefixed(TABLE_CAMPAIGN_LEDGER)
+        sql = f"""
+            SELECT
+                COALESCE(SUM(realized_pnl), 0) AS cum_pnl,
+                COALESCE(SUM(commission),   0) AS cum_commission,
+                COALESCE(SUM(proceeds),     0) AS cum_premium
+            FROM {full_table_name}
+            WHERE campaign_id = :campaign_id
+        """
+        result = self.db_conn.fetch_one(sql, {"campaign_id": campaign_id})
+        return {
+            "cum_pnl":        to_decimal(result["cum_pnl"]        or 0),
+            "cum_commission": to_decimal(result["cum_commission"]  or 0),
+            "cum_premium":    to_decimal(result["cum_premium"]     or 0),
+        }
+
     def link_to_campaign_new(self, assetCategory, campaign_id, source_table, source_id,
                              netcash, proceeds, commission, pnl, quantity, action, dateTime, conid,
                              currency='USD', fxRateToBase=1, symbol=None,
@@ -342,19 +363,26 @@ class InventoryTracker:
                              multiplier=None, put_call=None, buy_sell=None,
                              link_id=None):
 
+        totals = self._get_running_totals(campaign_id)
+        new_cum_pnl        = totals["cum_pnl"]        + to_decimal(pnl)
+        new_cum_commission = totals["cum_commission"]  + to_decimal(commission)
+        new_cum_premium    = totals["cum_premium"]     + to_decimal(proceeds)
+
         full_table_name = self._prefixed(TABLE_CAMPAIGN_LEDGER)
         sql_ledger = f"""
             INSERT INTO {full_table_name}
             (assetCategory, campaign_id, symbol, source_table, source_id,
              linkID, tradePrice, strike, expiry, multiplier, putCall, buySell,
-             netcash, proceeds, commission, realized_pnl, inventory_delta,
-             action, dateTime, conid, environment, currency, fxRateToBase,
+             netcash, proceeds, commission, realized_pnl,
+             cum_pnl, cum_commission, cum_premium,
+             inventory_delta, action, dateTime, conid, environment, currency, fxRateToBase,
              netcash_eur, proceeds_eur, commission_eur)
             VALUES
             (:assetCategory, :campaign_id, :symbol, :source_table, :source_id,
              :link_id, :trade_price, :strike, :expiry, :multiplier, :put_call, :buy_sell,
-             :netcash, :proceeds, :commission, :realized_pnl, :inventory_delta,
-             :action, :dateTime, :conid, :environment, :currency, :fxRateToBase,
+             :netcash, :proceeds, :commission, :realized_pnl,
+             :cum_pnl, :cum_commission, :cum_premium,
+             :inventory_delta, :action, :dateTime, :conid, :environment, :currency, :fxRateToBase,
              :netcash_eur, :proceeds_eur, :commission_eur)
         """
         fx = to_decimal(fxRateToBase) if fxRateToBase else to_decimal(1)
@@ -375,6 +403,9 @@ class InventoryTracker:
             "proceeds": proceeds,
             "commission": commission,
             "realized_pnl": pnl,
+            "cum_pnl":        new_cum_pnl,
+            "cum_commission": new_cum_commission,
+            "cum_premium":    new_cum_premium,
             "inventory_delta": quantity,
             "action": action,
             "dateTime": dateTime,

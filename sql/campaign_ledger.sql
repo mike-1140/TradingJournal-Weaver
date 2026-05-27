@@ -32,8 +32,12 @@ CREATE TABLE `__PREFIX__campaign_ledger` (
     `commission_eur` DECIMAL(19,4)  DEFAULT 0.0000,
     `realized_pnl` DECIMAL(19, 4) DEFAULT 0.0000,
 
+    `cum_pnl`        DECIMAL(19,4) DEFAULT NULL, -- kumulierter realisierter P&L dieser Kampagne bis zu diesem Event
+    `cum_commission` DECIMAL(19,4) DEFAULT NULL, -- kumulierte Kommissionen dieser Kampagne
+    `cum_premium`    DECIMAL(19,4) DEFAULT NULL, -- kumulierte Erlöse (Prämien + Aktienerlöse) dieser Kampagne
+
     `inventory_delta` DECIMAL(19, 4) NOT NULL DEFAULT 0.0000, -- Aktien/Optionen Menge
-    `action` VARCHAR(50), -- 'BUY', 'SELL', 'ASSIGNMENT', 'EXPIRATION', 'CASH_SETTLEMENT', 'FX_EXCHANGE'
+    `action` VARCHAR(50), -- Siehe LedgerAction-Enum: STK_BUY|STK_SELL|OPT_PUT_SELL|OPT_CALL_SELL|*_CLOSE|*_PARTIAL|OPTION_EXPIRATION|OPTION_EXERCISE|CASH_SETTLEMENT|STOCK_SPLIT|FX_EXCHANGE_*|TRADE_REVERSAL_OPEN
 
     `dateTime` DATETIME NOT NULL, -- Handelszeitpunkt aus XML
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

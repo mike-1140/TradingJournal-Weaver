@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
-from src.config import get_account_config, is_environment_active, load_active_targets
+from src.config import TABLE_PREFIX, get_account_config, is_environment_active, load_active_targets
 from src.db.db_access import DBAccess, TradeRepository
 from src.import_activity_statement import import_activity_statement
 from src.logger_setup import setup_logging, print_log
@@ -72,7 +72,7 @@ def _ensure_env_dirs(environment: str, user: str = "") -> None:
 def _import_xml_files() -> None:
     """
     Scannt C:\\Trade_XML\\incoming\\ nach flex.*.xml-Dateien.
-    Routing: accountId → ACCOUNT_MAP → environment + user + table_prefix.
+    Routing: accountId -> ACCOUNT_MAP -> environment + user + table_prefix.
     Verarbeitete Dateien werden nach <env>/<user>/processed/ bzw. <env>/<user>/deleted/ verschoben.
     """
     incoming = Path(BASE_XML_INCOMING)
@@ -117,7 +117,7 @@ def _import_xml_files() -> None:
         num_inserted, entry_found = process_flex_file(xml_path, db, repo, logger, environment)
         total_inserted += num_inserted
         delete_file = num_inserted == 0 and entry_found == 0
-        progress.done(f"({i}/{total}) {xml_file} → {num_inserted} Trades [{env_up} / {user}]")
+        progress.done(f"({i}/{total}) {xml_file} -> {num_inserted} Trades [{env_up} / {user}]")
 
         target_base = Path(BASE_XML_FILE_PATH_PROD) / environment / user
         move_xml_file(xml_file, incoming, logger, delete_file, target_base)
@@ -146,7 +146,7 @@ def _import_xml_from_summary(environment: str, table_prefix: str) -> None:
     progress = ProgressLine(logger)
     progress.start(f"Importiere summary.xml [{env_up}]")
     num_inserted, _ = process_flex_file(summary_path, db, repo, logger, environment)
-    progress.done(f"summary.xml → {num_inserted} Trades [{env_up}]")
+    progress.done(f"summary.xml -> {num_inserted} Trades [{env_up}]")
     logger.info(f"Summary-Import abgeschlossen: {num_inserted} Trades [{env_up}]")
 
 
@@ -154,24 +154,30 @@ def _import_xml_from_summary(environment: str, table_prefix: str) -> None:
 # TEST-Import (manuelles Environment, kein accountId-Routing)
 # ---------------------------------------------------------------------------
 
-def _import_test_files(prefix: str) -> int:
-    """
-    Scannt C:\\Trade_XML\\test\\incoming\\ nach flex.*.xml-Dateien.
-    Kein accountId-Routing — Environment ist durch Verzeichnis fixiert.
-    """
-    incoming = Path(BASE_XML_FILE_PATH_PROD) / "test" / "incoming"
-    incoming.mkdir(parents=True, exist_ok=True)
+def _get_test_prefix() -> str:
+    """Liest den Test-Prefix aus pipeline.toml, Fallback auf TABLE_PREFIX."""
+    for t in load_active_targets():
+        if t["environment"] == "test":
+            return t["prefix"]
+    return TABLE_PREFIX
 
+
+def _import_xml_to_test(prefix: str, incoming: Path) -> int:
+    """
+    Importiert alle flex.*.xml-Dateien aus 'incoming' in die test-DB.
+    Kein accountId-Routing — alles landet in test/{prefix}.
+    """
     files = [f for f in os.listdir(incoming) if f.lower().startswith("flex.") and f.lower().endswith(".xml")]
     if not files:
+        print(f"Keine XML-Dateien gefunden in: {incoming}")
         return 0
 
     _ensure_env_dirs("test")
     db   = DBAccess(logger, "test", prefix)
     repo = TradeRepository(db)
 
-    progress    = ProgressLine(logger)
-    total       = len(files)
+    progress       = ProgressLine(logger)
+    total          = len(files)
     total_inserted = 0
 
     for i, xml_file in enumerate(files, start=1):
@@ -180,10 +186,20 @@ def _import_test_files(prefix: str) -> int:
         num_inserted, entry_found = process_flex_file(xml_path, db, repo, logger, "test")
         total_inserted += num_inserted
         delete_file = num_inserted == 0 and entry_found == 0
-        progress.done(f"TEST ({i}/{total}) {xml_file} → {num_inserted} Trades")
+        progress.done(f"TEST ({i}/{total}) {xml_file} -> {num_inserted} Trades")
         move_xml_file(xml_file, incoming, logger, delete_file, Path(BASE_XML_FILE_PATH_PROD) / "test")
 
     return total_inserted
+
+
+def _import_test_files(prefix: str) -> int:
+    """
+    Scannt C:\\Trade_XML\\test\\incoming\\ nach flex.*.xml-Dateien.
+    Kein accountId-Routing — Environment ist durch Verzeichnis fixiert.
+    """
+    incoming = Path(BASE_XML_FILE_PATH_PROD) / "test" / "incoming"
+    incoming.mkdir(parents=True, exist_ok=True)
+    return _import_xml_to_test(prefix, incoming)
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +209,7 @@ def _import_test_files(prefix: str) -> int:
 def _import_activity_csvs() -> int:
     """
     Scannt C:\\Trade_CSV\\incoming\\ nach Activity Statement CSVs.
-    Routing: accountId aus Dateiinhalt → ACCOUNT_MAP → environment + user + table_prefix.
+    Routing: accountId aus Dateiinhalt -> ACCOUNT_MAP -> environment + user + table_prefix.
     Verarbeitete Dateien werden nach incoming/<user>/processed/ verschoben.
     """
     incoming = Path(BASE_CSV_INCOMING)
@@ -248,7 +264,7 @@ def move_xml_file(file_name: str, orig_dir: Path, log, delete_files: bool, targe
     if orig_path.exists():
         shutil.move(str(orig_path), str(target_dir / file_name))
         label = "deleted" if delete_files else "processed"
-        print_log(log, f"{file_name} → {label}", True)
+        print_log(log, f"{file_name} -> {label}", True)
     else:
         print_log(log, f"Datei nicht gefunden: {orig_path}", True)
 
@@ -268,5 +284,15 @@ if __name__ == "__main__":
             print("  Beispiel: python import_ibkr_trades.py from_summary money mike_")
             sys.exit(1)
         _import_xml_from_summary(args[0].lower(), args[1])
+
+    elif args and args[0].lower() == "test":
+        # Test-Modus: alle XMLs aus incoming/ -> test-DB, ohne accountId-Routing
+        # Aufruf: python import_ibkr_trades.py test [prefix]
+        # Ohne prefix: Wert aus pipeline.toml oder TABLE_PREFIX aus .env
+        prefix = args[1] if len(args) > 1 else _get_test_prefix()
+        logger.info(f"TEST-Modus: importiere aus incoming/ -> test / {prefix}")
+        cnt = _import_xml_to_test(prefix, Path(BASE_XML_INCOMING))
+        logger.info(f"TEST-Import abgeschlossen: {cnt} Trade(s)")
+
     else:
         import_trades()

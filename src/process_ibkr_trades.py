@@ -12,7 +12,7 @@ from src.parsers.inventory_tracker import InventoryTracker
 from src.trade_schemas import OpenTradeSchema, ClosedTradeSchema
 from src.utils.div_utils import to_decimal
 from src.utils.path_utils import get_project_root
-from src.trade_enums import AssetCategory, CampaignStatus, TradeStatus
+from src.trade_enums import AssetCategory, BuySell, CampaignStatus, LedgerAction, TradeStatus
 from src.utils.progress import ProgressLine
 
 # Logging
@@ -61,6 +61,36 @@ def clean_trade_dict(trade_dict, precision=4):
     return cleaned_trade
 
 
+def _open_action(asset: str, put_call, buy_sell: str) -> LedgerAction:
+    """Bestimmt die feingranulare Ledger-Action beim Eröffnen einer Position."""
+    if asset == AssetCategory.OPTION:
+        is_put = str(put_call) == 'P'
+        is_buy = buy_sell == BuySell.BUY
+        if is_put:
+            return LedgerAction.OPT_PUT_BUY if is_buy else LedgerAction.OPT_PUT_SELL
+        else:
+            return LedgerAction.OPT_CALL_BUY if is_buy else LedgerAction.OPT_CALL_SELL
+    return LedgerAction.STK_BUY if buy_sell == BuySell.BUY else LedgerAction.STK_SELL
+
+
+def _close_action(asset: str, put_call, buy_sell: str, partial: bool = False) -> LedgerAction:
+    """Bestimmt die feingranulare Ledger-Action beim Schließen einer Position."""
+    if asset == AssetCategory.OPTION:
+        is_put = str(put_call) == 'P'
+        is_buy = buy_sell == BuySell.BUY
+        if is_put:
+            if is_buy:
+                return LedgerAction.OPT_PUT_BUY_PARTIAL if partial else LedgerAction.OPT_PUT_BUY_CLOSE
+            return LedgerAction.OPT_PUT_SELL_PARTIAL if partial else LedgerAction.OPT_PUT_SELL_CLOSE
+        else:
+            if is_buy:
+                return LedgerAction.OPT_CALL_BUY_PARTIAL if partial else LedgerAction.OPT_CALL_BUY_CLOSE
+            return LedgerAction.OPT_CALL_SELL_PARTIAL if partial else LedgerAction.OPT_CALL_SELL_CLOSE
+    if buy_sell == BuySell.SELL:
+        return LedgerAction.STK_SELL_PARTIAL if partial else LedgerAction.STK_SELL_CLOSE
+    return LedgerAction.STK_BUY_PARTIAL if partial else LedgerAction.STK_BUY_CLOSE
+
+
 def process_trades(environment: str, table_pref: str, table_trades_raw):
     """
     Verarbeitet Trades aus der RAW-Tabelle und aktualisiert Open/Closed Trades
@@ -89,15 +119,20 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
 
     db = DBAccess(logger, environment, table_pref)
     repo = TradeRepository(db)
-    tracker = InventoryTracker(logger, db, table_pref,
-                               env_up)  # mit der Initialisierung, werden alle Campaigns geladen.
 
     # ===== DATEN LADEN =====
+    # Zuerst laden, damit der erste Trade-Zeitpunkt an den Tracker übergeben werden kann.
+    # close_old_pending_campaigns() darf nicht mit datetime.now() laufen, sonst werden
+    # Kampagnen zu früh geschlossen, wenn Trades mit Verzögerung importiert werden.
     df_raw = db.get_all_raw_trades(env_up, table_trades_raw)
 
     if df_raw.empty:
         print_log(logger, "Keine neuen Trades zum Verarbeiten gefunden", True)
         return
+
+    first_trade_date = df_raw.iloc[0]['dateTime']
+    tracker = InventoryTracker(logger, db, table_pref,
+                               env_up, reference_date=first_trade_date)
 
     total = len(df_raw)
     logger.info(f"{total} Trades zum Bearbeiten gefunden")
@@ -267,7 +302,7 @@ def process_stock_split(repo, trade, tracker, campaign_id):
             commission=0.0,
             pnl=0.0,
             quantity=added_qty,
-            action='STOCK_SPLIT',
+            action=LedgerAction.STOCK_SPLIT,
             dateTime=tr.get("dateTime"),
             conid=tr.get("conid"),
             currency=tr.get("currency", "USD"),
@@ -354,7 +389,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             commission=to_decimal(new_trade.get('ibCommission')),
             pnl=to_decimal(new_trade.get("profit")),
             quantity=new_trade.get("quantity"),
-            action='TRADE_OPEN',
+            action=_open_action(new_trade.get("assetCategory"), new_trade.get("putCall"), new_trade.get("buySell")),
             dateTime=new_trade.get("dateTime"),
             conid=new_trade.get("conid"),
             currency=new_trade.get("currency", "USD"),
@@ -407,9 +442,9 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             link_id_2c = cl_trade.get("linkID")
             if cl_trade["assetCategory"] == AssetCategory.OPTION:
                 if cl_trade["status"] == TradeStatus.EXPIRED:
-                    action = "OPTION_EXPIRATION"
+                    action = LedgerAction.OPTION_EXPIRATION
                 elif cl_trade["status"] == TradeStatus.ASSIGNED:
-                    action = 'OPTION_EXERCISE'
+                    action = LedgerAction.OPTION_EXERCISE
                     # linkID erzeugen und im Tracker merken, damit der folgende STK-Open
                     # (aus dem Assignment) denselben linkID bekommt
                     link_id_2c = cl_trade.get("linkID") or str(uuid.uuid4())
@@ -417,19 +452,19 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                     if underlying in tracker.holdings:
                         tracker.holdings[underlying]['pending_link_id'] = link_id_2c
                 elif cl_trade["status"] == TradeStatus.CASH_SETTLED:
-                    action = 'CASH_SETTLEMENT'
+                    action = LedgerAction.CASH_SETTLEMENT
                     # das bewegte Cash ist im proceedsClose gespeichert!!
                     # netcash und commission = 0!! (BookTrade hat ibCommission=0)
                     netcash = to_decimal(cl_trade.get("netCashClose"))
                     proceeds = to_decimal(cl_trade.get("proceedsClose"))
                     commission = close_commission_2c  # BookTrade → 0
                 else:
-                    action = 'TRADE_CLOSE_FULL'  # Normaler Verkauf vor Ablauf
+                    action = _close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose"))
                     netcash = to_decimal(cl_trade.get("netCashClose"))
                     proceeds = to_decimal(cl_trade.get("proceedsClose"))
                     commission = close_commission_2c
             else:
-                action = "TRADE_CLOSE_FULL"
+                action = _close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose"))
                 netcash = to_decimal(cl_trade.get("netCashClose"))
                 proceeds = to_decimal(cl_trade.get("proceedsClose"))
                 commission = close_commission_2c
@@ -511,7 +546,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 commission=close_commission_2a,
                 pnl=to_decimal(cl_trade.get('profit')),
                 quantity=new_trade.get("quantity"),
-                action='TRADE_CLOSE_PARTIAL',
+                action=_close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose"), partial=True),
                 dateTime=cl_trade.get("dateTimeClose"),
                 conid=cl_trade.get("conid"),
                 currency=new_trade.get("currency", "USD"),
@@ -557,7 +592,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 commission=close_commission_2b,
                 pnl=to_decimal(cl_trade.get("profit")),
                 quantity=-cl_trade.get("quantity"),
-                action='TRADE_CLOSE_FULL',
+                action=_close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose")),
                 dateTime=cl_trade.get("dateTimeClose"),
                 conid=cl_trade.get("conid"),
                 currency=cl_trade.get("currency", "USD"),
@@ -609,7 +644,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             commission=to_decimal(new_trade.get("ibCommission")),
             pnl=to_decimal(new_trade.get("profit")),
             quantity=new_trade.get("quantity"),
-            action='TRADE_REVERSAL_OPEN',
+            action=LedgerAction.TRADE_REVERSAL_OPEN,
             dateTime=new_trade.get("dateTime"),
             conid=new_trade.get("conid"),
             currency=new_trade.get("currency", "USD"),

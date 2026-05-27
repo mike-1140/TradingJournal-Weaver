@@ -74,8 +74,10 @@ def _process_flexquery_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
                 continue
             msg = email.message_from_bytes(response[1])
             if not msg.is_multipart():
+                imap.store(num, '+FLAGS', '\\Deleted')
                 continue
 
+            xml_found = False
             for part in msg.walk():
                 if "attachment" not in str(part.get("Content-Disposition")):
                     continue
@@ -83,9 +85,17 @@ def _process_flexquery_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
                 if not filename or not filename.lower().endswith('.xml'):
                     continue
 
-                _save_attachment(part, os.path.join(IN_FOLDER_XML_INCOMING, filename), logger)
-                imap.store(num, '+FLAGS', '\\Deleted')
-                cnt += 1
+                xml_found = True
+                filepath = os.path.join(IN_FOLDER_XML_INCOMING, filename)
+                if os.path.exists(filepath):
+                    logger.info(f"Bereits vorhanden, uebersprungen: {filename}")
+                else:
+                    _save_attachment(part, filepath, logger)
+                    cnt += 1
+
+            imap.store(num, '+FLAGS', '\\Deleted')
+            if not xml_found:
+                logger.info(f"Mail ohne XML-Anhang geloescht (Subject: {_decode_header_value(msg.get('Subject', ''))})")
 
     return cnt
 
@@ -112,8 +122,11 @@ def _process_activity_statement_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
                 continue
             msg = email.message_from_bytes(response[1])
             if not msg.is_multipart():
+                # Kein Anhang — Mail trotzdem loeschen (z.B. Benachrichtigungs-Mail ohne CSV)
+                imap.store(num, '+FLAGS', '\\Deleted')
                 continue
 
+            csv_found = False
             for part in msg.walk():
                 if "attachment" not in str(part.get("Content-Disposition")):
                     continue
@@ -121,15 +134,19 @@ def _process_activity_statement_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
                 if not filename or not filename.lower().endswith('.csv'):
                     continue
 
+                csv_found = True
                 filepath = os.path.join(IN_FOLDER_CSV_INCOMING, filename)
                 if os.path.exists(filepath):
                     logger.info(f"Bereits vorhanden, uebersprungen: {filename}")
-                    continue
+                else:
+                    _save_attachment(part, filepath, logger)
+                    cnt += 1
+                    logger.info(f"Activity CSV gespeichert: {filename} -> incoming/")
 
-                _save_attachment(part, filepath, logger)
-                imap.store(num, '+FLAGS', '\\Deleted')
-                cnt += 1
-                logger.info(f"Activity CSV gespeichert: {filename} → incoming/")
+            # Mail loeschen sobald sie verarbeitet wurde (unabhaengig ob CSV neu/vorhanden/fehlt)
+            imap.store(num, '+FLAGS', '\\Deleted')
+            if not csv_found:
+                logger.info(f"Mail ohne CSV-Anhang geloescht (Subject: {_decode_header_value(msg.get('Subject', ''))})")
 
     return cnt
 
