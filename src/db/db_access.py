@@ -95,6 +95,9 @@ class DBAccess:
     def fetch_one(self, sql: str, params: dict = None) -> Optional[Dict]:
         self._log_sql(sql, params)
         query = text(sql)
+        if self._conn is not None:
+            row = self._conn.execute(query, params or {}).mappings().first()
+            return dict(row) if row else None
         with self.engine.begin() as conn:
             row = conn.execute(query, params or {}).mappings().first()
             return dict(row) if row else None
@@ -102,6 +105,8 @@ class DBAccess:
     def fetch_all(self, sql: str, params: dict = None) -> List[Dict]:
         self._log_sql(sql, params)
         query = text(sql)
+        if self._conn is not None:
+            return [dict(r) for r in self._conn.execute(query, params or {}).mappings()]
         with self.engine.begin() as conn:
             return [dict(r) for r in conn.execute(query, params or {}).mappings()]
 

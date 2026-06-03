@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy import text
-from src.config import TABLE_PREFIX, TABLE_CAMPAIGN_LEDGER, TABLE_TRADING_CAMPAIGNS, MAX_GAP_DAYS
+from src.config import TABLE_PREFIX, TABLE_CAMPAIGN_LEDGER, TABLE_TRADING_CAMPAIGNS, TABLE_TRADES_OPEN, MAX_GAP_DAYS
 from src.utils.div_utils import to_decimal
 from src.trade_enums import AssetCategory, CampaignStatus
 
@@ -94,6 +94,44 @@ class InventoryTracker:
             'shares': to_decimal(result['shares'] or 0),
             'options': to_decimal(result['options'] or 0)
         }
+
+    def _has_open_trades(self, campaign_id: int) -> bool:
+        """Prüft ob noch aktive (unverarbeitete) Einträge in trades_open existieren."""
+        trades_open_table  = self._prefixed(TABLE_TRADES_OPEN)
+        ledger_table       = self._prefixed(TABLE_CAMPAIGN_LEDGER)
+        sql = f"""
+            SELECT COUNT(*) as cnt
+            FROM {trades_open_table} t
+            INNER JOIN {ledger_table} cl
+                ON cl.source_table = 'TRADES_OPEN'
+               AND cl.source_id = t.id
+            WHERE cl.campaign_id = :campaign_id
+              AND t.processed = 0
+        """
+        result = self.db_conn.fetch_one(sql, {"campaign_id": campaign_id})
+        return int(result['cnt'] or 0) > 0
+
+    def recheck_flat_status(self, campaign_id: int, symbol: str, trade_date):
+        """
+        Prüft nach vollständiger Trade-Verarbeitung ob die Kampagne flat ist.
+        Wird nach process_raw_trade aufgerufen, damit trades_open den aktuellen Stand zeigt.
+        Spreads bleiben ACTIVE, weil beide Legs in trades_open stehen — auch wenn
+        das Netto-Underlying-Inventory 0 ergibt.
+        """
+        if not campaign_id or symbol not in self.holdings:
+            return
+
+        h = self.holdings[symbol]
+        if h['status'] != CampaignStatus.ACTIVE:
+            return
+
+        if not self._has_open_trades(campaign_id):
+            h['status'] = CampaignStatus.PENDING
+            h['closed_at'] = trade_date
+            self._update_campaign_status_in_db(campaign_id, CampaignStatus.PENDING, closed_at=trade_date)
+            self.db_logger.info(
+                f"[FLAT] {symbol}: Kampagne {campaign_id} → PENDING (keine offenen Positionen)"
+            )
 
     def _cleanup_expired_campaigns(self, current_trade_date):
         """
@@ -237,17 +275,6 @@ class InventoryTracker:
             else:
                 h['options'] = to_decimal(h['options']) + qty
 
-        # --- STATUS-CHECK (Wann gehen wir Flat?) ---
-        is_flat = (h['shares'] == 0 and h['options'] == 0)
-        if is_flat and h['status'] == CampaignStatus.ACTIVE:
-            h['status'] = CampaignStatus.PENDING
-            h['closed_at'] = trade_date
-            actual_end_date = h['closed_at']
-            self._update_campaign_status_in_db(
-                h['campaign_id'],
-                CampaignStatus.PENDING,
-                closed_at=actual_end_date
-            )
         return h['campaign_id']
 
     @staticmethod

@@ -185,18 +185,8 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
                     h = tracker.holdings[split_symbol]
                     h['shares'] = to_decimal(h['shares']) * factor
 
-                    # Flat-Check nach Split (analog zu process_row_and_get_campaign):
-                    # Split-Trades umgehen den normalen PENDING-Mechanismus, daher hier explizit prüfen.
-                    is_flat = (h['shares'] == 0 and h['options'] == 0)
-                    if is_flat and h['status'] == CampaignStatus.ACTIVE:
-                        trade_date = trade.get('dateTime')
-                        h['status'] = CampaignStatus.PENDING
-                        h['closed_at'] = trade_date
-                        tracker._update_campaign_status_in_db(h['campaign_id'], CampaignStatus.PENDING, closed_at=trade_date)
-                        logger.info(
-                            f"[PENDING nach Split] {split_symbol}: Position auf 0 reduziert "
-                            f"— Kampagne {h['campaign_id']} → PENDING."
-                        )
+                    # Flat-Check nach Split — konsistent mit dem normalen PENDING-Mechanismus
+                    tracker.recheck_flat_status(h['campaign_id'], split_symbol, trade.get('dateTime'))
             continue  # Split vollständig verarbeitet oder wartet auf zweiten Teil
 
         # Jeder Raw-Trade wird atomar verarbeitet: alle DB-Operationen (Kampagne,
@@ -211,6 +201,11 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
 
             # ===== SCHRITT 5: TRADE VERARBEITUNG =====
             process_raw_trade(logger, trade, repo, tracker, campaign_id)
+
+            # Flat-Check nach Verarbeitung (trades_open als Wahrheitsquelle — Fix A)
+            if campaign_id:
+                recheck_symbol = row.get('underlyingSymbol') or row.get('symbol')
+                tracker.recheck_flat_status(campaign_id, recheck_symbol, row.get('dateTime'))
 
     progress.done(f"{total} Trades verarbeitet  [{env_up}]")
 
