@@ -11,5 +11,8 @@ numpy==2.3.3
 # Konfiguration
 python-dotenv==1.2.1
 
+# HTTP
+requests==2.32.4
+
 # Dashboard (display_xml_data.py)
 streamlit
