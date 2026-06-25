@@ -12,8 +12,6 @@ from src.config import (
     TABLE_TRADES_OPEN,
     TABLE_TRADES_FX,
     TABLE_SYMBOLS,
-    TABLE_TRADE_NOTES,
-    TABLE_TRADE_TAG_PIVOT,
     TABLE_TRADING_CAMPAIGNS,
     DEBUG_SQL
 )
@@ -311,7 +309,7 @@ class TradeRepository:
             sql, {"assetCategory": asset_category, "symbol": symbol}
         )
 
-    def get_open_trades(self, asset_category: str, symbol: str) -> List[Dict]:
+    def get_open_trades(self, asset_category: str, symbol: str, conid: str = None) -> List[Dict]:
         full_table = self._prefixed(TABLE_TRADES_OPEN)
         sql = f"""
             SELECT *
@@ -321,9 +319,22 @@ class TradeRepository:
               AND processed = 0
               ORDER BY dateTime ASC;
         """
-        return self.db.fetch_all(
+        results = self.db.fetch_all(
             sql, {"assetCategory": asset_category, "symbol": symbol}
         )
+        if not results and conid:
+            sql = f"""
+                SELECT *
+                FROM {full_table}
+                WHERE assetCategory = :assetCategory
+                  AND conid = :conid
+                  AND processed = 0
+                  ORDER BY dateTime ASC;
+            """
+            results = self.db.fetch_all(
+                sql, {"assetCategory": asset_category, "conid": conid}
+            )
+        return results
 
     def get_active_campaign_id_by_symbol(self, symbol: str) -> Optional[int]:
         """Sucht die aktive oder ausstehende Kampagne für ein Symbol in der DB."""
@@ -369,12 +380,3 @@ class TradeRepository:
         sql = f"UPDATE {full_table} SET processed = 1 WHERE id = :id"
         return self.db.execute_write(sql, {"id": int(trade_id)})
 
-    def update_notes_tag_pivot(self, trade_id: int) -> None:
-        for table in (TABLE_TRADE_NOTES, TABLE_TRADE_TAG_PIVOT):
-            full_table = self._prefixed(table)
-            sql = f"""
-                UPDATE {full_table}
-                SET trade_type = 'closed'
-                WHERE trade_id = :id
-            """
-            self.db.execute_write(sql, {"id": int(trade_id)})

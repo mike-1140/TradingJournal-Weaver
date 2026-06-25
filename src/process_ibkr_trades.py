@@ -355,7 +355,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 
     # normale Trades werden ab hier bearbeitet
     # offene Tranchen holen
-    open_tranches = repo.get_open_trades(new_trade['assetCategory'], symbol)
+    open_tranches = repo.get_open_trades(new_trade['assetCategory'], symbol, conid=new_trade.get('conid'))
 
     current_inventory = sum(to_decimal(t['quantity']) for t in open_tranches)
 

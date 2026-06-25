@@ -65,8 +65,6 @@ def process_setup_data(environment: str, table_prefix: str) -> str:
     SQL_PATH = get_project_root() / "sql"
     sql_files = [
         'trades_raw',
-        'trade_tag_pivot',
-        'trade_notes',
         'trades_open',
         'trades_close',
         'trades_fx',
