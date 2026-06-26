@@ -38,6 +38,8 @@ from src.utils.path_utils import get_project_root
 
 load_dotenv()
 
+_session = requests.Session()
+
 IN_FOLDER_XML_INCOMING = r'C:\Trade_XML\incoming'
 
 _SEND_URL  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
@@ -79,15 +81,21 @@ def _send_request(token: str, query_id: str, logger) -> tuple[str, str]:
     """
     Schritt 1: Stellt Anfrage an IBKR.
     Gibt (ReferenceCode, GetUrl) zurück.
-    Transiente Fehler (1001, 1008) werden mit Retry-Logik behandelt.
+    Transiente Fehler werden mit Retry-Logik behandelt.
     """
-    # Fehlercodes die einen Retry rechtfertigen (Daten noch nicht verfügbar)
-    # 1001 = Rate-Limit, 1004 = incomplete, 1006 = FIFO P/L not ready, 1007 = MTM P/L not ready
-    RETRYABLE = {"1001", "1004", "1006", "1007"}
+    # 1001 = Rate-Limit, 1004 = incomplete, 1006 = FIFO P/L not ready, 1007 = MTM P/L not ready, 1008 = Server busy
+    RETRYABLE = {"1001", "1004", "1006", "1007", "1008"}
 
     for attempt in range(1, MAX_RETRIES + 1):
-        resp = requests.get(_SEND_URL, params={"t": token, "q": query_id, "v": "3"}, timeout=30)
-        resp.raise_for_status()
+        try:
+            resp = _session.get(_SEND_URL, params={"t": token, "q": query_id, "v": "3"}, timeout=30)
+            resp.raise_for_status()
+        except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError) as ce:
+            logger.warning(f"Query {query_id}: Netzwerkfehler (Versuch {attempt}/{MAX_RETRIES}): {ce}")
+            if attempt == MAX_RETRIES:
+                raise
+            time.sleep(RETRY_DELAY)
+            continue
 
         root   = ET.fromstring(resp.text)
         status = root.findtext("Status")
@@ -125,9 +133,16 @@ def _get_statement(token: str, ref_code: str, get_url: str, query_id: str, logge
     Gibt den XML-Inhalt als String zurück.
     """
     for attempt in range(1, MAX_RETRIES + 1):
-        resp = requests.get(get_url, params={"t": token, "q": ref_code, "v": "3"}, timeout=30)
-        resp.raise_for_status()
-        content = resp.text.strip()
+        try:
+            resp = _session.get(get_url, params={"t": token, "q": ref_code, "v": "3"}, timeout=30)
+            resp.raise_for_status()
+            content = resp.text.strip()
+        except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError) as ce:
+            logger.warning(f"Query {query_id}: Netzwerkfehler (Versuch {attempt}/{MAX_RETRIES}): {ce}")
+            if attempt == MAX_RETRIES:
+                raise
+            time.sleep(RETRY_DELAY)
+            continue
 
         # Kurzantwort (Status/Fehler) vs. echtes FlexQuery-XML unterscheiden
         if content.startswith("<FlexStatementResponse"):
@@ -166,8 +181,8 @@ def _normalize_date(raw: str) -> str:
             return datetime.strptime(raw, fmt).strftime("%Y%m%d")
         except ValueError:
             continue
-    # Fallback: alle Nicht-Ziffern entfernen
-    return "".join(c for c in raw if c.isdigit())
+    # Fallback: Tagesdatum — unbekanntes Format soll keinen korrumpierten Namen erzeugen
+    return datetime.now().strftime("%Y%m%d")
 
 
 def _build_filename(xml_content: str, query_id: str) -> str:
