@@ -334,6 +334,12 @@ class TradeRepository:
             results = self.db.fetch_all(
                 sql, {"assetCategory": asset_category, "conid": conid}
             )
+            if results:
+                matched_symbol = results[0].get("symbol", "?")
+                self.db.db_logger.warning(
+                    f"[conid-Fallback] {asset_category} '{symbol}' nicht gefunden — "
+                    f"Match via conid={conid} auf '{matched_symbol}' ({len(results)} Tranchen)"
+                )
         return results
 
     def get_active_campaign_id_by_symbol(self, symbol: str) -> Optional[int]:
