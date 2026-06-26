@@ -63,6 +63,10 @@ TABLE_SYMBOLS = os.getenv("TABLE_SYMBOLS", "symbols")
 TABLE_CAMPAIGN_LEDGER = os.getenv("TABLE_CAMPAIGN_LEDGER", "campaign_ledger")
 TABLE_TRADING_CAMPAIGNS = os.getenv("TABLE_TRADING_CAMPAIGNS", "trading_campaigns")
 TABLE_ACCOUNT_SNAPSHOTS = os.getenv("TABLE_ACCOUNT_SNAPSHOTS", "account_snapshots")
+TABLE_PSYCHOLOGY_RULESETS   = os.getenv("TABLE_PSYCHOLOGY_RULESETS",   "psychology_rulesets")
+TABLE_PSYCHOLOGY_RULES      = os.getenv("TABLE_PSYCHOLOGY_RULES",      "psychology_rules")
+TABLE_PSYCHOLOGY_ENTRIES    = os.getenv("TABLE_PSYCHOLOGY_ENTRIES",    "psychology_entries")
+TABLE_PSYCHOLOGY_COMPLIANCE = os.getenv("TABLE_PSYCHOLOGY_COMPLIANCE", "psychology_compliance_results")
 
 DEBUG_SQL = os.getenv("DEBUG_SQL", "false").lower() == "true"
 
