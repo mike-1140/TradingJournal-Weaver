@@ -228,7 +228,11 @@ class InventoryTracker:
         if qty != 0:
             # Fall A: Reaktivierung einer PENDING Kampagne
             if h['campaign_id'] is not None and h['status'] == CampaignStatus.PENDING:
-                days_passed = (trade_date - h['closed_at']).days
+                if h['closed_at'] is None:
+                    # PENDING ohne closed_at — Kampagne direkt reaktivieren
+                    days_passed = 0
+                else:
+                    days_passed = (trade_date - h['closed_at']).days
                 if days_passed <= self.max_gap_days:
                     # REAKTIVIERUNG
                     h['status'] = CampaignStatus.ACTIVE
