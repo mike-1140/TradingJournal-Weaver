@@ -63,6 +63,12 @@ app.log
 # === XML-Eingabedaten (IBKR FlexQuery Reports) ===
 input/
 
+# === Lose Konto-/Vergleichsdaten im Root (nie committen) ===
+# Echte Daten liegen in C:\Trade_XML / C:\Trade_CSV, Test-Fixtures in input/.
+# Root-Anker (/) → tests/data/*.xml und input/ bleiben unberuehrt.
+/*.csv
+/*.xml
+
 # === DB-Backups ===
 database/
 
