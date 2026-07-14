@@ -1,6 +1,7 @@
 import imaplib
 import email
 import os
+import re
 from datetime import datetime
 from email.header import decode_header
 from dotenv import load_dotenv
@@ -30,6 +31,27 @@ def _ensure_dirs():
 
 def clean(text):
     return "".join(c if c.isalnum() else "_" for c in text)
+
+
+# Erlaubte Zeichen fuer Attachment-Dateinamen (Whitelist)
+_FILENAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._ ()-]*$')
+
+
+def _safe_filename(filename: str) -> str | None:
+    """
+    Validiert einen Attachment-Dateinamen gegen Path Traversal.
+    Der Absender einer Mail ist faelschbar — dem Dateinamen darf daher
+    nicht vertraut werden (z.B. '..\\..\\evil.xml' wuerde sonst ausserhalb
+    des Zielordners schreiben).
+    Legitime IBKR-Anhaenge enthalten nie Pfadanteile → solche Namen werden
+    komplett abgelehnt. Gibt den Dateinamen zurueck, oder None wenn ungueltig.
+    """
+    name = filename.strip()
+    if not name or "/" in name or "\\" in name or ".." in name:
+        return None
+    if not _FILENAME_RE.match(name):
+        return None
+    return name
 
 
 def _connect_imap() -> imaplib.IMAP4_SSL:
@@ -86,9 +108,13 @@ def _process_flexquery_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
                     continue
 
                 xml_found = True
-                filepath = os.path.join(IN_FOLDER_XML_INCOMING, filename)
+                safe_name = _safe_filename(filename)
+                if not safe_name:
+                    logger.warning(f"Anhang mit verdaechtigem Dateinamen uebersprungen: {filename!r}")
+                    continue
+                filepath = os.path.join(IN_FOLDER_XML_INCOMING, safe_name)
                 if os.path.exists(filepath):
-                    logger.info(f"Bereits vorhanden, uebersprungen: {filename}")
+                    logger.info(f"Bereits vorhanden, uebersprungen: {safe_name}")
                 else:
                     _save_attachment(part, filepath, logger)
                     cnt += 1
@@ -135,13 +161,17 @@ def _process_activity_statement_mails(imap: imaplib.IMAP4_SSL, logger) -> int:
                     continue
 
                 csv_found = True
-                filepath = os.path.join(IN_FOLDER_CSV_INCOMING, filename)
+                safe_name = _safe_filename(filename)
+                if not safe_name:
+                    logger.warning(f"Anhang mit verdaechtigem Dateinamen uebersprungen: {filename!r}")
+                    continue
+                filepath = os.path.join(IN_FOLDER_CSV_INCOMING, safe_name)
                 if os.path.exists(filepath):
-                    logger.info(f"Bereits vorhanden, uebersprungen: {filename}")
+                    logger.info(f"Bereits vorhanden, uebersprungen: {safe_name}")
                 else:
                     _save_attachment(part, filepath, logger)
                     cnt += 1
-                    logger.info(f"Activity CSV gespeichert: {filename} -> incoming/")
+                    logger.info(f"Activity CSV gespeichert: {safe_name} -> incoming/")
 
             # Mail loeschen sobald sie verarbeitet wurde (unabhaengig ob CSV neu/vorhanden/fehlt)
             imap.store(num, '+FLAGS', '\\Deleted')
