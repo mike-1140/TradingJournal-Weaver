@@ -24,7 +24,7 @@ STEP_SCRIPTS = {
     "import":          "src.import_ibkr_trades",
     "process":         "src.process_ibkr_trades",
     "summary":         "src.xml_append_summary",
-    "reset":           "src.reset_IBKR_DB",
+    "reset":           "tools.maintenance.reset_IBKR_DB",
 }
 
 

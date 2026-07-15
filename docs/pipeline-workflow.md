@@ -1,7 +1,7 @@
 # IBKR Import-Pipeline — Technische Dokumentation
 
 **Projekt:** xml_proj — Trading-Journal Import-System  
-**Stand:** 2026-05-20 (inkl. Running-Balance-Implementierung)  
+**Stand:** 2026-07-15 (inkl. Running Balance, feingranulare LedgerActions, Snapshot-Import)  
 **Ziel:** Vollständige Dokumentation des Datenflusses von IBKR-Rohdaten (XML/CSV) bis zur befüllten MySQL-Datenbank
 
 ---
@@ -178,9 +178,9 @@ python run_pipeline.py --user mike         # nur User mike
 
 **`pipeline.toml` — Konfiguration:**
 ```toml
-[pipeline]
-steps = ["fetch_emails", "import", "process", "summary"]
-#        ↑ Phase 0       ↑ Phase 1  ↑ Phase 2  ↑ Phase 3
+[settings]
+steps = ["fetch_emails", "snapshot_csv", "import", "process", "summary"]
+#        ↑ Phase 0       ↑ Snapshots    ↑ Phase 1  ↑ Phase 2  ↑ Phase 3
 
 [users.mike]
 prefix = "mike_"
@@ -216,13 +216,16 @@ get_flexquery_emails.py
 
 **Konfiguration in `.env`:**
 ```ini
-EMAIL_HOST=imap.example.com
-EMAIL_USER=trading@example.com
-EMAIL_PASSWORD=...
-EMAIL_FOLDER=INBOX
+IMAP_USERNAME=trading@example.com
+IMAP_PASSWORD=...
+IMAP_SERVER=imap.gmx.com
+IBKR_ACTIVITY_SUBJECT=Activity Statement
+IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 ```
 
-**Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig.
+**Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Manuell abgelegte XMLs müssen dem Namensmuster `flex.*.xml` entsprechen (siehe Phase 1).
+
+**Alternative `fetch_api` (`get_flexquery_api.py`) — derzeit ungenutzt:** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`). Das Experiment wurde 2026-07 eingestellt: IBKR stellt die Daten erst nach dem EOD-Processing (ca. 14–15 Uhr MEZ) bereit, ein Morgen-Abruf bringt daher keinen Zeitvorteil. Außerdem passt das Dateinamens-Schema der API-Downloads (`{accountId}_{toDate}_{qid}.xml`) nicht zum `flex.*`-Filter des Importers — solche Dateien bleiben unbeachtet in `incoming/` liegen.
 
 ---
 
@@ -233,24 +236,31 @@ EMAIL_FOLDER=INBOX
 ```
 import_ibkr_trades.py
 │
-├── Für jede XML-Datei (aus C:\Trade_XML\incoming\):
+├── Für jede flex.*.xml-Datei (aus C:\Trade_XML\incoming\):
 │   ├── Lese <FlexStatement> (kann mehrere je Datei enthalten)
 │   ├── Extrahiere accountId → route zu Environment/User (via config.py)
 │   ├── Rufe flex_parser.process_flex_file() auf
-│   └── Verschiebe Datei in processed/ oder deleted/
+│   └── Verschiebe Datei in <env>/<user>/processed/ oder deleted/
 └── Scanne C:\Trade_CSV\incoming\ nach CSV-Dateien:
     └── activity_csv_parser → account_snapshots
 ```
 
-**Routing via `config.py`:**
+**Dateinamen-Filter:** Verarbeitet werden **nur** Dateien nach dem Muster `flex.*.xml` (Groß-/Kleinschreibung egal) — so heißen die Anhänge der IBKR-Mails. Andere XML-Dateien im Verzeichnis werden ignoriert und bleiben liegen. Manuell erhaltene XMLs daher vor dem Import umbenennen (z.B. `K_Echt.xml` → `flex.K_Echt.xml`).
+
+**Routing via `src/config.py` → `ACCOUNT_MAP`:**
 ```python
 # Key = letzte 4 Ziffern der IBKR accountId
 # "U***9360" und "U12369360" ergeben denselben Key "9360"
 ACCOUNT_MAP = {
+    "5466": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_money"},
+    "9254": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_paper"},
     "9360": {"user": "mike",   "table_prefix": "mike_",   "environment": "money"},
+    "4049": {"user": "mike",   "table_prefix": "mike_",   "environment": "paper"},
     "8145": {"user": "karola", "table_prefix": "karola_", "environment": "money"},
 }
 ```
+
+Neue IBKR-Konten müssen hier ergänzt werden — XMLs mit unbekannter accountId werden beim Import übersprungen (Warnung im Log).
 
 Jede XML-Datei enthält immer nur Daten eines einzigen Kontos. Die `accountId` im `<FlexStatement>` bestimmt, welchem User und Environment die Trades zugeordnet werden.
 
@@ -537,19 +547,20 @@ Nach 10 Tagen ohne Aktivität:
       └── Finale P&L berechnet
 ```
 
-**Ledger-Aktionen:**
+**Ledger-Aktionen (`LedgerAction`-Enum in `src/trade_enums.py`):**
 
-| Action | Auslöser |
-|---|---|
-| `TRADE_OPEN` | Neue Position (Fall 1) |
-| `TRADE_CLOSE_FULL` | Vollständiges Schließen (Fall 2c) |
-| `TRADE_CLOSE_PARTIAL` | Teilabschluss (Fall 2a) |
-| `OPTION_EXPIRATION` | OptionEAE: Verfall |
-| `OPTION_EXERCISE` | OptionEAE: Ausübung |
-| `OPTION_ASSIGNMENT` | OptionEAE: Assignment |
-| `CASH_SETTLEMENT` | OptionEAE: Barausgleich |
-| `FX_EXCHANGE` | CASH-Trade |
-| `STOCK_SPLIT` | CorporateAction: Split |
+Seit 2026-05 werden **feingranulare Actions** geschrieben — statt generischem `TRADE_OPEN` / `TRADE_CLOSE_*` benennt die Action Instrument, Richtung und Abschlussart. Die Zuordnung erfolgt über `_open_action()` / `_close_action()` in `process_ibkr_trades.py`.
+
+| Gruppe | Actions | Auslöser |
+|---|---|---|
+| Aktien: Eröffnung | `STK_BUY`, `STK_SELL` | Fall 1 (Long- bzw. Short-Einstieg) |
+| Aktien: Schließung | `STK_SELL_CLOSE`, `STK_BUY_CLOSE`, `STK_SELL_PARTIAL`, `STK_BUY_PARTIAL` | Fall 2c (voll) bzw. 2a (teilweise) |
+| Optionen: Eröffnung | `OPT_PUT_SELL`, `OPT_PUT_BUY`, `OPT_CALL_SELL`, `OPT_CALL_BUY` | Fall 1 |
+| Optionen: Schließung | `OPT_PUT_BUY_CLOSE`, `OPT_PUT_SELL_CLOSE`, `OPT_CALL_BUY_CLOSE`, `OPT_CALL_SELL_CLOSE` + `*_PARTIAL`-Varianten | Fall 2c bzw. 2a |
+| Options-Events | `OPTION_EXPIRATION`, `OPTION_EXERCISE`, `CASH_SETTLEMENT` | OptionEAE (Verfall / Ausübung+Assignment / Barausgleich) |
+| Sonstiges | `TRADE_REVERSAL_OPEN`, `STOCK_SPLIT`, `FX_EXCHANGE` | Fall 2b Remainder / CorporateAction / CASH-Trade |
+
+**Hinweis:** Die generischen Bezeichnungen `TRADE_OPEN`, `TRADE_CLOSE_FULL`, `TRADE_CLOSE_PARTIAL` in den Fallbeschreibungen oben (Abschnitt 6.2) stehen stellvertretend für die jeweilige feingranulare Action. Alt-Daten mit den Legacy-Actions bleiben gültig, bis das jeweilige Environment per Summary-Re-Import neu aufgebaut wird (TradingJournal2 kennt beide Varianten).
 
 ### 6.4 Schema-Validierung: `open_trade.py` / `closed_trade.py`
 
@@ -737,7 +748,7 @@ inventory                             -- Aktueller Bestand
 #### `campaign_ledger` — Audit-Trail (ES-Lite)
 ```sql
 id, campaign_id,
-action,                               -- TRADE_OPEN | TRADE_CLOSE_FULL | ...
+action,                               -- LedgerAction: STK_BUY | OPT_PUT_SELL | ... (s. 6.3)
 inventory_delta,                      -- Bestandsänderung
 netcash, proceeds, commission,        -- Cashflows dieser Zeile
 realized_pnl,                         -- P&L dieses Events
@@ -1009,13 +1020,18 @@ Basis: Kombination aus trades_open + account_snapshots + TWS API
 xml_proj/
 ├── run_pipeline.py              ← Einstiegspunkt (orchestriert alle Phasen)
 ├── pipeline.toml                ← Pipeline-Konfiguration (User, Environments, Steps)
+├── HELP.md                      ← Befehlsreferenz aller Scripts
+├── README.md                    ← Projekt-Kurzbeschreibung
 ├── src/
 │   ├── get_flexquery_emails.py  ← Phase 0: IMAP-Abruf → Trade_XML / Trade_CSV
+│   ├── get_flexquery_api.py     ← Phase 0 Alternative (ungenutzt): FlexQuery via Web-API
 │   ├── import_ibkr_trades.py    ← Phase 1: XML/CSV-Import → trades_raw
 │   ├── process_ibkr_trades.py   ← Phase 2: FIFO-Processing → Endtabellen
 │   ├── xml_append_summary.py    ← Phase 3: Summary-XML für DB-Rebuild
 │   ├── migrate_running_balance.py ← Migration: cum_pnl/cum_commission/cum_premium
 │   ├── import_activity_statement.py ← CSV-Snapshot-Import (account_snapshots)
+│   ├── import_csv_snapshots.py  ← Snapshot-Step der Pipeline (Activity-CSVs, TWRR exakt)
+│   ├── import_flexquery_snapshot.py ← Snapshot-Alternative (FlexQuery-XMLs, TWRR berechnet)
 │   ├── config.py                ← get_engine(), ACCOUNT_MAP, DB_MAP, TABLE_PREFIX
 │   ├── trade_enums.py           ← TradeStatus, AssetCategory, CampaignStatus
 │   ├── parsers/
@@ -1037,7 +1053,11 @@ xml_proj/
 │       └── path_utils.py        ← get_project_root()
 ├── tools/
 │   └── maintenance/
-│       └── reset_IBKR_DB.py     ← DB-Reset (destruktiv! alle Tabellen inkl. trades_raw)
+│       ├── reset_IBKR_DB.py     ← DB-Reset (destruktiv! alle Tabellen inkl. trades_raw)
+│       ├── setup_psychology_tables.py ← legt psychology_*-Tabellen an (nicht-destruktiv)
+│       ├── seed_psychology_rulesets.py ← Basisdaten für Psychology-Modul
+│       ├── fix_symbol_mismatch.py / purge_stale_trades.py ← punktuelle Datenkorrekturen
+│       └── xml_summary_creator.py ← Summary-XML manuell erzeugen
 ├── sql/                         ← DB-Schema-Dateien (__PREFIX__ Platzhalter)
 │   ├── trades_raw.sql
 │   ├── trades_open.sql

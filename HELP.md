@@ -21,6 +21,29 @@ Jeder User hat einen eigenen Tabellen-Prefix. Standard aus `.env` (`TABLE_PREFIX
 
 Beispiel: Prefix `mike_` → Tabellen `mike_trades_raw`, `mike_trades_open`, ...
 
+## Account-Zuordnung (Routing)
+
+Die Zuordnung XML/CSV → User + Environment steht in **`src/config.py` → `ACCOUNT_MAP`**.
+Key sind die **letzten 4 Ziffern** der IBKR-accountId — funktioniert daher auch mit
+maskierten IDs (`U***9360` und `U12369360` ergeben denselben Key).
+
+| accountId endet auf | User | Environment |
+|---|---|---|
+| 9360 | mike | money |
+| 4049 | mike | paper |
+| 5466 | mike | autom_money |
+| 9254 | mike | autom_paper |
+| 8145 | karola | money |
+
+Der Importer liest die accountId aus dem ersten `<FlexStatement>` der XML.
+Unbekannte accountIds werden übersprungen (Warnung im Log). Neue Konten müssen
+in `ACCOUNT_MAP` ergänzt werden.
+
+**Wichtig — Dateinamen-Filter:** Der Importer verarbeitet nur Dateien, deren Name mit
+`flex.` beginnt (`flex.*.xml`, Groß-/Kleinschreibung egal). Manuell erhaltene XMLs vor
+dem Import umbenennen, z.B. `K_Echt.xml` → `flex.K_Echt.xml`. Andere Dateien bleiben
+unbeachtet in `incoming/` liegen.
+
 ## Verzeichnisstruktur (XML-Dateien)
 
 ```
@@ -87,10 +110,16 @@ python run_pipeline.py --config meine_pipeline.toml
 | Step | Modul | Läuft pro |
 |---|---|---|
 | `fetch_emails` | `src.get_flexquery_emails` | Einmal gesamt |
+| `fetch_api` | `src.get_flexquery_api` | Einmal gesamt (derzeit ungenutzt, s.u.) |
+| `snapshot_csv` | `src.import_csv_snapshots` | Einmal gesamt (intern pipeline.toml) |
+| `snapshot_import` | `src.import_flexquery_snapshot` | Einmal gesamt (intern pipeline.toml) |
 | `import` | `src.import_ibkr_trades` | User × Environment |
 | `process` | `src.process_ibkr_trades` | Einmal gesamt (intern pipeline.toml) |
 | `summary` | `src.xml_append_summary` | Einmal gesamt (intern pipeline.toml) |
-| `reset` | `src.reset_IBKR_DB` | User × Environment ⚠️ destruktiv |
+| `reset` | `tools.maintenance.reset_IBKR_DB` | User × Environment ⚠️ destruktiv |
+
+Hinweis: Der `import`-Step scannt immer das ganze `incoming/`-Verzeichnis und routet
+per accountId — der `--users`-Filter hat auf den Import faktisch keine Wirkung.
 
 ---
 
@@ -116,10 +145,46 @@ Keine Argumente. Relevante `.env`-Variablen:
 
 ---
 
+## get_flexquery_api.py — FlexQuery per Web-API abrufen (derzeit ungenutzt)
+
+Holt FlexQuery-XMLs direkt über die IBKR-Web-API statt per E-Mail.
+
+**Status (2026-07-15): Experiment eingestellt.** IBKR stellt die Daten erst nach dem
+EOD-Processing (ca. 14–15 Uhr MEZ) bereit — ein Abruf am Morgen bringt daher keinen
+Zeitvorteil gegenüber den Mails. Zusätzlich passt das Dateinamens-Schema der API-Downloads
+(`{accountId}_{toDate}_{qid}.xml`) nicht zum `flex.*`-Filter des Importers — solche Dateien
+bleiben unbeachtet in `incoming/` liegen (bewusst so belassen).
+
+```bash
+python -m src.get_flexquery_api
+```
+
+| Variable | Bedeutung |
+|---|---|
+| `IBKR_FLEX_QUERIES` | Kommagetrennte `token:query_id`-Paare (siehe Docstring im Script) |
+
+---
+
+## import_csv_snapshots.py / import_flexquery_snapshot.py — account_snapshots
+
+Importieren Kontostands-Snapshots in `account_snapshots`:
+
+- `import_csv_snapshots` — aus Activity-CSVs (**empfohlen**, TWRR exakt); Teil der Standard-Pipeline
+- `import_flexquery_snapshot` — aus FlexQuery-XMLs (TWRR wird berechnet); Alternative
+
+```bash
+# Auto-Modus: alle aktiven Targets aus pipeline.toml
+python -m src.import_csv_snapshots
+python -m src.import_flexquery_snapshot
+```
+
+---
+
 ## import_ibkr_trades.py — XML → trades_raw
 
-Scannt `C:\Trade_XML\incoming\` nach `flex.*.xml`-Dateien. Routing erfolgt automatisch
-per `accountId` aus der XML → `ACCOUNT_MAP` → Environment + User + Prefix.
+Scannt `C:\Trade_XML\incoming\` nach `flex.*.xml`-Dateien (andere Dateinamen werden
+ignoriert!). Routing erfolgt automatisch per `accountId` aus der XML →
+`ACCOUNT_MAP` (in `src/config.py`) → Environment + User + Prefix.
 Verarbeitete Dateien landen in `C:\Trade_XML\<env>\<user>\processed\`.
 
 ```bash
@@ -193,15 +258,21 @@ python -m src.xml_append_summary money karola_
 
 Legt die Datenbank und alle Tabellen neu an (aus `sql/`-Schemas).
 **Achtung: Löscht alle bestehenden Daten!** Nur beim ersten Setup oder nach Reset verwenden.
+Das Script liegt in `tools/maintenance/` (nicht in `src/`).
 
 ```bash
-# Pflichtargument: Environment + Prefix
-python -m src.reset_IBKR_DB money mike_
-python -m src.reset_IBKR_DB paper mike_
-python -m src.reset_IBKR_DB money karola_
-python -m src.reset_IBKR_DB autom_money mike_
-python -m src.reset_IBKR_DB autom_paper mike_
+# Pflichtargument: Environment; optional: Prefix
+python -m tools.maintenance.reset_IBKR_DB money mike_
+python -m tools.maintenance.reset_IBKR_DB paper mike_
+python -m tools.maintenance.reset_IBKR_DB money karola_
+python -m tools.maintenance.reset_IBKR_DB autom_money mike_
+python -m tools.maintenance.reset_IBKR_DB autom_paper mike_
 ```
+
+**Hinweis:** Neue Zusatz-Tabellen werden bewusst **nicht** über reset_IBKR_DB angelegt,
+sondern über separate Setup-Scripts in `tools/maintenance/` — z.B.
+`setup_psychology_tables.py` (legt die `psychology_*`-Tabellen an, ohne bestehende
+Tabellen zu löschen).
 
 **Argumente:**
 | Position | Wert | Pflicht |
@@ -215,9 +286,9 @@ python -m src.reset_IBKR_DB autom_paper mike_
 
 ### Erster Setup (einmalig)
 ```bash
-python -m src.reset_IBKR_DB money mike_
-python -m src.reset_IBKR_DB paper mike_
-python -m src.reset_IBKR_DB money karola_
+python -m tools.maintenance.reset_IBKR_DB money mike_
+python -m tools.maintenance.reset_IBKR_DB paper mike_
+python -m tools.maintenance.reset_IBKR_DB money karola_
 ```
 
 ### Täglicher Lauf (automatisch, alle User/Envs laut pipeline.toml)
@@ -247,4 +318,15 @@ python run_pipeline.py --steps fetch_emails import
 ```bash
 python -m src.import_ibkr_trades from_summary money mike_
 python -m src.process_ibkr_trades money mike_
+```
+
+### Manuell erhaltene XML importieren (z.B. Karola)
+```powershell
+# 1. Umbenennen — der Importer verarbeitet nur flex.*.xml
+Rename-Item C:\Trade_XML\incoming\K_Echt.xml flex.K_Echt.xml
+
+# 2. Import (Routing per accountId automatisch) + Processing + Summary
+python -m src.import_ibkr_trades
+python -m src.process_ibkr_trades money karola_
+python -m src.xml_append_summary money karola_
 ```

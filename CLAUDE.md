@@ -17,7 +17,12 @@ them into a structured trading journal with P&L, campaign tracking, and open/clo
 |---|---|
 | `src/import_ibkr_trades.py` | Step 1: Parse XML → insert into `trades_raw` |
 | `src/process_ibkr_trades.py` | Step 2: Process `trades_raw` → `trades_open` / `trades_close` |
-| `src/reset_IBKR_DB.py` | First-time DB setup from `sql/` schema files |
+| `tools/maintenance/reset_IBKR_DB.py` | First-time DB setup from `sql/` schema files (destruktiv!) |
+| `run_pipeline.py` | Orchestriert alle Steps laut `pipeline.toml` |
+
+**Import-Routing:** `import_ibkr_trades.py` scannt `C:\Trade_XML\incoming\` — nur Dateien
+nach dem Muster `flex.*.xml`! User + Environment werden per accountId über `ACCOUNT_MAP`
+in `src/config.py` ermittelt (Key = letzte 4 Ziffern der accountId).
 
 ### Running the pipeline
 ```bash
@@ -30,7 +35,7 @@ python src/process_ibkr_trades.py money
 
 ## Architecture
 ```
-XML files (input/)
+XML files (C:\Trade_XML\incoming\, nur flex.*.xml)
     → flex_parser.py          (orchestrates XML parsing)
     → day_trade_processor.py  (extracts Trade / OptionEAE / CorporateActions)
     → option_strategies.py    (detects multi-leg strategies)
