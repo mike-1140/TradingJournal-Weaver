@@ -23,6 +23,7 @@ from sqlalchemy.exc import ProgrammingError
 from src.config import DB_USER, DB_PASS, DB_HOST, DB_PORT, DB_MAP, TABLE_PREFIX, get_db_url
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
+from tools.maintenance.seed_psychology_rulesets import seed_rulesets, RULESETS
 
 
 def apply_table_prefix(sql_text: str, table_prefix: str) -> str:
@@ -177,8 +178,12 @@ def main():
         print("\n  Schritt 2: Psychology-Tabellen erstellen...")
         create_psychology_tables(conn, table_prefix, logger)
 
-        print("\n  Schritt 3: Default-Regelwerk seeden...")
+        print("\n  Schritt 3: Default Credit-Spread-Regelwerk seeden...")
         seed_default_ruleset(conn, table_prefix, env_up, logger)
+
+        print(f"\n  Schritt 4: {len(RULESETS)} Default-Regelwerke seeden...")
+        inserted = seed_rulesets(conn, table_prefix, env_up, logger)
+        logger.info(f"  {inserted} neue Regelwerk(e) angelegt")
 
     print()
     print(f"  Fertig! Psychology-Setup fuer {env_up} abgeschlossen.")
