@@ -55,7 +55,6 @@ def get_engine(env: str):
 
 # === Tabellen-Namen ===
 TABLE_TRADES_RAW = os.getenv("TABLE_TRADES_RAW", "trades_raw")
-TABLE_TRADES_SUMMARY = os.getenv("TABLE_TRADES_SUMMARY", "trades_summary")
 TABLE_TRADES_OPEN = os.getenv("TABLE_TRADES_OPEN", "trades_open")
 TABLE_TRADES_CLOSE = os.getenv("TABLE_TRADES_CLOSE", "trades_close")
 TABLE_TRADES_FX = os.getenv("TABLE_TRADES_FX", "trades_fx")
