@@ -18,6 +18,7 @@ them into a structured trading journal with P&L, campaign tracking, and open/clo
 | `src/import_ibkr_trades.py` | Step 1: Parse XML → insert into `trades_raw` |
 | `src/process_ibkr_trades.py` | Step 2: Process `trades_raw` → `trades_open` / `trades_close` |
 | `tools/maintenance/reset_IBKR_DB.py` | First-time DB setup from `sql/` schema files (destruktiv!) |
+| `tools/maintenance/cleanup_stale_positions.py` | Entfernt liegengebliebene offene Positionen (Open importiert, Close nie) rückstandsfrei aus `trades_open`/`campaign_ledger`/`trades_raw` inkl. Kampagnen-Korrektur; Dry-Run ist Standard, löschen nur mit `--ids/--symbols/--older-than/--all` + `--execute` |
 | `run_pipeline.py` | Orchestriert alle Steps laut `pipeline.toml` |
 
 **Import-Routing:** `import_ibkr_trades.py` scannt `C:\Trade_XML\incoming\` — nur Dateien
@@ -71,7 +72,7 @@ XML files (C:\Trade_XML\incoming\, nur flex.*.xml)
 | Table | Purpose |
 |---|---|
 | `trades_raw` | All imports; `processed=0/1` flag controls processing |
-| `trades_open` | Active FIFO tranches (one row per lot) |
+| `trades_open` | FIFO tranches (one row per lot). **Achtung:** Geschlossene Tranchen werden nicht gelöscht, sondern nur auf `processed=1` gesetzt (History, siehe `db_access.delete_open_trade`) — wirklich offen ist nur `processed=0`, so filtert auch TradingJournal2 |
 | `trades_close` | Completed trades with P&L, ROI, days held |
 | `trading_campaigns` | Campaign per symbol (ACTIVE/PENDING/CLOSED) |
 | `campaign_ledger` | Full audit journal: every action with cash flows |
