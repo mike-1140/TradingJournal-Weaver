@@ -142,10 +142,19 @@ class OpenTradeSchema(BaseSchema):
         # Map common fields that have the same name
         for field in ['symID', 'assetCategory', 'symbol', 'description', 'underlyingSymbol', 'underlyingConid',
                       'putCall', 'strike', 'expiry', 'multiplier',
-                      'strategy', 'tradeID', 'subCategory', 'quantity', 'environment','fifoPnlRealized',
+                      'tradeID', 'subCategory', 'quantity', 'environment','fifoPnlRealized',
                       'linkID', 'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'closedBy', 'conid']:
             if field in open_trade:
                 closed_trade[field] = open_trade.get(field)
+
+        # Strategie bevorzugt vom Open-Trade übernehmen; falls dort leer (OpenRef beim
+        # Eröffnen vergessen), Fallback auf die Close-Order — dort ist per STP-Order
+        # oft die letzte Chance, die Strategie-Referenz noch zu setzen.
+        open_strategy = open_trade.get('strategy')
+        if pd.isna(open_strategy) or open_strategy in ('', None):
+            closed_trade['strategy'] = close_data.get('strategy')
+        else:
+            closed_trade['strategy'] = open_strategy
 
         # Map fields with different names
         closed_trade['dateTimeOpen'] = open_trade.get('dateTime')
@@ -251,10 +260,17 @@ class OpenTradeSchema(BaseSchema):
         # Map common fields that have the same name
         for field in ['symID', 'assetCategory', 'symbol', 'description', 'underlyingSymbol', 'underlyingConid',
                       'putCall', 'strike', 'expiry', 'multiplier',
-                      'strategy', 'tradeID', 'subCategory', 'quantity', 'environment', 'fifoPnlRealized',
+                      'tradeID', 'subCategory', 'quantity', 'environment', 'fifoPnlRealized',
                       'linkID', 'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'conid']:
             if field in open_trade:
                 closed_trade[field] = open_trade.get(field)
+
+        # Strategie bevorzugt vom Open-Trade übernehmen; falls dort leer, Fallback auf Close-Order
+        open_strategy = open_trade.get('strategy')
+        if pd.isna(open_strategy) or open_strategy in ('', None):
+            closed_trade['strategy'] = close_data.get('strategy')
+        else:
+            closed_trade['strategy'] = open_strategy
 
         # Map fields with different names
         closed_trade['dateTimeOpen'] = open_trade.get('dateTime')
