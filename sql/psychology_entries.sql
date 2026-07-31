@@ -8,7 +8,7 @@ CREATE TABLE `__PREFIX__psychology_entries` (
     `id`              int(11)       NOT NULL AUTO_INCREMENT,
     `trade_id`        VARCHAR(70)   DEFAULT NULL,
     `opt_strategyID`  VARCHAR(50)   DEFAULT NULL,
-    `trade_type`      ENUM('closed','spread') DEFAULT NULL,
+    `trade_type`      ENUM('open','closed','open_spread','spread') DEFAULT NULL,
     `ruleset_id`      int(11)       DEFAULT NULL,
     `symbol`          VARCHAR(100)  NOT NULL,
     `trade_date`      DATE          NOT NULL,
