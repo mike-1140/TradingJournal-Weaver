@@ -143,9 +143,15 @@ class OpenTradeSchema(BaseSchema):
         for field in ['symID', 'assetCategory', 'symbol', 'description', 'underlyingSymbol', 'underlyingConid',
                       'putCall', 'strike', 'expiry', 'multiplier',
                       'tradeID', 'subCategory', 'quantity', 'environment','fifoPnlRealized',
-                      'linkID', 'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'closedBy', 'conid']:
+                      'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'closedBy', 'conid']:
             if field in open_trade:
                 closed_trade[field] = open_trade.get(field)
+
+        # linkID bevorzugt vom Close-Event übernehmen: book_trades.py vergibt sie erst
+        # beim Assignment/Exercise auf das schließende Raw-Trade — die Options-Eröffnung
+        # trägt nie eine linkID. Fallback auf open_trade nur für den (unüblichen) Fall,
+        # dass sie dort doch gesetzt wäre.
+        closed_trade['linkID'] = close_data.get('linkID') or open_trade.get('linkID')
 
         # Strategie bevorzugt vom Open-Trade übernehmen; falls dort leer (OpenRef beim
         # Eröffnen vergessen), Fallback auf die Close-Order — dort ist per STP-Order
@@ -261,9 +267,14 @@ class OpenTradeSchema(BaseSchema):
         for field in ['symID', 'assetCategory', 'symbol', 'description', 'underlyingSymbol', 'underlyingConid',
                       'putCall', 'strike', 'expiry', 'multiplier',
                       'tradeID', 'subCategory', 'quantity', 'environment', 'fifoPnlRealized',
-                      'linkID', 'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'conid']:
+                      'opt_strategy', 'opt_strategyName', 'opt_strategyID', 'conid']:
             if field in open_trade:
                 closed_trade[field] = open_trade.get(field)
+
+        # linkID bevorzugt vom Close-Event übernehmen (siehe to_closed_trade) — analog
+        # auch hier: die Options-Eröffnung trägt nie eine linkID, nur das schließende
+        # Assignment/Exercise-Event.
+        closed_trade['linkID'] = close_data.get('linkID') or open_trade.get('linkID')
 
         # Strategie bevorzugt vom Open-Trade übernehmen; falls dort leer, Fallback auf Close-Order
         open_strategy = open_trade.get('strategy')
