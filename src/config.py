@@ -98,8 +98,10 @@ def get_account_config(raw_account_id: str) -> dict | None:
 def load_active_targets() -> list[dict]:
     """
     Liest pipeline.toml und gibt alle aktiven Targets zurück.
-    Format: [{"environment": str, "prefix": str}]
-    Reihenfolge: Users in TOML-Reihenfolge, TEST zuletzt (nur wenn enabled=true).
+    Format: [{"environment": str, "prefix": str, "user": str}]
+    Reihenfolge: Users in TOML-Reihenfolge, TEST-Einträge ([[test]]) zuletzt.
+    Ein [[test]]-Eintrag ist immer aktiv — kein enabled-Schalter, zum Deaktivieren
+    den Eintrag aus der TOML entfernen.
     """
     toml_path = ROOT_DIR / "pipeline.toml"
     if not toml_path.exists():
@@ -113,12 +115,11 @@ def load_active_targets() -> list[dict]:
         for env in user_cfg.get("environments", []):
             targets.append({"environment": env, "prefix": prefix, "user": user_name})
 
-    test_cfg = cfg.get("test", {})
-    if test_cfg.get("enabled", False):
+    for test_cfg in cfg.get("test", []):
         targets.append({
             "environment": "test",
             "prefix": test_cfg.get("prefix", TABLE_PREFIX),
-            "user": "test",
+            "user": test_cfg.get("user", "test"),
         })
 
     return targets

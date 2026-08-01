@@ -276,8 +276,9 @@ def main():
             sys.exit(1)
         build_summary(env, prefix)
     elif len(sys.argv) == 1:
-        # Auto-Modus: alle aktiven Targets aus pipeline.toml
-        targets = load_active_targets()
+        # Auto-Modus: alle aktiven Targets aus pipeline.toml — TEST ausgenommen,
+        # da Testdaten kein Summary-Replay brauchen (jederzeit neu importierbar)
+        targets = [t for t in load_active_targets() if t["environment"] != "test"]
         if not targets:
             print("Keine aktiven Targets in pipeline.toml gefunden.")
             sys.exit(0)

@@ -54,10 +54,89 @@ C:\Trade_XML\
       processed\               ← erfolgreich importierte Dateien
       deleted\                 ← Dateien ohne neue Trades
     summary_<prefix><env>.xml  ← zusammengefasste Summary
+  test\
+    <user>\
+      incoming\                ← manuell abgelegte Test-XMLs, kein accountId-Routing
+      processed\
+      deleted\
 C:\Trade_CSV\
   incoming\                    ← eingehende Activity-CSVs
     <user>\
       processed\               ← erfolgreich importierte CSVs
+```
+
+Der `test\<user>\`-Ordner existiert nur für User mit einem `[[test]]`-Eintrag in
+`pipeline.toml` (siehe [TEST-Environment](#test-environment--manuelle-xmls-automatisch-erkennen)).
+
+---
+
+## TEST-Environment — manuelle XMLs automatisch erkennen
+
+Für TEST gibt es kein echtes IBKR-Konto, also auch keinen `ACCOUNT_MAP`-Eintrag —
+Environment und Prefix werden stattdessen durch das **Verzeichnis** bestimmt, nicht
+durch die accountId in der XML. Kein Umbenennen der accountId, kein manuelles
+Patchen der XML nötig.
+
+**Konfiguration in `pipeline.toml`:** Ein `[[test]]`-Eintrag pro User — kein
+`enabled`-Schalter, ein vorhandener Eintrag ist automatisch aktiv:
+
+```toml
+[[test]]
+prefix = "mike_"
+user   = "mike"
+
+[[test]]
+prefix = "karola_"
+user   = "karola"
+```
+
+Zum Deaktivieren einfach den Eintrag aus der TOML entfernen/auskommentieren.
+
+**Workflow:**
+
+```powershell
+# 1. Datei muss dem flex.*.xml-Muster entsprechen (wie überall)
+Rename-Item C:\Trade_XML\incoming\meine_datei.xml flex.meine_datei.xml
+
+# 2. In den passenden User-Ordner legen — kein incoming/ der Hauptroute!
+Move-Item flex.meine_datei.xml C:\Trade_XML\test\mike\incoming\
+```
+
+```bash
+# 3. Ganz normal laufen lassen — TEST wird automatisch mit erfasst
+python run_pipeline.py
+# oder einzeln:
+python -m src.import_ibkr_trades
+python -m src.process_ibkr_trades
+```
+
+`import_ibkr_trades.py` scannt bei jedem Auto-Lauf zusätzlich zum normalen
+accountId-Routing alle `[[test]]`-Ordner (`C:\Trade_XML\test\<user>\incoming\`) und
+importiert sie direkt mit dem konfigurierten Prefix in die TEST-DB. `process_ibkr_trades.py`
+verarbeitet TEST im Auto-Modus automatisch mit, da es ebenfalls `load_active_targets()`
+aus `pipeline.toml` liest.
+
+**Kein Summary für TEST:** `xml_append_summary.py` lässt TEST im Auto-Modus bewusst aus
+— Testdaten brauchen kein Summary-Replay, sie lassen sich jederzeit erneut importieren.
+Ein `summary_<prefix>test.xml` entsteht daher nicht automatisch (nur bei explizitem
+CLI-Aufruf `python -m src.xml_append_summary test mike_`).
+
+**Alternative — Einzeldatei manuell testen, ohne pipeline.toml-Eintrag:**
+```bash
+# Datei liegt in C:\Trade_XML\incoming\ (Hauptordner), Prefix explizit angeben
+python -m src.import_ibkr_trades test mike_
+python -m src.process_ibkr_trades test mike_
+```
+Ohne Prefix-Argument wird der erste `[[test]]`-Eintrag aus `pipeline.toml` verwendet,
+sonst `TABLE_PREFIX` aus `.env`. Dieser Modus scannt den **Hauptordner** `incoming\`
+(nicht `test\<user>\incoming\`) und ignoriert die accountId komplett.
+
+**Neu testen mit derselben Datei:** Der Checksum-Schutz verhindert Doppel-Import
+(`0 Trades importiert` ist dann erwartetes Verhalten, kein Fehler). Für einen sauberen
+Neustart die TEST-DB des Prefixes zurücksetzen (⚠️ löscht alle bisherigen TEST-Daten
+dieses Prefixes):
+```bash
+python -m tools.maintenance.reset_IBKR_DB test mike_
 ```
 
 ---
@@ -329,4 +408,14 @@ Rename-Item C:\Trade_XML\incoming\K_Echt.xml flex.K_Echt.xml
 python -m src.import_ibkr_trades
 python -m src.process_ibkr_trades money karola_
 python -m src.xml_append_summary money karola_
+```
+
+### XML schnell im TEST-Environment testen
+Siehe [TEST-Environment](#test-environment--manuelle-xmls-automatisch-erkennen) für Details.
+```powershell
+Rename-Item C:\Trade_XML\incoming\meine_datei.xml flex.meine_datei.xml
+Move-Item C:\Trade_XML\incoming\flex.meine_datei.xml C:\Trade_XML\test\mike\incoming\
+```
+```bash
+python run_pipeline.py
 ```

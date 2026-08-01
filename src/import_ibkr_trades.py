@@ -35,11 +35,11 @@ def import_trades() -> None:
 
     _import_xml_files()
 
-    # TEST-Import: eigenes Verzeichnis, kein accountId-Routing
+    # TEST-Import: eigene Verzeichnisse pro User, kein accountId-Routing
     for t in load_active_targets():
         if t["environment"] == "test":
-            cnt_test = _import_test_files(t["prefix"])
-            logger.info(f"TEST-Import abgeschlossen: {cnt_test} Trade(s)")
+            cnt_test = _import_test_files(t["prefix"], t["user"])
+            logger.info(f"TEST-Import [{t['user']}] abgeschlossen: {cnt_test} Trade(s)")
 
     cnt_csv = _import_activity_csvs()
     logger.info(f"CSV-Import abgeschlossen: {cnt_csv} Snapshot(s)")
@@ -162,17 +162,17 @@ def _get_test_prefix() -> str:
     return TABLE_PREFIX
 
 
-def _import_xml_to_test(prefix: str, incoming: Path) -> int:
+def _import_xml_to_test(prefix: str, incoming: Path, target_base: Path) -> int:
     """
     Importiert alle flex.*.xml-Dateien aus 'incoming' in die test-DB.
     Kein accountId-Routing — alles landet in test/{prefix}.
+    Verarbeitete Dateien wandern nach target_base/processed/ bzw. deleted/.
     """
     files = [f for f in os.listdir(incoming) if f.lower().startswith("flex.") and f.lower().endswith(".xml")]
     if not files:
         print(f"Keine XML-Dateien gefunden in: {incoming}")
         return 0
 
-    _ensure_env_dirs("test")
     db   = DBAccess(logger, "test", prefix)
     repo = TradeRepository(db)
 
@@ -187,19 +187,22 @@ def _import_xml_to_test(prefix: str, incoming: Path) -> int:
         total_inserted += num_inserted
         delete_file = num_inserted == 0 and entry_found == 0
         progress.done(f"TEST ({i}/{total}) {xml_file} -> {num_inserted} Trades")
-        move_xml_file(xml_file, incoming, logger, delete_file, Path(BASE_XML_FILE_PATH_PROD) / "test")
+        move_xml_file(xml_file, incoming, logger, delete_file, target_base)
 
     return total_inserted
 
 
-def _import_test_files(prefix: str) -> int:
+def _import_test_files(prefix: str, user: str) -> int:
     """
-    Scannt C:\\Trade_XML\\test\\incoming\\ nach flex.*.xml-Dateien.
-    Kein accountId-Routing — Environment ist durch Verzeichnis fixiert.
+    Scannt C:\\Trade_XML\\test\\<user>\\incoming\\ nach flex.*.xml-Dateien.
+    Kein accountId-Routing — Environment und User sind durch das Verzeichnis fixiert
+    (eigener Ordner je [[test]]-Eintrag aus pipeline.toml, damit mehrere User nicht
+    dieselben Dateien wegschnappen).
     """
-    incoming = Path(BASE_XML_FILE_PATH_PROD) / "test" / "incoming"
+    target_base = Path(BASE_XML_FILE_PATH_PROD) / "test" / user
+    incoming = target_base / "incoming"
     incoming.mkdir(parents=True, exist_ok=True)
-    return _import_xml_to_test(prefix, incoming)
+    return _import_xml_to_test(prefix, incoming, target_base)
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +294,7 @@ if __name__ == "__main__":
         # Ohne prefix: Wert aus pipeline.toml oder TABLE_PREFIX aus .env
         prefix = args[1] if len(args) > 1 else _get_test_prefix()
         logger.info(f"TEST-Modus: importiere aus incoming/ -> test / {prefix}")
-        cnt = _import_xml_to_test(prefix, Path(BASE_XML_INCOMING))
+        cnt = _import_xml_to_test(prefix, Path(BASE_XML_INCOMING), Path(BASE_XML_FILE_PATH_PROD) / "test")
         logger.info(f"TEST-Import abgeschlossen: {cnt} Trade(s)")
 
     else:
