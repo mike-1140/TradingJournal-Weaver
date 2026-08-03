@@ -40,6 +40,7 @@ from src.config import (
     TABLE_TRADES_RAW, TABLE_TRADES_OPEN,
     TABLE_CAMPAIGN_LEDGER, TABLE_TRADING_CAMPAIGNS,
 )
+from src.trade_enums import CampaignStatus
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
 
@@ -208,8 +209,8 @@ def cleanup_campaign(conn, tables: dict, campaign_id: int, logger) -> None:
     if row.inventory == 0:
         conn.execute(text(f"""
             UPDATE `{tables['campaigns']}`
-            SET status = 'CLOSED', end_date = :dt, closed_at = :dt
-            WHERE id = :cid AND status != 'CLOSED'
+            SET status = '{CampaignStatus.CLOSED.value}', end_date = :dt, closed_at = :dt
+            WHERE id = :cid AND status != '{CampaignStatus.CLOSED.value}'
         """), {"cid": campaign_id, "dt": row.last_event})
         logger.info(f"  Kampagne {campaign_id}: Restbestand 0 -> Status CLOSED, "
                     f"Running-Balance neu berechnet ({row.cnt} Buchungen)")

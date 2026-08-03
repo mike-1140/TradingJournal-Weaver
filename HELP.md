@@ -257,6 +257,10 @@ python -m src.import_csv_snapshots
 python -m src.import_flexquery_snapshot
 ```
 
+**Achtung:** Cash-Positionen werden fest auf EUR + USD verdrahtet erfasst (`cash_eur`/`cash_usd`
+in `sql/account_snapshots.sql`, Parser suchen explizit nach diesen zwei Währungen). Cash in einer
+dritten Währung wird stillschweigend nicht importiert. Details + Begründung: `docs/pipeline-workflow.md` § 8.2 `account_snapshots`.
+
 ---
 
 ## import_ibkr_trades.py — XML → trades_raw

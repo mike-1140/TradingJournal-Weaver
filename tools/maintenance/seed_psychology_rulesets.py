@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from sqlalchemy import create_engine, text
 
-from src.config import DB_MAP, TABLE_PREFIX, get_db_url
+from src.config import DB_MAP, TABLE_PREFIX, get_db_url, TABLE_PSYCHOLOGY_RULESETS, TABLE_PSYCHOLOGY_RULES
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
 
@@ -108,8 +108,8 @@ RULESETS = [
 
 def seed_rulesets(conn, table_prefix: str, environment: str, logger) -> int:
     """Fügt alle Regelwerke idempotent ein. Gibt Anzahl neu angelegter Rulesets zurück."""
-    rulesets_table = _prefixed("psychology_rulesets", table_prefix)
-    rules_table    = _prefixed("psychology_rules",    table_prefix)
+    rulesets_table = _prefixed(TABLE_PSYCHOLOGY_RULESETS, table_prefix)
+    rules_table    = _prefixed(TABLE_PSYCHOLOGY_RULES,    table_prefix)
 
     inserted = 0
 

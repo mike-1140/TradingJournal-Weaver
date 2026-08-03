@@ -16,6 +16,7 @@ from src.config import (
     DEBUG_SQL
 )
 from src.trade_schemas import OpenTradeSchema, BaseSchema, ClosedTradeSchema
+from src.trade_enums import CampaignStatus
 
 
 # ============================================================
@@ -348,7 +349,7 @@ class TradeRepository:
         sql = f"""
             SELECT id FROM {full_table}
             WHERE symbol = :symbol
-              AND status IN ('ACTIVE', 'PENDING')
+              AND status IN ('{CampaignStatus.ACTIVE.value}', '{CampaignStatus.PENDING.value}')
             ORDER BY id DESC
             LIMIT 1
         """

@@ -51,9 +51,9 @@ class InventoryTracker:
         full_table_name = self._prefixed(TABLE_TRADING_CAMPAIGNS)
         # Wir holen alle Kampagnen, die noch nicht final CLOSED sind
         sql = f"""
-            SELECT id, symbol, status, end_date 
+            SELECT id, symbol, status, end_date
             FROM {full_table_name}
-            WHERE status IN ('ACTIVE', 'PENDING')
+            WHERE status IN ('{CampaignStatus.ACTIVE.value}', '{CampaignStatus.PENDING.value}')
         """
         param_dict = {}
         active_ca = self.db_conn.fetch_all(sql, param_dict)
@@ -180,9 +180,9 @@ class InventoryTracker:
         # (den letzten Trade-Tag) in das Feld closed_at.
         sql = f"""
             UPDATE {full_table_name}
-            SET status = 'CLOSED',
+            SET status = '{CampaignStatus.CLOSED.value}',
                 closed_at = end_date
-            WHERE status = 'PENDING' 
+            WHERE status = '{CampaignStatus.PENDING.value}'
             AND end_date < :expiry_limit
         """
 
@@ -306,7 +306,7 @@ class InventoryTracker:
 
         sql = f"""
             INSERT INTO {full_table_name} (name, symbol, strategy, assetCategory, status, start_date, environment)
-            VALUES (:name, :symbol, :strategy, :asset_type, 'ACTIVE', :start_date, :environment)
+            VALUES (:name, :symbol, :strategy, :asset_type, '{CampaignStatus.ACTIVE.value}', :start_date, :environment)
         """
         param_dict = {
             "name": campaign_name,
@@ -394,10 +394,16 @@ class InventoryTracker:
                              multiplier=None, put_call=None, buy_sell=None,
                              link_id=None):
 
+        # USD-Basisfelder konsequent auf Decimal normalisieren (Aufrufer übergeben teils float-Literale, z.B. 0.0 bei Splits)
+        netcash = to_decimal(netcash)
+        proceeds = to_decimal(proceeds)
+        commission = to_decimal(commission)
+        pnl = to_decimal(pnl)
+
         totals = self._get_running_totals(campaign_id)
-        new_cum_pnl        = totals["cum_pnl"]        + to_decimal(pnl)
-        new_cum_commission = totals["cum_commission"]  + to_decimal(commission)
-        new_cum_premium    = totals["cum_premium"]     + to_decimal(proceeds)
+        new_cum_pnl        = totals["cum_pnl"]        + pnl
+        new_cum_commission = totals["cum_commission"]  + commission
+        new_cum_premium    = totals["cum_premium"]     + proceeds
 
         full_table_name = self._prefixed(TABLE_CAMPAIGN_LEDGER)
         sql_ledger = f"""
@@ -444,9 +450,9 @@ class InventoryTracker:
             "environment": self.env,
             "currency": currency or 'USD',
             "fxRateToBase": fx,
-            "netcash_eur":    to_decimal(netcash)    * fx,
-            "proceeds_eur":   to_decimal(proceeds)   * fx,
-            "commission_eur": to_decimal(commission) * fx,
+            "netcash_eur":    netcash    * fx,
+            "proceeds_eur":   proceeds   * fx,
+            "commission_eur": commission * fx,
         }
         self.db_conn.execute_write(sql_ledger, params)
 

@@ -767,6 +767,38 @@ WHERE campaign_id = 42 AND dateTime <= '2025-03-15'
 ORDER BY dateTime DESC, id DESC LIMIT 1;
 ```
 
+#### `account_snapshots` — Kontostand-Snapshots (täglich)
+```sql
+id, snapshot_date, environment,
+nav_prior, nav_current, nav_change, twrr,     -- Nettovermögenswert
+starting_value, mtm_pnl, ending_value,        -- Veränderung des NAV
+cash_eur, cash_usd,                           -- Cash-Positionen (siehe Limitierung unten!)
+commissions_eur, forex_translation_pnl,
+realized_pnl_eur, unrealized_pnl_eur,
+mtd_pnl, ytd_pnl,
+imported_at
+```
+Befüllt von `import_csv_snapshots.py` (`activity_csv_parser.py`, empfohlen) oder
+`import_flexquery_snapshot.py` (`flexquery_snapshot_parser.py`, Alternative).
+
+**⚠️ Limitierung: fest auf EUR + USD verdrahtet, nicht generisch.**
+Anders als bei Einzeltrades (`trades_raw.currency` ist freier Text, `FX_EXCHANGE_FROM_*`/`TO_*`-Actions
+in `campaign_ledger` lesen das Währungspaar dynamisch aus dem Trade) ist die Cash-Position im
+Portfolio-Snapshot **hartverdrahtet auf genau zwei Währungen**:
+
+- Schema: `sql/account_snapshots.sql` hat feste Spalten `cash_eur` / `cash_usd`, keine generische Struktur.
+- XML-Import: `flexquery_snapshot_parser.py::_parse_statement()` sucht explizit
+  `CashReportCurrency[@currency="EUR"]` und `[@currency="USD"]`.
+- CSV-Import: `activity_csv_parser.py::_extract_cash()` ruft `find('Ending Cash', 'EUR')` und
+  `find('Ending Cash', 'USD')` auf.
+
+Hält das IBKR-Konto Cash in einer dritten Währung (z.B. GBP), wird dieser Betrag beim Snapshot-Import
+**stillschweigend nicht erfasst** — kein Fehler, keine Warnung, der Wert fehlt einfach in
+`account_snapshots`. Bewusste Vereinfachung für ein Konto, das nur in EUR (Basiswährung) und USD
+(Handelswährung für US-Optionen/Aktien) bewegt wird. Geprüft und als aktuell nicht änderungsbedürftig
+eingestuft (Stand 2026-08-03) — falls das Portfolio künftig weitere Cash-Währungen hält, braucht es hier
+eine bewusste Erweiterung (neue Spalte(n) + Parser-Anpassung), kein reiner Bugfix.
+
 ### 8.3 Running Balance — ES-Lite-Upgrade
 
 Das `campaign_ledger` wurde um drei kumulierte Salden erweitert, die bei jedem INSERT automatisch berechnet und mitgeschrieben werden (`inventory_tracker.py → _get_running_totals()`):

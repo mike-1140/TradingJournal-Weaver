@@ -3,6 +3,10 @@
 # Interaktives Tool zum Bereinigen von "Trade-Leichen" —
 # alte offene Positionen die bei IBKR nicht mehr existieren
 # (z.B. Paper-Account: max. 6 Monate History)
+#
+# Aufruf (Dry-Run ist Standard, es wird NICHTS gelöscht):
+#   .venv\Scripts\python.exe tools/maintenance/purge_stale_trades.py -e paper
+#   .venv\Scripts\python.exe tools/maintenance/purge_stale_trades.py -e paper --execute
 
 import sys
 from pathlib import Path
@@ -12,18 +16,22 @@ import argparse
 from datetime import datetime, timedelta
 from sqlalchemy import text
 import src.config as config
-from src.config import get_engine, DB_MAP
+from src.config import (
+    get_engine, DB_MAP,
+    TABLE_TRADES_RAW, TABLE_TRADES_OPEN, TABLE_TRADES_CLOSE,
+    TABLE_CAMPAIGN_LEDGER, TABLE_TRADING_CAMPAIGNS,
+)
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
 
 
-def _prefixed(table: str) -> str:
-    return f"{config.TABLE_PREFIX}{table}" if config.TABLE_PREFIX else table
+def _prefixed(prefix: str, table: str) -> str:
+    return f"{prefix}{table}" if prefix else table
 
 
-def get_stale_open_trades(conn, environment: str, cutoff_date: datetime):
+def get_stale_open_trades(conn, environment: str, cutoff_date: datetime, prefix: str):
     """Alle offenen Trades die älter als cutoff_date sind"""
-    table = _prefixed("trades_open")
+    table = _prefixed(prefix, TABLE_TRADES_OPEN)
     sql = text(f"""
         SELECT id, symbol, underlyingSymbol, assetCategory, dateTime,
                quantity, netCash, tradePrice, tradeID, status, opt_strategyID,
@@ -36,21 +44,16 @@ def get_stale_open_trades(conn, environment: str, cutoff_date: datetime):
     return conn.execute(sql, {"env": environment, "cutoff": cutoff_date}).fetchall()
 
 
-def count_related_records(conn, environment: str, symbols: list[str]):
+def count_related_records(conn, environment: str, symbols: list[str], prefix: str):
     """Zähle betroffene Datensätze in allen Tabellen für die gegebenen Symbole"""
     counts = {}
 
-    for table_name, symbol_col in [
-        ("trades_open", "symbol"),
-        ("trades_close", "symbol"),
-        ("trades_raw", "symbol"),
+    for counts_key, table_const, symbol_col in [
+        ("trades_open", TABLE_TRADES_OPEN, "symbol"),
+        ("trades_close", TABLE_TRADES_CLOSE, "symbol"),
+        ("trades_raw", TABLE_TRADES_RAW, "symbol"),
     ]:
-        table = _prefixed(table_name)
-        sql = text(f"""
-            SELECT COUNT(*) FROM {table}
-            WHERE environment = :env
-              AND ({symbol_col} IN :symbols OR underlyingSymbol IN :symbols)
-        """)
+        table = _prefixed(prefix, table_const)
         # IN-Klausel braucht expandiertes SQL
         placeholders = ", ".join(f":s{i}" for i in range(len(symbols)))
         sql = text(f"""
@@ -62,11 +65,11 @@ def count_related_records(conn, environment: str, symbols: list[str]):
         for i, s in enumerate(symbols):
             params[f"s{i}"] = s
         result = conn.execute(sql, params).scalar()
-        counts[table_name] = result
+        counts[counts_key] = result
 
     # campaign_ledger + trading_campaigns: über Symbol
-    campaign_table = _prefixed("trading_campaigns")
-    ledger_table = _prefixed("campaign_ledger")
+    campaign_table = _prefixed(prefix, TABLE_TRADING_CAMPAIGNS)
+    ledger_table = _prefixed(prefix, TABLE_CAMPAIGN_LEDGER)
 
     placeholders = ", ".join(f":s{i}" for i in range(len(symbols)))
     params = {"env": environment}
@@ -89,15 +92,15 @@ def count_related_records(conn, environment: str, symbols: list[str]):
     return counts
 
 
-def purge_symbol_data(conn, environment: str, symbols: list[str], logger):
+def purge_symbol_data(conn, environment: str, symbols: list[str], prefix: str, logger):
     """Lösche alle Daten für die gegebenen Symbole aus allen Tabellen"""
     placeholders = ", ".join(f":s{i}" for i in range(len(symbols)))
     params = {"env": environment}
     for i, s in enumerate(symbols):
         params[f"s{i}"] = s
 
-    campaign_table = _prefixed("trading_campaigns")
-    ledger_table = _prefixed("campaign_ledger")
+    campaign_table = _prefixed(prefix, TABLE_TRADING_CAMPAIGNS)
+    ledger_table = _prefixed(prefix, TABLE_CAMPAIGN_LEDGER)
 
     # 1. campaign_ledger zuerst (FK auf trading_campaigns)
     sql = text(f"""
@@ -117,7 +120,7 @@ def purge_symbol_data(conn, environment: str, symbols: list[str], logger):
     logger.info(f"  trading_campaigns: {result.rowcount} Zeilen gelöscht")
 
     # 3. trades_close
-    table = _prefixed("trades_close")
+    table = _prefixed(prefix, TABLE_TRADES_CLOSE)
     sql = text(f"""
         DELETE FROM {table}
         WHERE environment = :env
@@ -127,7 +130,7 @@ def purge_symbol_data(conn, environment: str, symbols: list[str], logger):
     logger.info(f"  trades_close: {result.rowcount} Zeilen gelöscht")
 
     # 4. trades_open
-    table = _prefixed("trades_open")
+    table = _prefixed(prefix, TABLE_TRADES_OPEN)
     sql = text(f"""
         DELETE FROM {table}
         WHERE environment = :env
@@ -137,7 +140,7 @@ def purge_symbol_data(conn, environment: str, symbols: list[str], logger):
     logger.info(f"  trades_open: {result.rowcount} Zeilen gelöscht")
 
     # 5. trades_raw
-    table = _prefixed("trades_raw")
+    table = _prefixed(prefix, TABLE_TRADES_RAW)
     sql = text(f"""
         DELETE FROM {table}
         WHERE environment = :env
@@ -184,13 +187,12 @@ def main():
     )
     parser.add_argument(
         "--prefix", "-p",
-        default=None,
+        default=config.TABLE_PREFIX,
         help=f"Table Prefix überschreiben (default: aus .env = '{config.TABLE_PREFIX}')"
     )
+    parser.add_argument("--execute", action="store_true",
+                        help="Tatsächlich löschen (Standard: Dry-Run)")
     args = parser.parse_args()
-
-    if args.prefix is not None:
-        config.TABLE_PREFIX = args.prefix
 
     # Logging
     log_file = get_project_root() / "log/app.log"
@@ -199,12 +201,16 @@ def main():
     environment = args.environment.upper()
     cutoff_date = datetime.now() - timedelta(days=args.months * 30)
 
+    logger.info("=" * 80)
+    logger.info(f"---- Purge Stale Trades ({environment}, Präfix: '{args.prefix}', "
+                f"Modus: {'EXECUTE' if args.execute else 'DRY-RUN'})")
+
     print()
     print("=" * 70)
     print("  PURGE STALE TRADES — Bereinigung alter Trade-Leichen")
     print("=" * 70)
     print(f"  Environment:  {environment}")
-    print(f"  Prefix:       '{config.TABLE_PREFIX}' ")
+    print(f"  Prefix:       '{args.prefix}' ")
     print(f"  Cutoff:       {args.months} Monate -> älter als {cutoff_date.strftime('%Y-%m-%d')}")
     print("=" * 70)
 
@@ -212,7 +218,7 @@ def main():
 
     with engine.connect() as conn:
         # Stale Trades laden
-        stale_trades = get_stale_open_trades(conn, environment, cutoff_date)
+        stale_trades = get_stale_open_trades(conn, environment, cutoff_date, args.prefix)
 
         if not stale_trades:
             print("\n  Keine offenen Trades älter als der Cutoff gefunden.")
@@ -270,7 +276,7 @@ def main():
 
         # Betroffene Datensätze zählen
         print(f"\n  Zähle betroffene Datensätze für: {', '.join(selected_symbols)}...")
-        counts = count_related_records(conn, environment, selected_symbols)
+        counts = count_related_records(conn, environment, selected_symbols, args.prefix)
 
         print()
         print("  Zu löschende Datensätze:")
@@ -288,6 +294,10 @@ def main():
             print("  Keine Datensätze zu löschen.\n")
             return
 
+        if not args.execute:
+            print("  DRY-RUN: Es wurde nichts gelöscht. Zum Ausführen --execute anhängen.\n")
+            return
+
         confirm = input("  Wirklich UNWIDERRUFLICH löschen? [j/n]: ").strip().lower()
         if confirm != "j":
             print("\n  Abgebrochen.\n")
@@ -296,7 +306,7 @@ def main():
         # Löschen
         logger.info(f"Purge stale trades: {environment}, Symbole: {selected_symbols}")
         print(f"\n  Lösche Daten...")
-        purge_symbol_data(conn, environment, selected_symbols, logger)
+        purge_symbol_data(conn, environment, selected_symbols, args.prefix, logger)
 
         print()
         print(f"  Fertig! {total} Datensätze gelöscht für: {', '.join(selected_symbols)}")
