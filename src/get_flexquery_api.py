@@ -1,5 +1,16 @@
 """
-get_flexquery_api.py — Holt IBKR FlexQuery-XMLs direkt über die FlexWeb-Service-API
+get_flexquery_api.py — holt IBKR FlexQuery-XMLs direkt über die FlexWeb-Service-API
+
+Läuft parallel zur Mail-Pipeline (get_flexquery_emails.py), NICHT als Ersatz — beide
+Wege sind aktuell gleichzeitig aktiv (siehe pipeline.toml). Zweck: Verifikation, ob die
+API dieselben Daten liefert wie die Mail-Zustellung, bevor sie ggf. produktiv genutzt wird.
+
+WICHTIG: Schreibt bewusst NICHT nach C:\\Trade_XML\\incoming\\ (das ist der Mail-Pipeline
+vorbehalten), sondern nach OUT_FOLDER_XML_VERIFY (C:\\Trade_XML\\incoming_x\\). Der
+import-Step scannt nur incoming\\ — Dateien hier werden also nie automatisch importiert,
+auch unabhängig vom flex.*-Namensfilter. Manueller Abgleich: Dateiname enthält
+accountId + Datum (siehe _build_filename), dadurch mit den Mail-XMLs für denselben Tag/
+Account vergleichbar.
 
 Unterstützt mehrere Konten/Logins (money, paper, autom_money, autom_paper, karola ...).
 Das Routing zum richtigen Environment erfolgt automatisch über die accountId im XML
@@ -24,9 +35,13 @@ Konfiguration in .env:
 
   Token:    IBKR Portal → Settings → Account Settings → Flex Web Service → Token
   Query-ID: IBKR Portal → Reports → Flex Queries → (Query auswählen) → ID in der Liste
+
+  Ist IBKR_FLEX_QUERIES nicht gesetzt, beendet sich das Script folgenlos (kein Fehler,
+  Exit-Code 0) — der Schritt ist dann im Pipeline-Lauf einfach ein No-Op.
 """
 
 import os
+import re
 import time
 import requests
 from datetime import datetime
@@ -40,14 +55,19 @@ load_dotenv()
 
 _session = requests.Session()
 
-IN_FOLDER_XML_INCOMING = r'C:\Trade_XML\incoming'
+# Bewusst getrennt von get_flexquery_emails.py's C:\Trade_XML\incoming\ — Verifications-
+# Ordner, wird vom import-Step nicht gescannt (siehe Docstring oben).
+OUT_FOLDER_XML_VERIFY = r'C:\Trade_XML\incoming_x'
 
 _SEND_URL  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
 _GET_URL   = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement"
 
-MAX_RETRIES  = 3
-RETRY_DELAY  = 5   # Sekunden zwischen Retries (Processing / Data incomplete)
-QUERY_DELAY  = 2   # Sekunden Pause zwischen Queries (IBKR Rate-Limit: 1 Req/s pro Token)
+MAX_RETRIES  = 5
+RETRY_DELAY  = 10   # Sekunden zwischen Retries (Processing / Data incomplete)
+QUERY_DELAY  = 2    # Sekunden Pause zwischen Queries desselben Tokens (IBKR Rate-Limit: 1 Req/s pro Token)
+TOKEN_DELAY  = 30   # Sekunden Pause vor Wechsel auf einen anderen Token — Sicherheitsabstand
+                     # gegen IBKR-Fehler 1025 "Too many failed attempts" (beobachtet 2026-08-03,
+                     # nach mehreren dicht aufeinanderfolgenden Fehlversuchen über mehrere Tokens)
 
 
 def _parse_queries() -> list[tuple[str, str]]:
@@ -74,7 +94,12 @@ def _parse_queries() -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 
 def _ensure_dirs():
-    os.makedirs(IN_FOLDER_XML_INCOMING, exist_ok=True)
+    os.makedirs(OUT_FOLDER_XML_VERIFY, exist_ok=True)
+
+
+def _elapsed(t_start: float) -> str:
+    """Formatiert die seit t_start (time.monotonic()) vergangene Zeit für Log-Ausgaben."""
+    return f"{time.monotonic() - t_start:.1f}s"
 
 
 def _send_request(token: str, query_id: str, logger) -> tuple[str, str]:
@@ -85,13 +110,19 @@ def _send_request(token: str, query_id: str, logger) -> tuple[str, str]:
     """
     # 1001 = Rate-Limit, 1004 = incomplete, 1006 = FIFO P/L not ready, 1007 = MTM P/L not ready, 1008 = Server busy
     RETRYABLE = {"1001", "1004", "1006", "1007", "1008"}
+    t_start = time.monotonic()
+    last_error_code, last_error_msg = "", ""
 
     for attempt in range(1, MAX_RETRIES + 1):
+        now = datetime.now().strftime("%H:%M:%S")
         try:
             resp = _session.get(_SEND_URL, params={"t": token, "q": query_id, "v": "3"}, timeout=30)
             resp.raise_for_status()
         except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError) as ce:
-            logger.warning(f"Query {query_id}: Netzwerkfehler (Versuch {attempt}/{MAX_RETRIES}): {ce}")
+            logger.warning(
+                f"[{now}] Query {query_id}: Netzwerkfehler (Versuch {attempt}/{MAX_RETRIES}, "
+                f"seit {_elapsed(t_start)}): {ce}"
+            )
             if attempt == MAX_RETRIES:
                 raise
             time.sleep(RETRY_DELAY)
@@ -101,28 +132,39 @@ def _send_request(token: str, query_id: str, logger) -> tuple[str, str]:
         status = root.findtext("Status")
 
         if status == "Success":
-            ref_code = root.findtext("ReferenceCode")
-            get_url  = root.findtext("Url") or _GET_URL
-            logger.info(f"Query {query_id}: Anfrage OK — ReferenceCode={ref_code}")
+            ref_code    = root.findtext("ReferenceCode")
+            server_url  = root.findtext("Url")
+            get_url     = server_url or _GET_URL
+            # Diagnose: zeigt, ob IBKR eine eigene GetStatement-URL vorgibt (z.B. anderes
+            # Rechenzentrum/Domain als der Default) — falls GetStatement dauerhaft "in
+            # progress" liefert, hier prüfen ob server_url vom Default _GET_URL abweicht.
+            logger.info(
+                f"[{now}] Query {query_id}: Anfrage OK nach {attempt} Versuch(en)/{_elapsed(t_start)} "
+                f"— HTTP {resp.status_code}, ReferenceCode={ref_code}, "
+                f"GetStatement-URL={get_url} ({'von IBKR vorgegeben' if server_url else 'Default'})"
+            )
             return ref_code, get_url
 
-        error_code = root.findtext("ErrorCode") or ""
-        error_msg  = root.findtext("ErrorMessage") or ""
+        last_error_code = root.findtext("ErrorCode") or ""
+        last_error_msg  = root.findtext("ErrorMessage") or ""
 
-        if error_code in RETRYABLE:
+        if last_error_code in RETRYABLE:
             logger.info(
-                f"Query {query_id}: Transient [{error_code}] {error_msg} "
-                f"(Versuch {attempt}/{MAX_RETRIES}), warte {RETRY_DELAY}s ..."
+                f"[{now}] Query {query_id}: Transient [{last_error_code}] {last_error_msg} "
+                f"(Versuch {attempt}/{MAX_RETRIES}, seit {_elapsed(t_start)}), warte {RETRY_DELAY}s ..."
             )
             time.sleep(RETRY_DELAY)
             continue
 
-        raise RuntimeError(f"SendRequest fehlgeschlagen [{error_code}]: {error_msg}")
+        raise RuntimeError(
+            f"SendRequest fehlgeschlagen [{last_error_code}]: {last_error_msg} "
+            f"(Versuch {attempt}/{MAX_RETRIES}, nach {_elapsed(t_start)})"
+        )
 
     raise RuntimeError(
         f"Query {query_id}: Daten noch nicht verfügbar nach {MAX_RETRIES} Versuchen "
-        f"({MAX_RETRIES * RETRY_DELAY}s) — EOD-Processing evtl. noch nicht abgeschlossen. "
-        f"Bitte später nochmal versuchen."
+        f"({_elapsed(t_start)}) — letzter Fehler [{last_error_code}] {last_error_msg}. "
+        f"EOD-Processing evtl. noch nicht abgeschlossen. Bitte später nochmal versuchen."
     )
 
 
@@ -132,13 +174,20 @@ def _get_statement(token: str, ref_code: str, get_url: str, query_id: str, logge
     IBKR liefert Status=Processing solange die Query noch berechnet wird.
     Gibt den XML-Inhalt als String zurück.
     """
+    t_start = time.monotonic()
+    last_marker = ""
+
     for attempt in range(1, MAX_RETRIES + 1):
+        now = datetime.now().strftime("%H:%M:%S")
         try:
             resp = _session.get(get_url, params={"t": token, "q": ref_code, "v": "3"}, timeout=30)
             resp.raise_for_status()
             content = resp.text.strip()
         except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError) as ce:
-            logger.warning(f"Query {query_id}: Netzwerkfehler (Versuch {attempt}/{MAX_RETRIES}): {ce}")
+            logger.warning(
+                f"[{now}] Query {query_id}: Netzwerkfehler (Versuch {attempt}/{MAX_RETRIES}, "
+                f"seit {_elapsed(t_start)}): {ce}"
+            )
             if attempt == MAX_RETRIES:
                 raise
             time.sleep(RETRY_DELAY)
@@ -146,27 +195,48 @@ def _get_statement(token: str, ref_code: str, get_url: str, query_id: str, logge
 
         # Kurzantwort (Status/Fehler) vs. echtes FlexQuery-XML unterscheiden
         if content.startswith("<FlexStatementResponse"):
-            root   = ET.fromstring(content)
+            root = ET.fromstring(content)
             status = root.findtext("Status")
+            err_code = root.findtext("ErrorCode")
+            last_marker = err_code or status or ""
 
-            if status == "Processing":
+            # Status 'Processing' ODER ErrorCode 1019 bedeutet: Weiter warten!
+            if status == "Processing" or err_code in ("1019", "1018"):
                 logger.info(
-                    f"Query {query_id}: Noch in Verarbeitung "
-                    f"(Versuch {attempt}/{MAX_RETRIES}), warte {RETRY_DELAY}s ..."
+                    f"[{now}] Query {query_id}: Noch in Verarbeitung/Bereitstellung [{last_marker}] "
+                    f"(Versuch {attempt}/{MAX_RETRIES}, seit {_elapsed(t_start)}), warte {RETRY_DELAY}s ..."
                 )
                 time.sleep(RETRY_DELAY)
                 continue
 
-            error_code = root.findtext("ErrorCode")
-            error_msg  = root.findtext("ErrorMessage")
-            raise RuntimeError(f"GetStatement fehlgeschlagen [{error_code}]: {error_msg}")
+            # Erst bei echten Fehlern (z.B. falsches Token, ungültige QID) abbrechen
+            error_msg = root.findtext("ErrorMessage")
+            raise RuntimeError(
+                f"GetStatement fehlgeschlagen [{err_code}]: {error_msg} "
+                f"(Versuch {attempt}/{MAX_RETRIES}, nach {_elapsed(t_start)})"
+            )
 
-        logger.info(f"Query {query_id}: Statement erhalten ({len(content):,} Zeichen)")
+        # Sanity-Check: alles, was hier ankommt, sollte echtes FlexQuery-XML sein.
+        # Ohne diese Prüfung würde eine leere/kaputte Antwort (z.B. HTML-Fehlerseite
+        # von einem Proxy) unbemerkt als "erfolgreich" nach incoming_x/ geschrieben.
+        if not content.startswith("<?xml") and not content.startswith("<FlexQueryResponse"):
+            snippet = content[:300].replace("\n", " ")
+            logger.warning(
+                f"[{now}] Query {query_id}: Unerwartete Antwort (kein FlexQueryResponse, "
+                f"{len(content)} Zeichen, Versuch {attempt}/{MAX_RETRIES}): {snippet!r}"
+            )
+            raise RuntimeError(f"GetStatement lieferte unerwarteten Inhalt: {snippet!r}")
+
+        logger.info(
+            f"[{now}] Query {query_id}: Statement erhalten nach {attempt} Versuch(en)/"
+            f"{_elapsed(t_start)} — HTTP {resp.status_code}, {len(content):,} Zeichen"
+        )
         return content
 
     raise RuntimeError(
-        f"Query {query_id}: Statement nach {MAX_RETRIES} Versuchen ({MAX_RETRIES * RETRY_DELAY}s) "
-        f"noch nicht fertig — IBKR-Server beschäftigt. Bitte später nochmal versuchen."
+        f"Query {query_id}: Statement nach {MAX_RETRIES} Versuchen ({_elapsed(t_start)}) "
+        f"noch nicht fertig — letzter Status [{last_marker}]. IBKR-Server beschäftigt. "
+        f"Bitte später nochmal versuchen."
     )
 
 
@@ -185,21 +255,32 @@ def _normalize_date(raw: str) -> str:
     return datetime.now().strftime("%Y%m%d")
 
 
+def _sanitize_for_filename(raw: str) -> str:
+    """Ersetzt alles außer [A-Za-z0-9_-] durch '_', für die Verwendung im Dateinamen."""
+    return re.sub(r"[^A-Za-z0-9_-]+", "_", raw).strip("_")
+
+
 def _build_filename(xml_content: str, query_id: str) -> str:
     """
-    Dateiname: {accountId}_{toDate}_{letzte4 der QueryID}.xml
-    Eindeutig auch wenn dasselbe Konto mehrere Queries hat (z.B. Trade + Activity).
+    Dateiname: {accountId}_{toDate}_{queryName}_{letzte4 der QueryID}.xml
+    queryName kommt aus dem Attribut auf <FlexQueryResponse> (vom IBKR-Portal, z.B.
+    "act_money_per_api") — macht den Dateinamen lesbar wie bei den Mail-XMLs
+    ("flex.<qid>.<name>.xml"). accountId+Datum+qid-Suffix bleiben für Eindeutigkeit
+    (mehrere Queries desselben Kontos am selben Tag) und für den
+    _already_fetched_today-Check (der nur auf den qid-Suffix matcht).
     Fallback: flexquery_{query_id}_{datum}.xml
     """
     qid_suffix = query_id[-4:]
     try:
-        root = ET.fromstring(xml_content)
-        stmt = root.find(".//FlexStatement")
+        root       = ET.fromstring(xml_content)
+        query_name = _sanitize_for_filename(root.get("queryName", ""))
+        stmt       = root.find(".//FlexStatement")
         if stmt is not None:
             account_id = stmt.get("accountId", "")
             to_date    = stmt.get("toDate", "")
             if account_id and to_date:
-                return f"{account_id}_{_normalize_date(to_date)}_{qid_suffix}.xml"
+                name_part = f"_{query_name}" if query_name else ""
+                return f"{account_id}_{_normalize_date(to_date)}{name_part}_{qid_suffix}.xml"
     except ET.ParseError:
         pass
 
@@ -208,16 +289,16 @@ def _build_filename(xml_content: str, query_id: str) -> str:
 
 def _already_fetched_today(query_id: str) -> str | None:
     """
-    Prüft ob bereits heute eine Datei für diese Query existiert (anhand QID-Suffix).
-    Gibt den Dateinamen zurück wenn gefunden, sonst None.
+    Prüft, ob bereits heute eine Datei für diese Query existiert (anhand QID-Suffix).
+    Gibt den Dateinamen zurück, wenn gefunden, sonst None.
     Verhindert unnötige API-Calls gegen IBKRs Daily-Regeneration-Limit (Error 1001).
     """
     suffix = f"_{query_id[-4:]}.xml"
     today  = datetime.now().date()
-    for fname in os.listdir(IN_FOLDER_XML_INCOMING):
+    for fname in os.listdir(OUT_FOLDER_XML_VERIFY):
         if not fname.endswith(suffix):
             continue
-        fpath = os.path.join(IN_FOLDER_XML_INCOMING, fname)
+        fpath = os.path.join(OUT_FOLDER_XML_VERIFY, fname)
         if datetime.fromtimestamp(os.path.getmtime(fpath)).date() == today:
             return fname
     return None
@@ -226,18 +307,19 @@ def _already_fetched_today(query_id: str) -> str | None:
 def _fetch_query(token: str, query_id: str, logger) -> bool:
     """
     Holt eine einzelne FlexQuery und speichert sie als XML.
-    Gibt True zurück wenn eine neue Datei gespeichert wurde.
+    Gibt True zurück, wenn eine neue Datei gespeichert wurde.
     """
     existing = _already_fetched_today(query_id)
     if existing:
         logger.info(f"Query {query_id}: Heute bereits geholt, übersprungen: {existing}")
         return False
 
+    t_start = time.monotonic()
     try:
         ref_code, get_url = _send_request(token, query_id, logger)
         xml_content       = _get_statement(token, ref_code, get_url, query_id, logger)
         filename          = _build_filename(xml_content, query_id)
-        filepath          = os.path.join(IN_FOLDER_XML_INCOMING, filename)
+        filepath          = os.path.join(OUT_FOLDER_XML_VERIFY, filename)
 
         if os.path.exists(filepath):
             logger.info(f"Query {query_id}: Bereits vorhanden, übersprungen: {filename}")
@@ -245,11 +327,13 @@ def _fetch_query(token: str, query_id: str, logger) -> bool:
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(xml_content)
-        logger.info(f"Query {query_id}: Gespeichert → {filepath}")
+        # Gesamtdauer SendRequest+GetStatement — Grundlage, um RETRY_DELAY/MAX_RETRIES
+        # später anhand echter Werte zu optimieren statt zu schätzen.
+        logger.info(f"Query {query_id}: Erfolgreich nach {_elapsed(t_start)} gesamt → {filepath}")
         return True
 
     except Exception as e:
-        logger.error(f"Query {query_id}: Fehler — {e}")
+        logger.error(f"Query {query_id}: Fehler nach {_elapsed(t_start)} gesamt — {e}")
         return False
 
 
@@ -289,12 +373,19 @@ def main() -> int:
     logger.info(f"{len(queries)} Queries konfiguriert | Tokens: {sorted(unique_tokens)}")
     _ensure_dirs()
 
+    t_run_start = time.monotonic()
     cnt = 0
+    prev_token = None
     for i, (token, qid) in enumerate(queries):
         if i > 0:
-            time.sleep(QUERY_DELAY)
+            if token != prev_token:
+                logger.info(f"Token-Wechsel — warte {TOKEN_DELAY}s zur Sicherheit ...")
+                time.sleep(TOKEN_DELAY)
+            else:
+                time.sleep(QUERY_DELAY)
         cnt += _fetch_query(token, qid, logger)
-    logger.info(f"Fertig: {cnt} neue FlexQuery-Datei(en) gespeichert")
+        prev_token = token
+    logger.info(f"Fertig: {cnt} neue FlexQuery-Datei(en) gespeichert — Laufzeit gesamt {_elapsed(t_run_start)}")
     return cnt
 
 
