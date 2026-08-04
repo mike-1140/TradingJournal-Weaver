@@ -225,7 +225,7 @@ IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 
 **Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Manuell abgelegte XMLs müssen dem Namensmuster `flex.*.xml` entsprechen (siehe Phase 1).
 
-**Alternative `fetch_api` (`get_flexquery_api.py`) — derzeit ungenutzt:** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`). Das Experiment wurde 2026-07 eingestellt: IBKR stellt die Daten erst nach dem EOD-Processing (ca. 14–15 Uhr MEZ) bereit, ein Morgen-Abruf bringt daher keinen Zeitvorteil. Außerdem passt das Dateinamens-Schema der API-Downloads (`{accountId}_{toDate}_{qid}.xml`) nicht zum `flex.*`-Filter des Importers — solche Dateien bleiben unbeachtet in `incoming/` liegen.
+**Parallel-Kanal `fetch_api` (`get_flexquery_api.py`) — Verifikations-Modus seit 2026-08-03:** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` parallel zu `fetch_emails` — kein Ersatz, sondern Abgleich, ob die API dieselben Daten liefert wie die Mail-Zustellung. Schreibt bewusst in einen eigenen Ordner `C:\Trade_XML\incoming_x\` statt `incoming\`, damit nichts automatisch importiert wird; Vergleich erfolgt manuell über den Dateinamen (`{accountId}_{toDate}_{qid}.xml`, enthält dieselbe accountId/Datum wie die Mail-XML desselben Tages). Bekannte Einschränkung bleibt: IBKR stellt die Daten erst nach dem EOD-Processing (ca. 14–15 Uhr MEZ) bereit, kein Zeitvorteil ggü. der Mail.
 
 ---
 
@@ -1056,7 +1056,7 @@ xml_proj/
 ├── README.md                    ← Projekt-Kurzbeschreibung
 ├── src/
 │   ├── get_flexquery_emails.py  ← Phase 0: IMAP-Abruf → Trade_XML / Trade_CSV
-│   ├── get_flexquery_api.py     ← Phase 0 Alternative (ungenutzt): FlexQuery via Web-API
+│   ├── get_flexquery_api.py     ← Phase 0 Parallel-Kanal (Verifikation): FlexQuery via Web-API → incoming_x/
 │   ├── import_ibkr_trades.py    ← Phase 1: XML/CSV-Import → trades_raw
 │   ├── process_ibkr_trades.py   ← Phase 2: FIFO-Processing → Endtabellen
 │   ├── xml_append_summary.py    ← Phase 3: Summary-XML für DB-Rebuild

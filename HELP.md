@@ -189,7 +189,7 @@ python run_pipeline.py --config meine_pipeline.toml
 | Step | Modul | Läuft pro |
 |---|---|---|
 | `fetch_emails` | `src.get_flexquery_emails` | Einmal gesamt |
-| `fetch_api` | `src.get_flexquery_api` | Einmal gesamt (derzeit ungenutzt, s.u.) |
+| `fetch_api` | `src.get_flexquery_api` | Einmal gesamt (Verifikations-Modus, s.u.) |
 | `snapshot_csv` | `src.import_csv_snapshots` | Einmal gesamt (intern pipeline.toml) |
 | `snapshot_import` | `src.import_flexquery_snapshot` | Einmal gesamt (intern pipeline.toml) |
 | `import` | `src.import_ibkr_trades` | User × Environment |
@@ -224,15 +224,22 @@ Keine Argumente. Relevante `.env`-Variablen:
 
 ---
 
-## get_flexquery_api.py — FlexQuery per Web-API abrufen (derzeit ungenutzt)
+## get_flexquery_api.py — FlexQuery per Web-API abrufen (Verifikations-Modus)
 
-Holt FlexQuery-XMLs direkt über die IBKR-Web-API statt per E-Mail.
+Holt FlexQuery-XMLs direkt über die IBKR-Web-API, **parallel** zur Mail-Pipeline
+(`get_flexquery_emails.py`) — kein Ersatz, sondern Abgleich, ob die API dieselben
+Daten liefert wie die Mail-Zustellung.
 
-**Status (2026-07-15): Experiment eingestellt.** IBKR stellt die Daten erst nach dem
-EOD-Processing (ca. 14–15 Uhr MEZ) bereit — ein Abruf am Morgen bringt daher keinen
-Zeitvorteil gegenüber den Mails. Zusätzlich passt das Dateinamens-Schema der API-Downloads
-(`{accountId}_{toDate}_{qid}.xml`) nicht zum `flex.*`-Filter des Importers — solche Dateien
-bleiben unbeachtet in `incoming/` liegen (bewusst so belassen).
+**Status (seit 2026-08-03): Verifikations-Modus, laeuft parallel.** Schreibt bewusst
+**nicht** nach `C:\Trade_XML\incoming\` (das bleibt der Mail-Pipeline vorbehalten),
+sondern nach `C:\Trade_XML\incoming_x\` — dieser Ordner wird vom `import`-Step **nicht**
+gescannt, die Dateien landen also nie automatisch in der DB. Manueller Abgleich über den
+Dateinamen (`{accountId}_{toDate}_{qid}.xml`), enthält dieselbe accountId/Datum wie die
+per Mail eingegangene `flex.*.xml` desselben Tages.
+
+Frühere Einschränkung bleibt bestehen: IBKR stellt die Daten erst nach dem EOD-Processing
+(ca. 14–15 Uhr MEZ) bereit — kein Zeitvorteil ggü. der Mail, nur zusätzlicher
+Verifikationskanal.
 
 ```bash
 python -m src.get_flexquery_api
@@ -241,6 +248,10 @@ python -m src.get_flexquery_api
 | Variable | Bedeutung |
 |---|---|
 | `IBKR_FLEX_QUERIES` | Kommagetrennte `token:query_id`-Paare (siehe Docstring im Script) |
+
+Ohne `IBKR_FLEX_QUERIES` in `.env` ist der Schritt ein No-Op (kein Fehler, Exit-Code 0) —
+kann also gefahrlos im Standard-Pipeline-Lauf aktiv bleiben, auch wenn (noch) nicht für
+alle Accounts ein Token/Query konfiguriert ist.
 
 ---
 
