@@ -1,17 +1,22 @@
 """
-Importiert account_snapshots aus IBKR FlexQuery Activity XMLs.
-Ersetzt import_activity_statement.py für XML-basierte Imports.
+Importiert account_snapshots aus IBKR FlexQuery Activity XMLs (per API-Abruf durch
+get_flexquery_api.py nach C:\\Trade_XML\\incoming_api\\ geschrieben).
 
 Ablauf:
-  1. Alle XMLs in IN_FOLDER_XML_INCOMING scannen (oder einzelne Datei via --file)
+  1. Alle XMLs in IN_FOLDER_XML_INCOMING_API scannen (oder einzelne Datei via --file)
   2. Pro XML: alle FlexStatements parsen (ein Statement = ein Snapshot-Tag)
-  3. accountId → Environment/Prefix via ACCOUNT_MAP aus config.py auflösen
+  3. accountId → Environment/User/Prefix via ACCOUNT_MAP aus config.py auflösen
   4. Snapshot in account_snapshots einfügen (Duplikate überspringen)
+
+Verschiebt/loescht die XML-Datei NICHT — das uebernimmt der nachfolgende import-Schritt
+(import_ibkr_trades.py), der incoming_api/ zusaetzlich zu incoming_mail/ fuer trades_raw
+scannt und als einziger Schritt fuer processed/deleted zustaendig ist. In pipeline.toml
+laeuft snapshot_import bewusst VOR import, damit die Datei beim Scan noch vorhanden ist.
 
 Verwendung:
     python src/import_flexquery_snapshot.py
     python src/import_flexquery_snapshot.py --dry-run
-    python src/import_flexquery_snapshot.py --file C:\\Trade_XML\\incoming\\U12109360_20260525_0870.xml
+    python src/import_flexquery_snapshot.py --file C:\\Trade_XML\\incoming_api\\U12109360_20260525_act_money_per_api_0870.xml
 """
 
 import argparse
@@ -25,7 +30,7 @@ from src.logger_setup import setup_logging
 from src.parsers.flexquery_snapshot_parser import FlexquerySnapshotParser
 from src.utils.path_utils import get_project_root
 
-IN_FOLDER_XML_INCOMING = Path(r'C:\Trade_XML\incoming')
+IN_FOLDER_XML_INCOMING_API = Path(r'C:\Trade_XML\incoming_api')
 
 log_file = get_project_root() / "log/app.log"
 logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
@@ -158,10 +163,10 @@ def main() -> int:
             logger.error(f"Datei nicht gefunden: {args.file}")
             return 1
     else:
-        if not IN_FOLDER_XML_INCOMING.exists():
-            logger.error(f"Eingangsordner nicht gefunden: {IN_FOLDER_XML_INCOMING}")
+        if not IN_FOLDER_XML_INCOMING_API.exists():
+            logger.error(f"Eingangsordner nicht gefunden: {IN_FOLDER_XML_INCOMING_API}")
             return 1
-        xml_files = sorted(IN_FOLDER_XML_INCOMING.glob('*.xml'))
+        xml_files = sorted(IN_FOLDER_XML_INCOMING_API.glob('*.xml'))
 
     if not xml_files:
         logger.info("Keine XML-Dateien gefunden.")

@@ -14,9 +14,12 @@ from src.parsers.flex_parser import process_flex_file
 from src.utils.path_utils import get_project_root
 from src.utils.progress import ProgressLine
 
-# Eingangsordner — alle eingehenden Dateien landen hier, Routing per accountId
-BASE_XML_INCOMING       = r'C:\Trade_XML\incoming'
-BASE_CSV_INCOMING       = r'C:\Trade_CSV\incoming'
+# Eingangsordner — alle eingehenden Dateien landen hier, Routing per accountId.
+# Zwei Quellen (Mail + API), fuer den Import gleichwertig behandelt (siehe _import_xml_files):
+# gleiches Routing, gleiche processed/deleted-Ablage, kein Filename-Unterschied noetig.
+BASE_XML_INCOMING_MAIL   = r'C:\Trade_XML\incoming_mail'
+BASE_XML_INCOMING_API    = r'C:\Trade_XML\incoming_api'
+BASE_CSV_INCOMING        = r'C:\Trade_CSV\incoming'
 # Produktions-Basis für processed/ und deleted/ nach dem Import
 BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
 
@@ -24,24 +27,32 @@ log_file = get_project_root() / "log/app.log"
 logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
 
 
-def import_trades() -> None:
+def import_trades(target_environment: str | None = None, target_table_prefix: str | None = None) -> None:
     """
     Importiert alle Trades aus den incoming/-Ordnern.
     Environment und User werden automatisch per accountId-Mapping ermittelt.
+
+    Mit target_environment/target_table_prefix (CLI-Override, analog process_ibkr_trades.py):
+    nur Dateien fuer genau dieses Environment/Prefix werden importiert+verschoben, alle
+    anderen bleiben unangetastet in incoming_mail/incoming_api liegen (fuer den naechsten
+    Lauf ohne Filter oder mit anderem Ziel).
     """
     logger.info("=" * 80)
     logger.info(f"Starte Import ({datetime.now().strftime('%Y-%m-%d - %H:%M:%S')})")
     logger.info("=" * 80)
 
-    _import_xml_files()
+    _import_xml_files(target_environment, target_table_prefix)
 
     # TEST-Import: eigene Verzeichnisse pro User, kein accountId-Routing
     for t in load_active_targets():
-        if t["environment"] == "test":
-            cnt_test = _import_test_files(t["prefix"], t["user"])
-            logger.info(f"TEST-Import [{t['user']}] abgeschlossen: {cnt_test} Trade(s)")
+        if t["environment"] != "test":
+            continue
+        if target_environment and (target_environment != "test" or target_table_prefix != t["prefix"]):
+            continue
+        cnt_test = _import_test_files(t["prefix"], t["user"])
+        logger.info(f"TEST-Import [{t['user']}] abgeschlossen: {cnt_test} Trade(s)")
 
-    cnt_csv = _import_activity_csvs()
+    cnt_csv = _import_activity_csvs(target_environment, target_table_prefix)
     logger.info(f"CSV-Import abgeschlossen: {cnt_csv} Snapshot(s)")
 
 
@@ -69,60 +80,79 @@ def _ensure_env_dirs(environment: str, user: str = "") -> None:
         (base / sub).mkdir(parents=True, exist_ok=True)
 
 
-def _import_xml_files() -> None:
+def _import_xml_files(target_environment: str | None = None, target_table_prefix: str | None = None) -> None:
     """
-    Scannt C:\\Trade_XML\\incoming\\ nach flex.*.xml-Dateien.
+    Scannt incoming_mail/ und incoming_api/ nach *.xml-Dateien — die Quelle ist fuer
+    den Import irrelevant, beide werden identisch behandelt (gleiches Routing, gleiche
+    processed/deleted-Ablage). incoming_mail zuerst (vollstaendigere Reports mit
+    OptionEAE/BookTrades/CorporateActions), incoming_api danach — Trades sind dank
+    Checksum-Dedup (tradeID+dateTime+symbol+quantity+tradePrice) in flex_parser.py
+    unabhaengig von der Reihenfolge sicher gegen doppeltes Einfuegen.
     Routing: accountId -> ACCOUNT_MAP -> environment + user + table_prefix.
     Verarbeitete Dateien werden nach <env>/<user>/processed/ bzw. <env>/<user>/deleted/ verschoben.
+
+    Mit target_environment/target_table_prefix: Dateien anderer Environments/Prefixe werden
+    uebersprungen und bleiben unverschoben liegen (kein processed/deleted fuer sie).
     """
-    incoming = Path(BASE_XML_INCOMING)
-    incoming.mkdir(parents=True, exist_ok=True)
-
-    files = [f for f in os.listdir(incoming) if f.lower().startswith("flex.") and f.lower().endswith(".xml")]
-    if not files:
-        print("Keine XML-Dateien in incoming/ gefunden.")
-        return
-
-    progress = ProgressLine(logger)
-    total = len(files)
     total_inserted = 0
+    total_files = 0
 
-    for i, xml_file in enumerate(files, start=1):
-        xml_path = incoming / xml_file
+    for source in (BASE_XML_INCOMING_MAIL, BASE_XML_INCOMING_API):
+        incoming = Path(source)
+        incoming.mkdir(parents=True, exist_ok=True)
 
-        raw_id = _read_account_id_from_xml(xml_path)
-        if not raw_id:
-            logger.warning(f"Keine accountId lesbar: {xml_file} — übersprungen")
+        files = [f for f in os.listdir(incoming) if f.lower().endswith(".xml")]
+        if not files:
+            print(f"Keine XML-Dateien in {incoming}\\ gefunden.")
             continue
 
-        cfg = get_account_config(raw_id)
-        if not cfg:
-            logger.warning(f"Unbekannte accountId '{raw_id}' in {xml_file} — übersprungen")
-            continue
+        progress = ProgressLine(logger)
+        total = len(files)
+        total_files += total
 
-        environment  = cfg['environment']
-        table_prefix = cfg['table_prefix']
-        user         = cfg['user']
+        for i, xml_file in enumerate(files, start=1):
+            xml_path = incoming / xml_file
 
-        if not is_environment_active(environment, table_prefix):
-            logger.info(f"Environment '{environment}' inaktiv (pipeline.toml) — {xml_file} übersprungen")
-            continue
-        env_up       = environment.upper()
+            raw_id = _read_account_id_from_xml(xml_path)
+            if not raw_id:
+                logger.warning(f"Keine accountId lesbar: {xml_file} — übersprungen")
+                continue
 
-        _ensure_env_dirs(environment, user)
-        db   = DBAccess(logger, environment, table_prefix)
-        repo = TradeRepository(db)
+            cfg = get_account_config(raw_id)
+            if not cfg:
+                logger.warning(f"Unbekannte accountId '{raw_id}' in {xml_file} — übersprungen")
+                continue
 
-        progress.start(f"({i}/{total}): {xml_file} [{env_up} / {user}]")
-        num_inserted, entry_found = process_flex_file(xml_path, db, repo, logger, environment)
-        total_inserted += num_inserted
-        delete_file = num_inserted == 0 and entry_found == 0
-        progress.done(f"({i}/{total}) {xml_file} -> {num_inserted} Trades [{env_up} / {user}]")
+            environment  = cfg['environment']
+            table_prefix = cfg['table_prefix']
+            user         = cfg['user']
 
-        target_base = Path(BASE_XML_FILE_PATH_PROD) / environment / user
-        move_xml_file(xml_file, incoming, logger, delete_file, target_base)
+            if target_environment and (environment != target_environment or table_prefix != target_table_prefix):
+                logger.info(
+                    f"{xml_file}: gehört zu [{environment.upper()} / {user}], "
+                    f"nicht Ziel [{target_environment.upper()} / {target_table_prefix}] — übersprungen (bleibt liegen)"
+                )
+                continue
 
-    logger.info(f"XML-Import abgeschlossen: {total_inserted} Trades aus {total} Datei(en)")
+            if not is_environment_active(environment, table_prefix):
+                logger.info(f"Environment '{environment}' inaktiv (pipeline.toml) — {xml_file} übersprungen")
+                continue
+            env_up       = environment.upper()
+
+            _ensure_env_dirs(environment, user)
+            db   = DBAccess(logger, environment, table_prefix)
+            repo = TradeRepository(db)
+
+            progress.start(f"({i}/{total}): {xml_file} [{env_up} / {user}]")
+            num_inserted, entry_found = process_flex_file(xml_path, db, repo, logger, environment)
+            total_inserted += num_inserted
+            delete_file = num_inserted == 0 and entry_found == 0
+            progress.done(f"({i}/{total}) {xml_file} -> {num_inserted} Trades [{env_up} / {user}]")
+
+            target_base = Path(BASE_XML_FILE_PATH_PROD) / environment / user
+            move_xml_file(xml_file, incoming, logger, delete_file, target_base)
+
+    logger.info(f"XML-Import abgeschlossen: {total_inserted} Trades aus {total_files} Datei(en)")
 
 
 def _import_xml_from_summary(environment: str, table_prefix: str) -> None:
@@ -209,11 +239,14 @@ def _import_test_files(prefix: str, user: str) -> int:
 # CSV-Import
 # ---------------------------------------------------------------------------
 
-def _import_activity_csvs() -> int:
+def _import_activity_csvs(target_environment: str | None = None, target_table_prefix: str | None = None) -> int:
     """
     Scannt C:\\Trade_CSV\\incoming\\ nach Activity Statement CSVs.
     Routing: accountId aus Dateiinhalt -> ACCOUNT_MAP -> environment + user + table_prefix.
     Verarbeitete Dateien werden nach incoming/<user>/processed/ verschoben.
+
+    Mit target_environment/target_table_prefix: CSVs anderer Environments/Prefixe werden
+    uebersprungen und bleiben liegen.
     """
     incoming = Path(BASE_CSV_INCOMING)
     incoming.mkdir(parents=True, exist_ok=True)
@@ -242,6 +275,13 @@ def _import_activity_csvs() -> int:
         environment  = cfg['environment']
         table_prefix = cfg['table_prefix']
         user         = cfg['user']
+
+        if target_environment and (environment != target_environment or table_prefix != target_table_prefix):
+            logger.info(
+                f"{csv_file}: gehört zu [{environment.upper()} / {user}], "
+                f"nicht Ziel [{target_environment.upper()} / {target_table_prefix}] — übersprungen (bleibt liegen)"
+            )
+            continue
 
         imported = import_activity_statement(str(csv_path), environment, table_prefix)
         processed_dir = incoming / user / "processed"
@@ -289,13 +329,22 @@ if __name__ == "__main__":
         _import_xml_from_summary(args[0].lower(), args[1])
 
     elif args and args[0].lower() == "test":
-        # Test-Modus: alle XMLs aus incoming/ -> test-DB, ohne accountId-Routing
+        # Test-Modus: alle XMLs aus incoming_mail/ -> test-DB, ohne accountId-Routing
         # Aufruf: python import_ibkr_trades.py test [prefix]
         # Ohne prefix: Wert aus pipeline.toml oder TABLE_PREFIX aus .env
         prefix = args[1] if len(args) > 1 else _get_test_prefix()
-        logger.info(f"TEST-Modus: importiere aus incoming/ -> test / {prefix}")
-        cnt = _import_xml_to_test(prefix, Path(BASE_XML_INCOMING), Path(BASE_XML_FILE_PATH_PROD) / "test")
+        logger.info(f"TEST-Modus: importiere aus incoming_mail/ -> test / {prefix}")
+        cnt = _import_xml_to_test(prefix, Path(BASE_XML_INCOMING_MAIL), Path(BASE_XML_FILE_PATH_PROD) / "test")
         logger.info(f"TEST-Import abgeschlossen: {cnt} Trade(s)")
 
+    elif args:
+        # CLI-Override: gezielt ein Environment/Prefix importieren (analog process_ibkr_trades.py).
+        # Dateien anderer Environments/Prefixe bleiben unangetastet in incoming_mail/incoming_api liegen.
+        env          = args[0].lower()
+        table_prefix = args[1] if len(args) > 1 else TABLE_PREFIX
+        logger.info(f"CLI-Modus: {env} / {table_prefix}")
+        import_trades(target_environment=env, target_table_prefix=table_prefix)
+
     else:
+        # Auto-Modus: alle Environments/Prefixe (accountId-Routing entscheidet)
         import_trades()

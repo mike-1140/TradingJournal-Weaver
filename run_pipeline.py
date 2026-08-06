@@ -63,19 +63,36 @@ def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str
             tasks.append({"step": step, "label": step, "args": []})
 
         elif step == "import":
-            # Pro User x Env (import bleibt pro-User, wegen from_summary-Modus)
-            for user, ucfg in active_users.items():
-                envs = [e for e in ucfg["environments"] if not filter_envs or e in filter_envs]
-                for env in envs:
-                    args = [env, ucfg["prefix"]]
-                    if from_summary:
-                        args.append("from_summary")
-                    label_suffix = " [from_summary]" if from_summary else ""
-                    tasks.append({
-                        "step": step,
-                        "label": f"import{label_suffix} [{user} / {env}]",
-                        "args": args,
-                    })
+            if from_summary:
+                # Pro User x Env noetig: from_summary liest gezielt eine env/prefix-
+                # spezifische summary.xml, ohne ACCOUNT_MAP-Routing.
+                for user, ucfg in active_users.items():
+                    envs = [e for e in ucfg["environments"] if not filter_envs or e in filter_envs]
+                    for env in envs:
+                        tasks.append({
+                            "step": step,
+                            "label": f"import [from_summary] [{user} / {env}]",
+                            "args": [env, ucfg["prefix"], "from_summary"],
+                        })
+            elif filter_users or filter_envs:
+                # Gezielter Lauf (--users/--envs gesetzt): import_ibkr_trades.py unterstuetzt
+                # seit Kurzem ein CLI-Override <env> <prefix>, das nur Dateien dieses einen
+                # Ziels importiert/verschiebt, alle anderen bleiben liegen — ein Task pro
+                # passendem User x Env, wie bei reset.
+                for user, ucfg in active_users.items():
+                    envs = [e for e in ucfg["environments"] if not filter_envs or e in filter_envs]
+                    for env in envs:
+                        tasks.append({
+                            "step": step,
+                            "label": f"import [{user} / {env}]",
+                            "args": [env, ucfg["prefix"]],
+                        })
+            else:
+                # Standardfall, kein Filter aktiv: einmaliger globaler Lauf.
+                # import_ibkr_trades.py routet ohne CLI-Args intern per accountId ueber
+                # ACCOUNT_MAP fuer alle User/Envs (genau wie fetch_emails/fetch_api/
+                # snapshot_csv) — effizienter als ein Task pro User x Env.
+                tasks.append({"step": step, "label": step, "args": []})
 
         elif step == "reset":
             # Pro User x Env — Prefix wird mitgegeben (DESTRUKTIV: loescht und legt Tabellen neu an)

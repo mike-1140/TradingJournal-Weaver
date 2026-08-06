@@ -12,7 +12,7 @@ from src.utils.path_utils import get_project_root
 load_dotenv()
 
 # --- Eingangsordner — Routing erfolgt beim Import per accountId ---
-IN_FOLDER_XML_INCOMING = r'C:\Trade_XML\incoming'
+IN_FOLDER_XML_INCOMING = r'C:\Trade_XML\incoming_mail'
 IN_FOLDER_CSV_INCOMING = r'C:\Trade_CSV\incoming'
 
 # IMAP-Credentials aus .env

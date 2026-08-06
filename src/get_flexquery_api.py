@@ -2,15 +2,22 @@
 get_flexquery_api.py — holt IBKR FlexQuery-XMLs direkt über die FlexWeb-Service-API
 
 Läuft parallel zur Mail-Pipeline (get_flexquery_emails.py), NICHT als Ersatz — beide
-Wege sind aktuell gleichzeitig aktiv (siehe pipeline.toml). Zweck: Verifikation, ob die
-API dieselben Daten liefert wie die Mail-Zustellung, bevor sie ggf. produktiv genutzt wird.
+Wege sind gleichzeitig aktiv (siehe pipeline.toml). Die API liefert die "act_money_per_api"-
+Query (Trades + EquitySummary + CashReport + MTMPerformance).
+  - import (import_ibkr_trades.py) liest daraus die Trades nach trades_raw (gleichwertig
+    zu den Mail-XMLs, Checksum-Dedup verhindert doppelte Trades) UND ist fuer
+    processed/deleted verantwortlich.
+  - snapshot_import (import_flexquery_snapshot.py) koennte daraus zusaetzlich
+    account_snapshots (EquitySummary/CashReport/MTM) fuellen, ist aber Stand 2026-08-05
+    BEWUSST NICHT in der Standard-Pipeline (siehe pipeline.toml) — der FlexQuery-API-Weg
+    fuer Snapshots funktioniert noch nicht zuverlaessig, account_snapshots kommt aktuell
+    nur ueber snapshot_csv (Mail + Activity-Report).
+  Fehlendes OptionEAE/BookTrades in dieser Query bedeutet: Assignment-/Expiry-Events
+  kommen weiterhin nur aus den Mail-XMLs — die API ist kein vollstaendiger Ersatz dafuer.
 
-WICHTIG: Schreibt bewusst NICHT nach C:\\Trade_XML\\incoming\\ (das ist der Mail-Pipeline
-vorbehalten), sondern nach OUT_FOLDER_XML_VERIFY (C:\\Trade_XML\\incoming_x\\). Der
-import-Step scannt nur incoming\\ — Dateien hier werden also nie automatisch importiert,
-auch unabhängig vom flex.*-Namensfilter. Manueller Abgleich: Dateiname enthält
-accountId + Datum (siehe _build_filename), dadurch mit den Mail-XMLs für denselben Tag/
-Account vergleichbar.
+Schreibt nach OUT_FOLDER_XML_API (C:\\Trade_XML\\incoming_api\\), getrennt von
+get_flexquery_emails.py's C:\\Trade_XML\\incoming_mail\\ — beide Ordner werden vom
+import-Step gleichwertig gescannt (siehe import_ibkr_trades.py).
 
 Unterstützt mehrere Konten/Logins (money, paper, autom_money, autom_paper, karola ...).
 Das Routing zum richtigen Environment erfolgt automatisch über die accountId im XML
@@ -55,9 +62,8 @@ load_dotenv()
 
 _session = requests.Session()
 
-# Bewusst getrennt von get_flexquery_emails.py's C:\Trade_XML\incoming\ — Verifications-
-# Ordner, wird vom import-Step nicht gescannt (siehe Docstring oben).
-OUT_FOLDER_XML_VERIFY = r'C:\Trade_XML\incoming_x'
+# Bewusst getrennt von get_flexquery_emails.py's C:\Trade_XML\incoming_mail\ (siehe Docstring oben).
+OUT_FOLDER_XML_API = r'C:\Trade_XML\incoming_api'
 
 _SEND_URL  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
 _GET_URL   = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement"
@@ -94,7 +100,7 @@ def _parse_queries() -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 
 def _ensure_dirs():
-    os.makedirs(OUT_FOLDER_XML_VERIFY, exist_ok=True)
+    os.makedirs(OUT_FOLDER_XML_API, exist_ok=True)
 
 
 def _elapsed(t_start: float) -> str:
@@ -218,7 +224,7 @@ def _get_statement(token: str, ref_code: str, get_url: str, query_id: str, logge
 
         # Sanity-Check: alles, was hier ankommt, sollte echtes FlexQuery-XML sein.
         # Ohne diese Prüfung würde eine leere/kaputte Antwort (z.B. HTML-Fehlerseite
-        # von einem Proxy) unbemerkt als "erfolgreich" nach incoming_x/ geschrieben.
+        # von einem Proxy) unbemerkt als "erfolgreich" nach incoming_api/ geschrieben.
         if not content.startswith("<?xml") and not content.startswith("<FlexQueryResponse"):
             snippet = content[:300].replace("\n", " ")
             logger.warning(
@@ -295,10 +301,10 @@ def _already_fetched_today(query_id: str) -> str | None:
     """
     suffix = f"_{query_id[-4:]}.xml"
     today  = datetime.now().date()
-    for fname in os.listdir(OUT_FOLDER_XML_VERIFY):
+    for fname in os.listdir(OUT_FOLDER_XML_API):
         if not fname.endswith(suffix):
             continue
-        fpath = os.path.join(OUT_FOLDER_XML_VERIFY, fname)
+        fpath = os.path.join(OUT_FOLDER_XML_API, fname)
         if datetime.fromtimestamp(os.path.getmtime(fpath)).date() == today:
             return fname
     return None
@@ -319,7 +325,7 @@ def _fetch_query(token: str, query_id: str, logger) -> bool:
         ref_code, get_url = _send_request(token, query_id, logger)
         xml_content       = _get_statement(token, ref_code, get_url, query_id, logger)
         filename          = _build_filename(xml_content, query_id)
-        filepath          = os.path.join(OUT_FOLDER_XML_VERIFY, filename)
+        filepath          = os.path.join(OUT_FOLDER_XML_API, filename)
 
         if os.path.exists(filepath):
             logger.info(f"Query {query_id}: Bereits vorhanden, übersprungen: {filename}")
