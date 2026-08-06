@@ -47,6 +47,7 @@ Konfiguration in .env:
   Exit-Code 0) — der Schritt ist dann im Pipeline-Lauf einfach ein No-Op.
 """
 
+import json
 import os
 import re
 import time
@@ -64,6 +65,15 @@ _session = requests.Session()
 
 # Bewusst getrennt von get_flexquery_emails.py's C:\Trade_XML\incoming_mail\ (siehe Docstring oben).
 OUT_FOLDER_XML_API = r'C:\Trade_XML\incoming_api'
+
+# Persistenter "heute schon geholt"-Merker, unabhaengig vom Ordnerinhalt.
+# Liegt bewusst NICHT in incoming_api\ (kein *.xml, wird vom XML-Scan in
+# import_ibkr_trades.py ignoriert) — der reine Ordner-Check (_folder_has_today_file)
+# versagt naemlich, sobald import_ibkr_trades.py die Datei nach processed/deleted/
+# verschoben hat (z.B. Vormittags-Fetch + Import, Nachmittags-Pipeline-Lauf sieht
+# einen leeren incoming_api\-Ordner und haelt die Query faelschlich fuer offen —
+# beobachtet 2026-08-06, fuehrte zu Fehler 1001 "Regeneration verweigert").
+STATE_FILE = os.path.join(os.path.dirname(OUT_FOLDER_XML_API), "flexquery_api_state.json")
 
 _SEND_URL  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
 _GET_URL   = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement"
@@ -293,11 +303,34 @@ def _build_filename(xml_content: str, query_id: str) -> str:
     return f"flexquery_{query_id}_{datetime.now().strftime('%Y%m%d')}.xml"
 
 
-def _already_fetched_today(query_id: str) -> str | None:
+def _load_state() -> dict:
+    """Liest STATE_FILE. Fehlt/kaputt -> leerer State (kein Fehler, nur erneuter Fetch nötig)."""
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _mark_fetched(query_id: str, filename: str, logger) -> None:
+    """Vermerkt einen erfolgreichen Fetch für query_id in STATE_FILE (heutiges Datum + Dateiname)."""
+    state = _load_state()
+    state[query_id] = {"date": datetime.now().date().isoformat(), "filename": filename}
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        # Nicht fatal: Datei wurde bereits erfolgreich geholt, nur der Merker fehlt danach —
+        # schlimmstenfalls ein unnötiger Retry-Versuch beim naechsten Lauf.
+        logger.warning(f"Query {query_id}: Konnte STATE_FILE nicht schreiben ({e}) — Merker fehlt für heute")
+
+
+def _folder_has_today_file(query_id: str) -> str | None:
     """
-    Prüft, ob bereits heute eine Datei für diese Query existiert (anhand QID-Suffix).
-    Gibt den Dateinamen zurück, wenn gefunden, sonst None.
-    Verhindert unnötige API-Calls gegen IBKRs Daily-Regeneration-Limit (Error 1001).
+    Prüft, ob bereits heute eine Datei für diese Query in OUT_FOLDER_XML_API liegt
+    (anhand QID-Suffix). Gibt den Dateinamen zurück, wenn gefunden, sonst None.
+    Ergänzender Check zu STATE_FILE — greift z.B. wenn STATE_FILE fehlt, der Fetch
+    aber schon lief und die Datei noch nicht importiert/verschoben wurde.
     """
     suffix = f"_{query_id[-4:]}.xml"
     today  = datetime.now().date()
@@ -308,6 +341,22 @@ def _already_fetched_today(query_id: str) -> str | None:
         if datetime.fromtimestamp(os.path.getmtime(fpath)).date() == today:
             return fname
     return None
+
+
+def _already_fetched_today(query_id: str) -> str | None:
+    """
+    Prüft, ob heute bereits ein erfolgreicher Fetch für diese Query stattfand —
+    per STATE_FILE (überlebt auch, wenn import_ibkr_trades.py die Datei zwischenzeitlich
+    aus incoming_api\\ nach processed/deleted verschoben hat) und als Fallback per
+    Ordnerinhalt. Gibt eine Beschreibung zurück, wenn gefunden, sonst None.
+    Verhindert unnötige API-Calls gegen IBKRs Daily-Regeneration-Limit (Error 1001).
+    """
+    today = datetime.now().date().isoformat()
+    entry = _load_state().get(query_id)
+    if entry and entry.get("date") == today:
+        return entry.get("filename", "(STATE_FILE)")
+
+    return _folder_has_today_file(query_id)
 
 
 def _fetch_query(token: str, query_id: str, logger) -> bool:
@@ -333,6 +382,7 @@ def _fetch_query(token: str, query_id: str, logger) -> bool:
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(xml_content)
+        _mark_fetched(query_id, filename, logger)
         # Gesamtdauer SendRequest+GetStatement — Grundlage, um RETRY_DELAY/MAX_RETRIES
         # später anhand echter Werte zu optimieren statt zu schätzen.
         logger.info(f"Query {query_id}: Erfolgreich nach {_elapsed(t_start)} gesamt → {filepath}")
