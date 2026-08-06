@@ -39,28 +39,30 @@ Der Importer liest die accountId aus dem ersten `<FlexStatement>` der XML.
 Unbekannte accountIds werden übersprungen (Warnung im Log). Neue Konten müssen
 in `ACCOUNT_MAP` ergänzt werden.
 
-**Wichtig — Dateinamen-Filter:** Der Importer verarbeitet nur Dateien, deren Name mit
-`flex.` beginnt (`flex.*.xml`, Groß-/Kleinschreibung egal). Manuell erhaltene XMLs vor
-dem Import umbenennen, z.B. `K_Echt.xml` → `flex.K_Echt.xml`. Andere Dateien bleiben
-unbeachtet in `incoming/` liegen.
+**Kein Dateinamen-Filter mehr (Normalbetrieb):** Der Importer verarbeitet alle `*.xml`-Dateien
+in `incoming_mail\` und `incoming_api\` gleichwertig — die Quelle (Mail vs. FlexQuery-API)
+ist irrelevant, Checksum-Dedup (tradeID+dateTime+symbol+qty+price) verhindert doppelte Trades,
+falls dieselben Daten über beide Kanäle ankommen. Einzige Ausnahme: der dedizierte
+**TEST-Modus** verlangt weiterhin das Muster `flex.*.xml` (siehe [TEST-Environment](#test-environment--manuelle-xmls-automatisch-erkennen)).
 
 ## Verzeichnisstruktur (XML-Dateien)
 
 ```
 C:\Trade_XML\
-  incoming\                    ← alle eingehenden XML-Dateien (accountId-Routing)
+  incoming_mail\                ← eingehende XML-Dateien per E-Mail (accountId-Routing)
+  incoming_api\                 ← eingehende XML-Dateien per FlexQuery Web-API (accountId-Routing)
   <env>\
     <user>\
-      processed\               ← erfolgreich importierte Dateien
+      processed\               ← erfolgreich importierte Dateien (aus beiden Quellen)
       deleted\                 ← Dateien ohne neue Trades
     summary_<prefix><env>.xml  ← zusammengefasste Summary
   test\
     <user>\
-      incoming\                ← manuell abgelegte Test-XMLs, kein accountId-Routing
+      incoming\                ← manuell abgelegte Test-XMLs (flex.*.xml), kein accountId-Routing
       processed\
       deleted\
 C:\Trade_CSV\
-  incoming\                    ← eingehende Activity-CSVs
+  incoming\                    ← eingehende Activity-CSVs (nur per Mail, kein API-Äquivalent)
     <user>\
       processed\               ← erfolgreich importierte CSVs
 ```
@@ -95,10 +97,10 @@ Zum Deaktivieren einfach den Eintrag aus der TOML entfernen/auskommentieren.
 **Workflow:**
 
 ```powershell
-# 1. Datei muss dem flex.*.xml-Muster entsprechen (wie überall)
-Rename-Item C:\Trade_XML\incoming\meine_datei.xml flex.meine_datei.xml
+# 1. Datei muss dem flex.*.xml-Muster entsprechen (nur im TEST-Modus noch Pflicht)
+Rename-Item C:\Trade_XML\incoming_mail\meine_datei.xml flex.meine_datei.xml
 
-# 2. In den passenden User-Ordner legen — kein incoming/ der Hauptroute!
+# 2. In den passenden User-Ordner legen — kein incoming_mail/incoming_api der Hauptroute!
 Move-Item flex.meine_datei.xml C:\Trade_XML\test\mike\incoming\
 ```
 
@@ -123,13 +125,13 @@ CLI-Aufruf `python -m src.xml_append_summary test mike_`).
 
 **Alternative — Einzeldatei manuell testen, ohne pipeline.toml-Eintrag:**
 ```bash
-# Datei liegt in C:\Trade_XML\incoming\ (Hauptordner), Prefix explizit angeben
+# Datei liegt in C:\Trade_XML\incoming_mail\ (Hauptordner), Prefix explizit angeben
 python -m src.import_ibkr_trades test mike_
 python -m src.process_ibkr_trades test mike_
 ```
 Ohne Prefix-Argument wird der erste `[[test]]`-Eintrag aus `pipeline.toml` verwendet,
-sonst `TABLE_PREFIX` aus `.env`. Dieser Modus scannt den **Hauptordner** `incoming\`
-(nicht `test\<user>\incoming\`) und ignoriert die accountId komplett.
+sonst `TABLE_PREFIX` aus `.env`. Dieser Modus scannt den **Hauptordner** `incoming_mail\`
+(nicht `test\<user>\incoming\`, nicht `incoming_api\`) und ignoriert die accountId komplett.
 
 **Neu testen mit derselben Datei:** Der Checksum-Schutz verhindert Doppel-Import
 (`0 Trades importiert` ist dann erwartetes Verhalten, kein Fehler). Für einen sauberen
@@ -189,23 +191,34 @@ python run_pipeline.py --config meine_pipeline.toml
 | Step | Modul | Läuft pro |
 |---|---|---|
 | `fetch_emails` | `src.get_flexquery_emails` | Einmal gesamt |
-| `fetch_api` | `src.get_flexquery_api` | Einmal gesamt (Verifikations-Modus, s.u.) |
+| `fetch_api` | `src.get_flexquery_api` | Einmal gesamt |
 | `snapshot_csv` | `src.import_csv_snapshots` | Einmal gesamt (intern pipeline.toml) |
-| `snapshot_import` | `src.import_flexquery_snapshot` | Einmal gesamt (intern pipeline.toml) |
-| `import` | `src.import_ibkr_trades` | User × Environment |
+| `snapshot_import` | `src.import_flexquery_snapshot` | Einmal gesamt — **nicht** in den Standard-Steps (s.u.) |
+| `import` | `src.import_ibkr_trades` | Ohne `--users`/`--envs`: einmal gesamt. Mit Filter: pro passendem User × Environment |
 | `process` | `src.process_ibkr_trades` | Einmal gesamt (intern pipeline.toml) |
 | `summary` | `src.xml_append_summary` | Einmal gesamt (intern pipeline.toml) |
 | `reset` | `tools.maintenance.reset_IBKR_DB` | User × Environment ⚠️ destruktiv |
 
-Hinweis: Der `import`-Step scannt immer das ganze `incoming/`-Verzeichnis und routet
-per accountId — der `--users`-Filter hat auf den Import faktisch keine Wirkung.
+`import_ibkr_trades.py` unterstützt seit Kurzem ein CLI-Override `<env> <prefix>`
+(analog `process_ibkr_trades.py`) — nur Dateien dieses einen Ziels werden importiert,
+alle anderen bleiben unangetastet liegen. `run_pipeline.py` nutzt das automatisch:
+ohne `--users`/`--envs` läuft `import` einmal global (effizient, accountId routet
+intern), mit gesetztem Filter läuft es pro passendem User × Environment.
+
+`snapshot_import` ist bewusst **nicht** in den Standard-Steps von `pipeline.toml`
+aktiv — der FlexQuery-API-Weg für `account_snapshots` hat bekannte Datenlücken
+(TWRR fehlt komplett, `unrealized_pnl_eur` ist Marktwert statt echtes P&L,
+`mtd_pnl`/`ytd_pnl` nur angenähert). `account_snapshots` kommt daher weiterhin
+exakt über `snapshot_csv` (Mail + Activity-Report). `snapshot_import` bleibt als
+Script nutzbar (`python -m src.import_flexquery_snapshot --dry-run`), nur eben
+nicht automatisch verdrahtet.
 
 ---
 
 ## get_flexquery_emails.py — E-Mails abrufen
 
 Lädt IBKR FlexQuery XML- und Activity-CSV-Anhänge aus dem Mail-Postfach und speichert
-sie in `C:\Trade_XML\incoming\` bzw. `C:\Trade_CSV\incoming\`. Routing (welcher User /
+sie in `C:\Trade_XML\incoming_mail\` bzw. `C:\Trade_CSV\incoming\`. Routing (welcher User /
 welches Environment) erfolgt erst beim Import per accountId.
 
 ```bash
@@ -224,22 +237,23 @@ Keine Argumente. Relevante `.env`-Variablen:
 
 ---
 
-## get_flexquery_api.py — FlexQuery per Web-API abrufen (Verifikations-Modus)
+## get_flexquery_api.py — FlexQuery per Web-API abrufen
 
 Holt FlexQuery-XMLs direkt über die IBKR-Web-API, **parallel** zur Mail-Pipeline
-(`get_flexquery_emails.py`) — kein Ersatz, sondern Abgleich, ob die API dieselben
-Daten liefert wie die Mail-Zustellung.
+(`get_flexquery_emails.py`) — beide Kanäle sind gleichwertig aktiv, kein reiner
+Verifikationskanal mehr. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von
+`incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben). Der
+`import`-Step scannt **beide** Ordner und importiert daraus `trades_raw` — die
+Query liefert dieselben Trades wie die Mail-XML, Checksum-Dedup verhindert
+doppelte Einträge. Kein `OptionEAE`/`BookTrades` in dieser Query — Assignment-/
+Expiry-Events kommen weiterhin nur aus den Mail-XMLs.
 
-**Status (seit 2026-08-03): Verifikations-Modus, laeuft parallel.** Schreibt bewusst
-**nicht** nach `C:\Trade_XML\incoming\` (das bleibt der Mail-Pipeline vorbehalten),
-sondern nach `C:\Trade_XML\incoming_x\` — dieser Ordner wird vom `import`-Step **nicht**
-gescannt, die Dateien landen also nie automatisch in der DB. Manueller Abgleich über den
-Dateinamen (`{accountId}_{toDate}_{qid}.xml`), enthält dieselbe accountId/Datum wie die
-per Mail eingegangene `flex.*.xml` desselben Tages.
-
-Frühere Einschränkung bleibt bestehen: IBKR stellt die Daten erst nach dem EOD-Processing
-(ca. 14–15 Uhr MEZ) bereit — kein Zeitvorteil ggü. der Mail, nur zusätzlicher
-Verifikationskanal.
+Timing: Der Report wird bei Anfrage **on-demand generiert**, kein fixes Tages-Zeitfenster
+(die frühere Annahme "erst ab ca. 14–15 Uhr MEZ" war falsch). Voraussetzung ist nur, dass
+der Börsentag abgeschlossen ist — funktioniert bereits kurz nach Handelsschluss zuverlässig
+(bestätigt: erfolgreicher Lauf 2026-08-06 um 06:01 Uhr lokal). Die Retry-Logik
+(`RETRY_DELAY`/`MAX_RETRIES`) fängt die kurze "noch in Verarbeitung"-Phase ab — typischerweise
+wenige Sekunden, bis zu ~30s bei Accounts mit geringerer IBKR-Priorität (z.B. Paper-Konten).
 
 ```bash
 python -m src.get_flexquery_api
@@ -259,8 +273,10 @@ alle Accounts ein Token/Query konfiguriert ist.
 
 Importieren Kontostands-Snapshots in `account_snapshots`:
 
-- `import_csv_snapshots` — aus Activity-CSVs (**empfohlen**, TWRR exakt); Teil der Standard-Pipeline
-- `import_flexquery_snapshot` — aus FlexQuery-XMLs (TWRR wird berechnet); Alternative
+- `import_csv_snapshots` — aus Activity-CSVs (**einziger aktiver Weg**, TWRR exakt); Teil der Standard-Pipeline
+- `import_flexquery_snapshot` — aus FlexQuery-XMLs (`incoming_api\`, TWRR nur angenähert);
+  **bewusst nicht** in der Standard-Pipeline aktiv (bekannte Datenlücken, siehe oben bei
+  `fetch_api`/`snapshot_import`) — nur manuell nutzbar
 
 ```bash
 # Auto-Modus: alle aktiven Targets aus pipeline.toml
@@ -276,14 +292,19 @@ dritten Währung wird stillschweigend nicht importiert. Details + Begründung: `
 
 ## import_ibkr_trades.py — XML → trades_raw
 
-Scannt `C:\Trade_XML\incoming\` nach `flex.*.xml`-Dateien (andere Dateinamen werden
-ignoriert!). Routing erfolgt automatisch per `accountId` aus der XML →
-`ACCOUNT_MAP` (in `src/config.py`) → Environment + User + Prefix.
-Verarbeitete Dateien landen in `C:\Trade_XML\<env>\<user>\processed\`.
+Scannt `C:\Trade_XML\incoming_mail\` **und** `C:\Trade_XML\incoming_api\` nach
+`*.xml`-Dateien (kein Dateinamen-Filter im Normalbetrieb). Routing erfolgt automatisch
+per `accountId` aus der XML → `ACCOUNT_MAP` (in `src/config.py`) → Environment + User +
+Prefix. Verarbeitete Dateien landen in `C:\Trade_XML\<env>\<user>\processed\` (aus
+beiden Quellordnern gleichermaßen).
 
 ```bash
-# Auto-Modus: scannt incoming/, Routing per accountId (kein Argument nötig)
+# Auto-Modus: scannt beide incoming-Ordner, Routing per accountId (kein Argument nötig)
 python -m src.import_ibkr_trades
+
+# CLI-Override: nur ein Environment/Prefix importieren, alles andere bleibt liegen
+python -m src.import_ibkr_trades money mike_
+python -m src.import_ibkr_trades paper mike_
 
 # Aus summary.xml importieren (explizites Environment + Prefix erforderlich)
 python -m src.import_ibkr_trades from_summary money mike_
@@ -291,12 +312,16 @@ python -m src.import_ibkr_trades from_summary money karola_
 python -m src.import_ibkr_trades from_summary autom_paper mike_
 ```
 
-**Argumente (nur für `from_summary`):**
+**Argumente:**
 | Position | Wert | Pflicht |
 |---|---|---|
-| 1 | `from_summary` | Ja (schaltet Modus um) |
-| 2 | Environment | Ja |
-| 3 | Table-Prefix (z.B. `mike_`) | Ja |
+| 1 | Environment (CLI-Override) oder `from_summary` oder `test` | Nein — ohne Argument: Auto-Modus |
+| 2 | Table-Prefix (z.B. `mike_`) | Bei CLI-Override/`from_summary`: Ja. Sonst optional/Standard aus `.env` |
+| 3 | `from_summary` | Nur im from_summary-Modus, an letzter Position |
+
+Bei CLI-Override (`<env> <prefix>`) werden Dateien anderer Environments/Prefixe in
+beiden Ordnern übersprungen und bleiben liegen — für den nächsten Lauf ohne Filter
+oder mit anderem Ziel.
 
 ---
 
@@ -328,6 +353,14 @@ python -m src.process_ibkr_trades money karola_
 Liest neue `flex.*.xml`-Dateien aus `<env>/<user>/processed/` und aktualisiert
 `summary_<prefix><env>.xml`. Keine Duplikate (fromDate eindeutig), aufsteigende
 Reihenfolge, Performance-Cache.
+
+**⚠️ Bekannte Lücke:** Der `flex.`-Präfix-Filter (`FLEX_FILE_PREFIX` in
+`xml_append_summary.py`) erfasst nur Mail-Dateien. Dateien aus `incoming_api\`
+(anderes Namensschema, z.B. `U12109360_..._api_8_0870.xml`) landen zwar korrekt in
+`trades_raw` und in `processed/`, werden aber vom Summary-Builder ignoriert. Betrifft
+nur den Sonderfall, dass an einem Tag ausschließlich der API-Kanal Daten liefert (Mail
+fiel aus) — die Trades sind in der DB vorhanden, fehlen aber bei einem künftigen
+`from_summary`-Rebuild. Noch nicht behoben.
 
 ```bash
 # Auto-Modus: alle aktiven Targets aus pipeline.toml (kein Argument nötig)
@@ -392,8 +425,9 @@ python run_pipeline.py
 
 ### Täglicher Lauf (manuell, Schritt für Schritt)
 ```bash
-python -m src.get_flexquery_emails       # Mails holen → incoming/
-python -m src.import_ibkr_trades         # XML importieren (auto-routing per accountId)
+python -m src.get_flexquery_emails       # Mails holen → incoming_mail/
+python -m src.get_flexquery_api          # FlexQuery-API holen → incoming_api/
+python -m src.import_ibkr_trades         # XML importieren (auto-routing per accountId, beide Ordner)
 python -m src.process_ibkr_trades        # FIFO-Verarbeitung (alle Targets)
 python -m src.xml_append_summary         # Summary aktualisieren (alle Targets)
 ```
@@ -408,6 +442,13 @@ python run_pipeline.py --users mike --steps process
 python run_pipeline.py --steps fetch_emails import
 ```
 
+### Nur ein Environment importieren (CLI-Override, seit run_pipeline-Update)
+```bash
+python run_pipeline.py --steps import --envs money
+# entspricht intern: python -m src.import_ibkr_trades money mike_
+#                     python -m src.import_ibkr_trades money karola_
+```
+
 ### Einzelnen Account aus summary.xml neu importieren
 ```bash
 python -m src.import_ibkr_trades from_summary money mike_
@@ -416,10 +457,11 @@ python -m src.process_ibkr_trades money mike_
 
 ### Manuell erhaltene XML importieren (z.B. Karola)
 ```powershell
-# 1. Umbenennen — der Importer verarbeitet nur flex.*.xml
-Rename-Item C:\Trade_XML\incoming\K_Echt.xml flex.K_Echt.xml
-
-# 2. Import (Routing per accountId automatisch) + Processing + Summary
+# Einfach ablegen — kein Umbenennen mehr noetig (kein Dateinamen-Filter im Normalbetrieb)
+Move-Item K_Echt.xml C:\Trade_XML\incoming_mail\
+```
+```bash
+# Import (Routing per accountId automatisch) + Processing + Summary
 python -m src.import_ibkr_trades
 python -m src.process_ibkr_trades money karola_
 python -m src.xml_append_summary money karola_
@@ -428,8 +470,8 @@ python -m src.xml_append_summary money karola_
 ### XML schnell im TEST-Environment testen
 Siehe [TEST-Environment](#test-environment--manuelle-xmls-automatisch-erkennen) für Details.
 ```powershell
-Rename-Item C:\Trade_XML\incoming\meine_datei.xml flex.meine_datei.xml
-Move-Item C:\Trade_XML\incoming\flex.meine_datei.xml C:\Trade_XML\test\mike\incoming\
+Rename-Item C:\Trade_XML\incoming_mail\meine_datei.xml flex.meine_datei.xml
+Move-Item C:\Trade_XML\incoming_mail\flex.meine_datei.xml C:\Trade_XML\test\mike\incoming\
 ```
 ```bash
 python run_pipeline.py

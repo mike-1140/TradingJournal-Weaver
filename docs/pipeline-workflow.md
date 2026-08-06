@@ -1,7 +1,8 @@
 # IBKR Import-Pipeline — Technische Dokumentation
 
 **Projekt:** xml_proj — Trading-Journal Import-System  
-**Stand:** 2026-07-15 (inkl. Running Balance, feingranulare LedgerActions, Snapshot-Import)  
+**Stand:** 2026-08-06 (inkl. Running Balance, feingranulare LedgerActions, Snapshot-Import,
+incoming_mail/incoming_api-Trennung, CLI-Override für import_ibkr_trades.py)  
 **Ziel:** Vollständige Dokumentation des Datenflusses von IBKR-Rohdaten (XML/CSV) bis zur befüllten MySQL-Datenbank
 
 ---
@@ -84,10 +85,14 @@ IBKR generiert **täglich** einen FlexQuery-Report als XML. Die Datei enthält a
 
 IBKR liefert täglich auch ein **Activity Statement CSV** — ein mehrteiliges Dokument mit Kontosnapshots (Cash, Net Liquidation, Margin, etc.). Es enthält **keine Einzeltrades**, sondern Kontostands-Daten.
 
-Die CSV landet in einem **separaten Verzeichnis**: `C:\Trade_CSV\incoming\`  
-(XML-Files hingegen kommen nach `C:\Trade_XML\incoming\`)
+Die CSV landet in einem **separaten Verzeichnis**: `C:\Trade_CSV\incoming\`
+(nur per Mail — kein API-Äquivalent für Activity Statements, siehe Phase 0).
+XML-Files kommen nach `C:\Trade_XML\incoming_mail\` (Mail) bzw. `C:\Trade_XML\incoming_api\`
+(FlexQuery Web-API, zweiter gleichwertiger Kanal für Trades).
 
-Beide Verzeichnisse werden automatisch über `get_flexquery_emails.py` befüllt (siehe Phase 0).
+`C:\Trade_XML\incoming_mail\` und `C:\Trade_CSV\incoming\` werden über
+`get_flexquery_emails.py` befüllt, `C:\Trade_XML\incoming_api\` über `get_flexquery_api.py`
+(siehe Phase 0).
 
 ### 2.3 OptionEAE und BookTrades
 
@@ -106,19 +111,20 @@ IBKR erzeugt bei **automatischen Schließungsereignissen** (Verfall, Ausübung, 
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  PHASE 0: E-MAIL-ABRUF                                   │
-│  get_flexquery_emails.py                                 │
-│  ├── Verbindet sich mit IMAP-Postfach (IBKR-Mails)       │
-│  ├── Lädt FlexQuery-XML → C:\Trade_XML\incoming\         │
-│  └── Lädt Activity-CSV  → C:\Trade_CSV\incoming\         │
+│  PHASE 0: E-MAIL-ABRUF + FLEXQUERY-API (zwei Kanäle)     │
+│  get_flexquery_emails.py               get_flexquery_api.py│
+│  ├── IMAP-Postfach (IBKR-Mails)        ├── FlexQuery Web-API│
+│  ├── FlexQuery-XML → incoming_mail\    └── FlexQuery-XML → │
+│  └── Activity-CSV  → C:\Trade_CSV\         incoming_api\   │
+│        incoming\                                          │
 └──────────────────────────────────────────────────────────┘
                         │
                         ▼
 ┌──────────────────────────────────────────────────────────┐
 │                    DATENQUELLEN                          │
-│   C:\Trade_XML\incoming\                                 │
-│   └── U1234567_20250117.xml  ← FlexQuery (Trades, EAE,   │
-│                                  CorporateActions)       │
+│   C:\Trade_XML\incoming_mail\  + incoming_api\            │
+│   └── *.xml  ← FlexQuery (Trades; incoming_mail\ zusaetzlich│
+│                 EAE, CorporateActions — incoming_api\ nicht)│
 │   C:\Trade_CSV\incoming\                                 │
 │   └── U1234567_20250117.csv  ← Activity Statement        │
 │                                 (Kontostands-Snapshots)  │
@@ -172,15 +178,15 @@ Alle Schritte werden über `run_pipeline.py` gesteuert:
 python run_pipeline.py                     # alle Schritte
 python run_pipeline.py --steps import      # nur Import
 python run_pipeline.py --steps process     # nur Processing
-python run_pipeline.py --env money         # nur Echtgeld
-python run_pipeline.py --user mike         # nur User mike
+python run_pipeline.py --envs money        # nur Echtgeld
+python run_pipeline.py --users mike        # nur User mike
 ```
 
 **`pipeline.toml` — Konfiguration:**
 ```toml
 [settings]
-steps = ["fetch_emails", "snapshot_csv", "import", "process", "summary"]
-#        ↑ Phase 0       ↑ Snapshots    ↑ Phase 1  ↑ Phase 2  ↑ Phase 3
+steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summary"]
+#        ↑ Phase 0 Mail  ↑ Phase 0 API ↑ Snapshots    ↑ Phase 1  ↑ Phase 2  ↑ Phase 3
 
 [users.mike]
 prefix = "mike_"
@@ -190,6 +196,15 @@ environments = ["money", "paper", "autom_money", "autom_paper"]
 prefix = "karola_"
 environments = ["money"]
 ```
+
+`snapshot_import` (account_snapshots aus FlexQuery-XML) existiert als Step, ist aber
+bewusst nicht in den Standard-Steps — bekannte Datenlücken (TWRR fehlt, `unrealized_pnl_eur`
+ist Marktwert statt P&L, `mtd_pnl`/`ytd_pnl` nur angenähert), siehe § 8.2.
+
+Der `import`-Step läuft ohne `--users`/`--envs`-Filter **einmal global** (accountId-Routing
+deckt intern alle User/Envs ab); mit gesetztem Filter erzeugt `run_pipeline.py` einen
+Task pro passendem User × Environment und nutzt dafür das CLI-Override
+`import_ibkr_trades.py <env> <prefix>` (§ 5.1).
 
 ---
 
@@ -204,7 +219,7 @@ get_flexquery_emails.py
 ├── Durchsucht Inbox nach IBKR-Report-Mails (Betreff-Filter)
 │
 ├── Für XML-Anhänge (FlexQuery-Report):
-│   └── Speichert in C:\Trade_XML\incoming\
+│   └── Speichert in C:\Trade_XML\incoming_mail\
 │       (enthält Trades, OptionEAE, CorporateActions)
 │
 ├── Für CSV-Anhänge (Activity Statement):
@@ -223,9 +238,9 @@ IBKR_ACTIVITY_SUBJECT=Activity Statement
 IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 ```
 
-**Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Manuell abgelegte XMLs müssen dem Namensmuster `flex.*.xml` entsprechen (siehe Phase 1).
+**Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Ein Namensmuster ist im Normalbetrieb **nicht** mehr erforderlich (siehe Phase 1) — nur der dedizierte TEST-Modus verlangt weiterhin `flex.*.xml`.
 
-**Parallel-Kanal `fetch_api` (`get_flexquery_api.py`) — Verifikations-Modus seit 2026-08-03:** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` parallel zu `fetch_emails` — kein Ersatz, sondern Abgleich, ob die API dieselben Daten liefert wie die Mail-Zustellung. Schreibt bewusst in einen eigenen Ordner `C:\Trade_XML\incoming_x\` statt `incoming\`, damit nichts automatisch importiert wird; Vergleich erfolgt manuell über den Dateinamen (`{accountId}_{toDate}_{qid}.xml`, enthält dieselbe accountId/Datum wie die Mail-XML desselben Tages). Bekannte Einschränkung bleibt: IBKR stellt die Daten erst nach dem EOD-Processing (ca. 14–15 Uhr MEZ) bereit, kein Zeitvorteil ggü. der Mail.
+**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` — kein reiner Verifikationskanal mehr, sondern zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Die Query liefert kein `OptionEAE`/`BookTrades` — Assignment-/Expiry-Events kommen weiterhin nur aus den Mail-XMLs. Timing: Der Report wird bei Anfrage on-demand generiert, kein fixes Tages-Zeitfenster (frühere Annahme "erst ab ca. 14–15 Uhr MEZ" war falsch) — funktioniert bereits kurz nach Handelsschluss zuverlässig (bestätigt: erfolgreicher Lauf 2026-08-06 um 06:01 Uhr lokal). Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
 
 ---
 
@@ -236,7 +251,8 @@ IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 ```
 import_ibkr_trades.py
 │
-├── Für jede flex.*.xml-Datei (aus C:\Trade_XML\incoming\):
+├── Für jede *.xml-Datei (aus C:\Trade_XML\incoming_mail\ UND incoming_api\,
+│   incoming_mail zuerst — Quelle ist fuer den Import irrelevant):
 │   ├── Lese <FlexStatement> (kann mehrere je Datei enthalten)
 │   ├── Extrahiere accountId → route zu Environment/User (via config.py)
 │   ├── Rufe flex_parser.process_flex_file() auf
@@ -245,7 +261,20 @@ import_ibkr_trades.py
     └── activity_csv_parser → account_snapshots
 ```
 
-**Dateinamen-Filter:** Verarbeitet werden **nur** Dateien nach dem Muster `flex.*.xml` (Groß-/Kleinschreibung egal) — so heißen die Anhänge der IBKR-Mails. Andere XML-Dateien im Verzeichnis werden ignoriert und bleiben liegen. Manuell erhaltene XMLs daher vor dem Import umbenennen (z.B. `K_Echt.xml` → `flex.K_Echt.xml`).
+**Kein Dateinamen-Filter mehr (Normalbetrieb):** Verarbeitet werden alle `*.xml`-Dateien
+in beiden Ordnern, unabhängig vom Namen — die frühere `flex.*.xml`-Beschränkung wurde
+aufgehoben, seit `incoming_api\` (FlexQuery Web-API) als zweite Quelle mit anderem
+Namensschema hinzukam. Einzige Ausnahme: der TEST-Modus (`test\<user>\incoming\`)
+verlangt weiterhin `flex.*.xml`.
+
+**CLI-Override — gezielt ein Environment importieren:**
+```bash
+python -m src.import_ibkr_trades money mike_
+```
+Analog zu `process_ibkr_trades.py`: nur Dateien, deren accountId auf dieses
+Environment/Prefix routet, werden importiert und verschoben — alle anderen bleiben
+in `incoming_mail\`/`incoming_api\` liegen. `run_pipeline.py` nutzt diesen Modus
+automatisch, sobald `--users`/`--envs` gesetzt sind (§ 3.2).
 
 **Routing via `src/config.py` → `ACCOUNT_MAP`:**
 ```python
@@ -778,8 +807,15 @@ realized_pnl_eur, unrealized_pnl_eur,
 mtd_pnl, ytd_pnl,
 imported_at
 ```
-Befüllt von `import_csv_snapshots.py` (`activity_csv_parser.py`, empfohlen) oder
-`import_flexquery_snapshot.py` (`flexquery_snapshot_parser.py`, Alternative).
+Befüllt von `import_csv_snapshots.py` (`activity_csv_parser.py`) — **einziger aktiver
+Weg in der Standard-Pipeline** (`snapshot_csv`-Step, TWRR exakt von IBKR).
+`import_flexquery_snapshot.py` (`flexquery_snapshot_parser.py`, liest `incoming_api\`)
+existiert als Alternative, ist aber bewusst **nicht** in `pipeline.toml` verdrahtet:
+TWRR ist über keine FlexQuery-Sektion verfügbar (nur Modified-Dietz-Näherung möglich),
+`unrealized_pnl_eur` entspricht dort dem absoluten Marktwert statt echtem P&L gegen
+Einstand, und `mtd_pnl`/`ytd_pnl` sind nur über `CashReport`-Cashflows angenähert statt
+exakter Realized-S/T-Werte. Manuell nutzbar (`python -m src.import_flexquery_snapshot --dry-run`),
+z.B. als Notlösung falls die Mail an einem Tag ausbleibt.
 
 **⚠️ Limitierung: fest auf EUR + USD verdrahtet, nicht generisch.**
 Anders als bei Einzeltrades (`trades_raw.currency` ist freier Text, `FX_EXCHANGE_FROM_*`/`TO_*`-Actions
@@ -1055,8 +1091,8 @@ xml_proj/
 ├── HELP.md                      ← Befehlsreferenz aller Scripts
 ├── README.md                    ← Projekt-Kurzbeschreibung
 ├── src/
-│   ├── get_flexquery_emails.py  ← Phase 0: IMAP-Abruf → Trade_XML / Trade_CSV
-│   ├── get_flexquery_api.py     ← Phase 0 Parallel-Kanal (Verifikation): FlexQuery via Web-API → incoming_x/
+│   ├── get_flexquery_emails.py  ← Phase 0: IMAP-Abruf → incoming_mail/ + Trade_CSV/incoming
+│   ├── get_flexquery_api.py     ← Phase 0 zweiter Kanal: FlexQuery via Web-API → incoming_api/
 │   ├── import_ibkr_trades.py    ← Phase 1: XML/CSV-Import → trades_raw
 │   ├── process_ibkr_trades.py   ← Phase 2: FIFO-Processing → Endtabellen
 │   ├── xml_append_summary.py    ← Phase 3: Summary-XML für DB-Rebuild

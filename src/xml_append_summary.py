@@ -1,5 +1,6 @@
 # src/xml_append_summary.py
-# Erstellt/aktualisiert summary.xml aus den bereits verarbeiteten flex.*.xml-Dateien in processed/.
+# Erstellt/aktualisiert summary.xml aus den bereits verarbeiteten XML-Dateien in processed/
+# (aus incoming_mail/ UND incoming_api/, Quelle ist irrelevant — analog import_ibkr_trades.py).
 # Keine Duplikate (fromDate eindeutig), aufsteigende Reihenfolge, Performance-Cache.
 
 import json
@@ -17,7 +18,6 @@ from src.utils.path_utils import get_project_root
 # Konstanten – analog zu import_ibkr_trades.py
 BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
 
-FLEX_FILE_PREFIX = "flex."
 # Dateinamen werden dynamisch aus table_prefix + environment gebildet:
 # summary_{table_prefix}{environment}.xml  z.B. summary_mike_money.xml
 # summary_{table_prefix}{environment}_cache.json
@@ -153,7 +153,9 @@ def save_summary(summary_file: Path, root: ET.Element, stmts_elem: ET.Element) -
 
 def build_summary(environment: str, table_prefix: str, user: str = "") -> None:
     """
-    Liest neue flex.*.xml-Dateien aus processed/ und aktualisiert die account-spezifische Summary.
+    Liest neue *.xml-Dateien aus processed/ und aktualisiert die account-spezifische Summary.
+    Kein Dateinamen-Filter — processed/ enthält ausschließlich XML aus incoming_mail/ und
+    incoming_api/ (verschoben von import_ibkr_trades.py), beide Quellen gleichwertig.
     Dateiname: summary_{table_prefix}{environment}.xml  z.B. summary_mike_money.xml
     environment: paper | money | autom_money | autom_paper | test
     user: Unterordner in <env>/<user>/processed/ — leer für Legacy-Pfad ohne User-Ebene.
@@ -183,10 +185,10 @@ def build_summary(environment: str, table_prefix: str, user: str = "") -> None:
     already_done           = load_cache(cache_file)
     root, stmts_elem, known_dates = load_summary(summary_file)
 
-    # Alle flex.*.xml in processed/ ermitteln, nur neue (nicht im Cache)
+    # Alle *.xml in processed/ ermitteln (Quelle irrelevant), nur neue (nicht im Cache)
     all_flex_files = sorted(
         f for f in processed_dir.iterdir()
-        if f.name.lower().startswith(FLEX_FILE_PREFIX) and f.name.lower().endswith(".xml")
+        if f.name.lower().endswith(".xml")
     )
     new_files = [f for f in all_flex_files if f.name not in already_done]
 

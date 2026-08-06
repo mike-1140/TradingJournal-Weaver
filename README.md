@@ -13,8 +13,9 @@ Trading-Journal (MySQL) überführt:
 ## Ablauf (Kurzfassung)
 
 ```
-get_flexquery_emails.py   IBKR-Mails abrufen → C:\Trade_XML\incoming\ + C:\Trade_CSV\incoming\
-import_ibkr_trades.py     flex.*.xml → trades_raw (Routing per accountId → User/Environment)
+get_flexquery_emails.py   IBKR-Mails abrufen → C:\Trade_XML\incoming_mail\ + C:\Trade_CSV\incoming\
+get_flexquery_api.py      FlexQuery Web-API abrufen → C:\Trade_XML\incoming_api\ (zweiter, gleichwertiger Kanal)
+import_ibkr_trades.py     incoming_mail\ + incoming_api\ → trades_raw (Routing per accountId → User/Environment)
 process_ibkr_trades.py    FIFO-Matching → trades_open / trades_close / trading_campaigns / campaign_ledger
 xml_append_summary.py     Summary-XML je User/Environment (für DB-Rebuild)
 ```

@@ -21,14 +21,17 @@ them into a structured trading journal with P&L, campaign tracking, and open/clo
 | `tools/maintenance/cleanup_stale_positions.py` | Entfernt liegengebliebene offene Positionen (Open importiert, Close nie) rückstandsfrei aus `trades_open`/`campaign_ledger`/`trades_raw` inkl. Kampagnen-Korrektur; Dry-Run ist Standard, löschen nur mit `--ids/--symbols/--older-than/--all` + `--execute` |
 | `run_pipeline.py` | Orchestriert alle Steps laut `pipeline.toml` |
 
-**Import-Routing:** `import_ibkr_trades.py` scannt `C:\Trade_XML\incoming\` — nur Dateien
-nach dem Muster `flex.*.xml`! User + Environment werden per accountId über `ACCOUNT_MAP`
-in `src/config.py` ermittelt (Key = letzte 4 Ziffern der accountId).
+**Import-Routing:** `import_ibkr_trades.py` scannt `C:\Trade_XML\incoming_mail\` (Mail) UND
+`C:\Trade_XML\incoming_api\` (FlexQuery Web-API) gleichwertig, kein Dateinamen-Filter mehr.
+User + Environment werden per accountId über `ACCOUNT_MAP` in `src/config.py` ermittelt
+(Key = letzte 4 Ziffern der accountId). Checksum-Dedup verhindert doppelte Trades, falls
+dieselben Daten über beide Kanäle ankommen.
 
 ### Running the pipeline
 ```bash
-python src/import_ibkr_trades.py money
-python src/process_ibkr_trades.py money
+python -m src.import_ibkr_trades          # Auto-Modus: alle Accounts (Standard)
+python -m src.import_ibkr_trades money mike_   # CLI-Override: nur dieses Environment/Prefix
+python -m src.process_ibkr_trades money
 # Environments: money | paper | test | autom_money | autom_paper
 ```
 
@@ -36,7 +39,7 @@ python src/process_ibkr_trades.py money
 
 ## Architecture
 ```
-XML files (C:\Trade_XML\incoming\, nur flex.*.xml)
+XML files (C:\Trade_XML\incoming_mail\ + incoming_api\, alle *.xml)
     → flex_parser.py          (orchestrates XML parsing)
     → day_trade_processor.py  (extracts Trade / OptionEAE / CorporateActions)
     → option_strategies.py    (detects multi-leg strategies)
