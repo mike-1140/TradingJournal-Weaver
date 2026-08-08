@@ -724,55 +724,67 @@ account_snapshots ← Kontostand-Snapshots (aus CSV)
 
 ### 8.2 Schlüsseltabellen im Detail
 
+Die folgenden Spaltenlisten sind auf die fachlich relevanten Felder gekürzt, aber
+**wörtlich aus `xml_proj/sql/*.sql` übernommen** (keine erfundenen/veralteten Spalten) —
+für die vollständige Liste inkl. Typen/Defaults ist `sql/*.sql` die Quelle der Wahrheit.
+
 #### `trades_raw` — Rohdaten-Puffer
 ```sql
 id, checksum,                         -- Eindeutigkeit
-accountId, environment,               -- Routing
-symbol, assetCategory, buySell,       -- Instrument
+environment,                          -- Routing (accountId selbst wird nicht gespeichert,
+                                       -- nur beim Import ausgewertet)
+symbol, conid, assetCategory, buySell, -- Instrument
 quantity, tradePrice, netCash,        -- Mengen/Preise
 ibOrderID, tradeID,                   -- IBKR-Referenzen
 opt_strategyID, opt_strategyName,     -- Strategie-Info
-is_split, is_booktrade,               -- Sondertypen
+is_split, split_type,                 -- Corporate-Action-Kennzeichnung
+source,                               -- Ursprungs-Elementtyp: trade | optioneae | split
 processed,                            -- Status (0/1)
-dateTime, settleDate                  -- Zeitstempel
+dateTime                              -- Zeitstempel
 ```
 
 #### `trades_open` — Aktive Tranchen
 ```sql
-id, campaign_id,
-symbol, assetCategory,
+id, symID,
+symbol, conid, assetCategory,
 quantity, tradePrice, netCash,        -- Einstiegswerte
-ibCommission,
+ibCommission, fxRateToBase,
 status,                               -- OPEN | REV_OPEN | SPLIT_REST
-opt_strategyID, opt_strategyName,
-dateTime, settleDate,
-source_raw_id                         -- Rückverweis auf trades_raw
+opt_strategyID, opt_strategyName, linkID,
+environment, dateTime,
+processed                             -- 0=offen, 1=geschlossen (History-Zeile, siehe § 6.1)
 ```
+**Kein `campaign_id`** in dieser Tabelle — die Verknüpfung zur Kampagne läuft über
+`campaign_ledger.source_table`/`source_id`, nicht über eine FK-Spalte hier.
 
 #### `trades_close` — Abgeschlossene Trades
 ```sql
-id, campaign_id,
+id, symID, symbol, conid,
 -- Open-Seite:
-tradeIDOpen, tradePriceOpen, dateTimeOpen, netCashOpen, quantityOpen,
+tradeIDOpen, tradePriceOpen, dateTimeOpen, netCashOpen,
 -- Close-Seite:
-tradeIDClose, tradePriceClose, dateTimeClose, netCashClose, quantityClose,
+tradeIDClose, tradePriceClose, dateTimeClose, netCashClose,
+quantity,                             -- geschlossene Menge (eine Spalte, kein Open/Close-Paar)
 -- Ergebnis:
-profit, profitEUR, roi,
-daysHeld, durationText,
-commission, commissionEUR,
+profit, profit_EUR, ROI,
+daysHeld, durationStr,
+ibCommission, ibCommission_EUR,
 status,                               -- Closed | Expired | Assigned | CashSettled
-opt_strategyID, opt_strategyName
+closedBy,                             -- z.B. SELL / EXPIRY / ASSIGNMENT
+opt_strategyID, opt_strategyName, linkID
 ```
+Ebenfalls **kein `campaign_id`** — gleiches Prinzip wie bei `trades_open`.
 
 #### `trading_campaigns` — Kampagnen
 ```sql
-id, user, environment,
-symbol, assetCategory,
+id, name, symbol, strategy, assetCategory,
 status,                               -- ACTIVE | PENDING | CLOSED
 start_date, end_date, closed_at,
-total_profit, total_commission,
-inventory                             -- Aktueller Bestand
+environment
 ```
+**Keine gespeicherten Aggregate** (`total_profit`, `total_commission`, `inventory`) — diese
+Werte werden zur Laufzeit ermittelt: Bestand aus `trades_open`, P&L-Stand aus dem jeweils
+letzten `cum_pnl`/`cum_commission`/`cum_premium`-Eintrag in `campaign_ledger` (§ 8.3).
 
 #### `campaign_ledger` — Audit-Trail (ES-Lite)
 ```sql
@@ -866,17 +878,20 @@ python -m src.migrate_running_balance money mike_      # einzelnes Target
 
 ### 9.2 `.env`-Struktur (Auszug)
 ```ini
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=...
+DB_PASS=...
 TABLE_PREFIX=mike_
 
-IBKR_FLEX_TOKEN=...
-EMAIL_HOST=imap.example.com
-EMAIL_USER=...
-EMAIL_PASSWORD=...
+IMAP_USERNAME=deine@email.at
+IMAP_PASSWORD=...
+IMAP_SERVER=imap.gmx.com
+
+IBKR_FLEX_QUERIES=TOKEN1:111111,TOKEN1:222222
 ```
+(vollständige Variablenliste inkl. `DB_NAME_*`-Overrides: siehe `.env.example`, § 4 oben
+für die Mail-/API-spezifischen Variablen im Detail)
 
 ### 9.3 DB-Engine-Pattern (`src/config.py`)
 
@@ -1107,8 +1122,8 @@ xml_proj/
 │   │   ├── day_trade_processor.py  ← Element-Extraktion (Trades, EAE, CorpActions)
 │   │   ├── option_strategies.py ← Strategie-Erkennung (ibOrderID + 3s-Fallback)
 │   │   ├── inventory_tracker.py ← Kampagnen-Lifecycle + Running Balance
-│   │   ├── book_trades.py       ← BookTrade-Klassifizierung via OptionEAE
 │   │   └── activity_csv_parser.py ← Activity-Statement-CSV-Parser
+│   ├── book_trades.py           ← BookTrade-Klassifizierung via OptionEAE (Top-Level, nicht in parsers/)
 │   ├── trade_schemas/
 │   │   ├── base_schema.py       ← Abstrakte Basis (validate, REQUIRED_FIELDS)
 │   │   ├── open_trade.py        ← OpenTradeSchema + to_closed_trade() + ratio-Skalierung
