@@ -12,7 +12,8 @@
 
 ## Table-Prefix
 
-Jeder User hat einen eigenen Tabellen-Prefix. Standard aus `.env` (`TABLE_PREFIX`).
+Jeder User hat einen eigenen Tabellen-Prefix, zentral definiert in **`users.toml`**
+(einzige Quelle — `config.py` und `pipeline.toml` lösen den Prefix von dort auf):
 
 | User | Prefix |
 |---|---|
@@ -20,6 +21,10 @@ Jeder User hat einen eigenen Tabellen-Prefix. Standard aus `.env` (`TABLE_PREFIX
 | karola | `karola_` |
 
 Beispiel: Prefix `mike_` → Tabellen `mike_trades_raw`, `mike_trades_open`, ...
+
+Für manuelle Einzelaufrufe ohne CLI-Prefix-Argument: `.env` → `DEFAULT_USER=<name>` (Prefix
+wird aus `users.toml` aufgelöst) oder direkt `TABLE_PREFIX=<prefix>` (Override, gewinnt
+falls beides gesetzt ist).
 
 ## Account-Zuordnung (Routing)
 
@@ -84,12 +89,10 @@ Patchen der XML nötig.
 
 ```toml
 [[test]]
-prefix = "mike_"
-user   = "mike"
+user = "mike"
 
 [[test]]
-prefix = "karola_"
-user   = "karola"
+user = "karola"
 ```
 
 Zum Deaktivieren einfach den Eintrag aus der TOML entfernen/auskommentieren.

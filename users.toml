@@ -1,0 +1,12 @@
+# Zentrale User-Registry — einzige Quelle fuer den Zusammenhang User <-> Tabellen-Prefix.
+# Gilt teamweit und ist versioniert (im Gegensatz zu pipeline.toml, das pro Maschine
+# unterschiedlich ist). config.py (ACCOUNT_MAP, load_active_targets) und optional
+# ".env" (DEFAULT_USER) loesen den Prefix von hier auf.
+#
+# Neuen User hinzufuegen: einfach einen weiteren Block ergaenzen.
+
+[mike]
+prefix = "mike_"
+
+[karola]
+prefix = "karola_"

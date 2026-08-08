@@ -189,13 +189,13 @@ steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summ
 #        ↑ Phase 0 Mail  ↑ Phase 0 API ↑ Snapshots    ↑ Phase 1  ↑ Phase 2  ↑ Phase 3
 
 [users.mike]
-prefix = "mike_"
 environments = ["money", "paper", "autom_money", "autom_paper"]
 
 [users.karola]
-prefix = "karola_"
 environments = ["money"]
 ```
+Tabellen-Prefix kommt aus `users.toml` (zentrale, versionierte Registry, siehe § 9.1) — in
+`pipeline.toml` nur bei Bedarf per `prefix = "..."` explizit überschreibbar.
 
 `snapshot_import` (account_snapshots aus FlexQuery-XML) existiert als Step, ist aber
 bewusst nicht in den Standard-Steps — bekannte Datenlücken (TWRR fehlt, `unrealized_pnl_eur`
@@ -280,16 +280,18 @@ automatisch, sobald `--users`/`--envs` gesetzt sind (§ 3.2).
 ```python
 # Key = letzte 4 Ziffern der IBKR accountId
 # "U***9360" und "U12369360" ergeben denselben Key "9360"
+# Tabellen-Prefix steht bewusst nicht hier, sondern wird zur Laufzeit aus users.toml
+# aufgeloest (get_account_config()) — einzige Quelle fuer "mike" -> "mike_" im Projekt.
 ACCOUNT_MAP = {
-    "5466": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_money"},
-    "9254": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_paper"},
-    "9360": {"user": "mike",   "table_prefix": "mike_",   "environment": "money"},
-    "4049": {"user": "mike",   "table_prefix": "mike_",   "environment": "paper"},
-    "8145": {"user": "karola", "table_prefix": "karola_", "environment": "money"},
+    "5466": {"user": "mike",   "environment": "autom_money"},
+    "9254": {"user": "mike",   "environment": "autom_paper"},
+    "9360": {"user": "mike",   "environment": "money"},
+    "4049": {"user": "mike",   "environment": "paper"},
+    "8145": {"user": "karola", "environment": "money"},
 }
 ```
 
-Neue IBKR-Konten müssen hier ergänzt werden — XMLs mit unbekannter accountId werden beim Import übersprungen (Warnung im Log).
+Neue IBKR-Konten müssen hier ergänzt werden — XMLs mit unbekannter accountId werden beim Import übersprungen (Warnung im Log). Neue User zusätzlich in `users.toml` eintragen.
 
 Jede XML-Datei enthält immer nur Daten eines einzigen Kontos. Die `accountId` im `<FlexStatement>` bestimmt, welchem User und Environment die Trades zugeordnet werden.
 
@@ -871,9 +873,10 @@ python -m src.migrate_running_balance money mike_      # einzelnes Target
 
 | Datei | Zweck | Versioniert? |
 |---|---|---|
-| `.env` | Secrets (DB-Passwort, API-Keys) | **Nein** (gitignore) |
-| `config.py` | Account-Mapping, DB-Konfiguration | Ja |
-| `pipeline.toml` | Pipeline-Schritte, aktive User | Ja |
+| `.env` | Secrets (DB-Passwort, API-Keys) | **Nein** (gitignore, siehe `.env.example`) |
+| `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`) | **Ja** — teamweit gültig, nicht maschinenspezifisch |
+| `config.py` | Account-Mapping (`ACCOUNT_MAP`, ohne Prefix), DB-Konfiguration | Ja |
+| `pipeline.toml` | Pipeline-Schritte, aktive User dieser Maschine | **Nein** (gitignore, siehe `pipeline.toml.example`) — maschinenspezifisch: jede Maschine verarbeitet nur die dort tatsächlich per `reset_IBKR_DB.py` initialisierten User/Environments |
 | `CLAUDE.md` | Entwickler-Dokumentation | Ja |
 
 ### 9.2 `.env`-Struktur (Auszug)
@@ -882,7 +885,8 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
 DB_PASS=...
-TABLE_PREFIX=mike_
+DEFAULT_USER=mike
+# Alternative/Override statt DEFAULT_USER: TABLE_PREFIX=mike_ direkt
 
 IMAP_USERNAME=deine@email.at
 IMAP_PASSWORD=...
@@ -1102,7 +1106,8 @@ Basis: Kombination aus trades_open + account_snapshots + TWS API
 ```
 xml_proj/
 ├── run_pipeline.py              ← Einstiegspunkt (orchestriert alle Phasen)
-├── pipeline.toml                ← Pipeline-Konfiguration (User, Environments, Steps)
+├── pipeline.toml                ← Pipeline-Konfiguration (aktive User/Environments, Steps) — maschinenspezifisch, gitignored
+├── users.toml                   ← Zentrale User↔Prefix-Registry — versioniert, teamweit
 ├── HELP.md                      ← Befehlsreferenz aller Scripts
 ├── README.md                    ← Projekt-Kurzbeschreibung
 ├── src/
@@ -1115,7 +1120,7 @@ xml_proj/
 │   ├── import_activity_statement.py ← CSV-Snapshot-Import (account_snapshots)
 │   ├── import_csv_snapshots.py  ← Snapshot-Step der Pipeline (Activity-CSVs, TWRR exakt)
 │   ├── import_flexquery_snapshot.py ← Snapshot-Alternative (FlexQuery-XMLs, TWRR berechnet)
-│   ├── config.py                ← get_engine(), ACCOUNT_MAP, DB_MAP, TABLE_PREFIX
+│   ├── config.py                ← get_engine(), ACCOUNT_MAP, DB_MAP, load_users(), TABLE_PREFIX
 │   ├── trade_enums.py           ← TradeStatus, AssetCategory, CampaignStatus
 │   ├── parsers/
 │   │   ├── flex_parser.py       ← XML-Orchestrator (process_flex_file)

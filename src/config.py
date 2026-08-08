@@ -1,5 +1,6 @@
 import os
 import tomllib
+from functools import lru_cache
 from sqlalchemy import create_engine, event
 from dotenv import load_dotenv
 from pathlib import Path
@@ -11,6 +12,22 @@ MAX_GAP_DAYS = 10  # Kampagnen: max. Tage in PENDING bevor CLOSED (empfohlen 7-1
 # Lade .env aus dem Projekt-Root
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
+
+
+# === Zentrale User-Registry (users.toml) ===
+# Einzige Quelle fuer den Zusammenhang User <-> Tabellen-Prefix. Im Gegensatz zu
+# pipeline.toml gilt users.toml teamweit und ist versioniert (kein .gitignore).
+
+@lru_cache(maxsize=1)
+def load_users() -> dict[str, str]:
+    """Liest users.toml: {user_name: table_prefix}. Leeres Dict falls Datei fehlt."""
+    toml_path = ROOT_DIR / "users.toml"
+    if not toml_path.exists():
+        return {}
+    with open(toml_path, "rb") as f:
+        cfg = tomllib.load(f)
+    return {name: data["prefix"] for name, data in cfg.items()}
+
 
 # === DB Basis-Konfiguration ===
 DB_USER = os.getenv("DB_USER", "admin")
@@ -28,7 +45,11 @@ DB_MAP = {
 }
 
 # OPTIONALER TABLE-PREFIX (z.B. "mike_")
+# Direkt per TABLE_PREFIX setzen (Altbestand, z.B. Server-.env) ODER per DEFAULT_USER=<name>
+# (Prefix wird dann aus users.toml aufgeloest) — TABLE_PREFIX gewinnt, falls beides gesetzt ist.
 TABLE_PREFIX = os.getenv("TABLE_PREFIX", "")
+if not TABLE_PREFIX:
+    TABLE_PREFIX = load_users().get(os.getenv("DEFAULT_USER", ""), "")
 
 
 def get_db_url(env: str) -> str:
@@ -80,17 +101,26 @@ def _normalize_account_id(raw: str) -> str:
 
 # Key = letzte 4 Ziffern der IBKR accountId
 # Beispiele: "U***65466" → "5466",  "U12368145" → "8145",  "DU***4049" → "4049"
+# Tabellen-Prefix steht bewusst NICHT hier — kommt zur Laufzeit aus users.toml (siehe
+# get_account_config), damit "mike_"/"karola_" nur an einer Stelle im Projekt steht.
 ACCOUNT_MAP: dict[str, dict] = {
-    "5466": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_money"},
-    "9254": {"user": "mike",   "table_prefix": "mike_",   "environment": "autom_paper"},
-    "9360": {"user": "mike",   "table_prefix": "mike_",   "environment": "money"},
-    "4049": {"user": "mike",   "table_prefix": "mike_",   "environment": "paper"},
-    "8145": {"user": "karola", "table_prefix": "karola_", "environment": "money"},
+    "5466": {"user": "mike",   "environment": "autom_money"},
+    "9254": {"user": "mike",   "environment": "autom_paper"},
+    "9360": {"user": "mike",   "environment": "money"},
+    "4049": {"user": "mike",   "environment": "paper"},
+    "8145": {"user": "karola", "environment": "money"},
 }
 
 def get_account_config(raw_account_id: str) -> dict | None:
     """Gibt {user, table_prefix, environment} für eine accountId zurück (maskiert oder voll)."""
-    return ACCOUNT_MAP.get(_normalize_account_id(raw_account_id))
+    entry = ACCOUNT_MAP.get(_normalize_account_id(raw_account_id))
+    if entry is None:
+        return None
+    return {
+        "user": entry["user"],
+        "table_prefix": load_users().get(entry["user"], ""),
+        "environment": entry["environment"],
+    }
 
 
 # === Pipeline-Konfiguration ===
@@ -102,6 +132,10 @@ def load_active_targets() -> list[dict]:
     Reihenfolge: Users in TOML-Reihenfolge, TEST-Einträge ([[test]]) zuletzt.
     Ein [[test]]-Eintrag ist immer aktiv — kein enabled-Schalter, zum Deaktivieren
     den Eintrag aus der TOML entfernen.
+
+    Tabellen-Prefix: ein explizites "prefix"-Feld in pipeline.toml gewinnt (Override,
+    z.B. fuer einen User ohne users.toml-Eintrag); ohne "prefix"-Feld wird der User-Name
+    (TOML-Sektion bzw. "user"-Feld beim Test-Eintrag) in users.toml nachgeschlagen.
     """
     toml_path = ROOT_DIR / "pipeline.toml"
     if not toml_path.exists():
@@ -109,17 +143,20 @@ def load_active_targets() -> list[dict]:
     with open(toml_path, "rb") as f:
         cfg = tomllib.load(f)
 
+    users = load_users()
     targets = []
     for user_name, user_cfg in cfg.get("users", {}).items():
-        prefix = user_cfg["prefix"]
+        prefix = user_cfg.get("prefix") or users.get(user_name, TABLE_PREFIX)
         for env in user_cfg.get("environments", []):
             targets.append({"environment": env, "prefix": prefix, "user": user_name})
 
     for test_cfg in cfg.get("test", []):
+        test_user = test_cfg.get("user", "test")
+        prefix = test_cfg.get("prefix") or users.get(test_user, TABLE_PREFIX)
         targets.append({
             "environment": "test",
-            "prefix": test_cfg.get("prefix", TABLE_PREFIX),
-            "user": test_cfg.get("user", "test"),
+            "prefix": prefix,
+            "user": test_user,
         })
 
     return targets

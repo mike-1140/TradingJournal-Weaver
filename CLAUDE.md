@@ -102,9 +102,11 @@ IBKR sign convention: **BUY → netCash negative, SELL → netCash positive**
 
 ## Configuration
 
-- `.env` — DB credentials, `TABLE_PREFIX` (e.g. `mike_`), environment DB names, API keys (z.B. Mail-Zugang für `get_flexquery_emails.py`)
-- `src/config.py` — `get_engine(env)`, `DB_MAP`, table name constants
-- `.gitignore` — `.env` ist ausgeschlossen (keine Secrets im Repo!)
+- `.env` — DB credentials, `DEFAULT_USER` (e.g. `mike`, Prefix wird aus `users.toml` aufgelöst) oder direkt `TABLE_PREFIX` als Override, environment DB names, API keys (z.B. Mail-Zugang für `get_flexquery_emails.py`)
+- `users.toml` — zentrale, versionierte User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`)
+- `pipeline.toml` — maschinenspezifisch, gitignored; aktive User/Environments dieser Maschine (siehe `pipeline.toml.example`)
+- `src/config.py` — `get_engine(env)`, `DB_MAP`, `ACCOUNT_MAP` (ohne Prefix), `load_users()`, table name constants
+- `.gitignore` — `.env`, `pipeline.toml` ausgeschlossen (keine Secrets/Maschinenspezifika im Repo!)
 
 Table names use an optional prefix (e.g. `mike_trades_raw`) for multi-user support.
 

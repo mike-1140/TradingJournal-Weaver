@@ -1,0 +1,33 @@
+# Trading Journal 3.0 — Pipeline-Konfiguration
+# Vorlage fuer lokale Konfiguration — kopieren als "pipeline.toml" und anpassen.
+# "pipeline.toml" ist maschinenspezifisch (wie .env) und daher NICHT versioniert —
+# jede Maschine verarbeitet nur die User/Environments, die dort tatsaechlich per
+# reset_IBKR_DB.py initialisiert wurden.
+# Ausfuehren: python run_pipeline.py
+
+[settings]
+# Schritte in Ausfuehrungsreihenfolge (Standard-Pipeline, ohne reset)
+# Moegliche Werte: fetch_emails | fetch_api | snapshot_csv | snapshot_import | import | process | summary | reset
+steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summary"]
+
+# --- User-Konfiguration ---
+# Fuer jeden User, der auf DIESER Maschine verarbeitet werden soll: environments = Liste
+# der Environments, fuer die reset_IBKR_DB.py hier bereits gelaufen ist. Der Tabellen-Prefix
+# kommt automatisch aus users.toml (zentrale, versionierte Registry) — nur bei Bedarf hier
+# per "prefix = ..." explizit ueberschreiben (z.B. User ohne users.toml-Eintrag).
+# Nur User eintragen, die auf dieser Maschine auch tatsaechlich initialisiert sind — sonst
+# schlaegt der automatische Pipeline-Lauf mit "Tabelle nicht gefunden" fehl.
+
+[users.dein_user]
+environments = ["money"]
+
+# Weiteren User hinzufuegen (nur falls auf dieser Maschine initialisiert):
+# [users.zweiter_user]
+# environments = ["paper"]
+
+# --- Test-Environment ---
+# Kein echtes IBKR-Konto. XML-Dateien manuell nach C:\Trade_XML\test\<user>\incoming\
+# kopieren — wird bei jedem normalen Pipeline-Lauf automatisch mitverarbeitet. Kein
+# enabled-Schalter: ein Eintrag hier ist immer aktiv; zum Deaktivieren entfernen.
+[[test]]
+user = "dein_user"
