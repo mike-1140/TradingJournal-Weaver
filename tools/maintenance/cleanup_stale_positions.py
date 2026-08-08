@@ -54,7 +54,7 @@ def find_stale_open_trades(conn, t_open: str, env_up: str, args) -> list[dict]:
     Liest die ausgewählten offenen Tranchen aus trades_open.
     Wichtig: processed = 0 — geschlossene Tranchen werden nicht gelöscht,
     sondern nur auf processed = 1 gesetzt (History). Nur processed = 0 ist
-    tatsächlich noch offen (so filtert auch TradingJournal2).
+    tatsächlich noch offen (so filtert auch TradingJournal).
     """
     conditions = ["environment = :env", "processed = 0"]
     params: dict = {"env": env_up}

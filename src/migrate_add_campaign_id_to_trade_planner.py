@@ -3,7 +3,7 @@ Migration: campaign_id in trade_planner nachrüsten
 ====================================================
 Fügt die Spalte `campaign_id` (nullable FK auf trading_campaigns) zu `trade_planner`
 hinzu, falls noch nicht vorhanden. Bestehende Zeilen bleiben unverknüpft (NULL) —
-die Verknüpfung erfolgt nachträglich manuell oder per Matching-Vorschlag in TradingJournal2.
+die Verknüpfung erfolgt nachträglich manuell oder per Matching-Vorschlag in TradingJournal.
 
 Aufruf:
   python src/migrate_add_campaign_id_to_trade_planner.py               # alle aktiven Targets aus pipeline.toml

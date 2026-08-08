@@ -589,7 +589,7 @@ Seit 2026-05 werden **feingranulare Actions** geschrieben — statt generischem 
 | Options-Events | `OPTION_EXPIRATION`, `OPTION_EXERCISE`, `CASH_SETTLEMENT` | OptionEAE (Verfall / Ausübung+Assignment / Barausgleich) |
 | Sonstiges | `TRADE_REVERSAL_OPEN`, `STOCK_SPLIT`, `FX_EXCHANGE` | Fall 2b Remainder / CorporateAction / CASH-Trade |
 
-**Hinweis:** Die generischen Bezeichnungen `TRADE_OPEN`, `TRADE_CLOSE_FULL`, `TRADE_CLOSE_PARTIAL` in den Fallbeschreibungen oben (Abschnitt 6.2) stehen stellvertretend für die jeweilige feingranulare Action. Alt-Daten mit den Legacy-Actions bleiben gültig, bis das jeweilige Environment per Summary-Re-Import neu aufgebaut wird (TradingJournal2 kennt beide Varianten).
+**Hinweis:** Die generischen Bezeichnungen `TRADE_OPEN`, `TRADE_CLOSE_FULL`, `TRADE_CLOSE_PARTIAL` in den Fallbeschreibungen oben (Abschnitt 6.2) stehen stellvertretend für die jeweilige feingranulare Action. Alt-Daten mit den Legacy-Actions bleiben gültig, bis das jeweilige Environment per Summary-Re-Import neu aufgebaut wird (TradingJournal kennt beide Varianten).
 
 ### 6.4 Schema-Validierung: `open_trade.py` / `closed_trade.py`
 

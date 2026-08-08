@@ -75,7 +75,7 @@ XML files (C:\Trade_XML\incoming_mail\ + incoming_api\, alle *.xml)
 | Table | Purpose |
 |---|---|
 | `trades_raw` | All imports; `processed=0/1` flag controls processing |
-| `trades_open` | FIFO tranches (one row per lot). **Achtung:** Geschlossene Tranchen werden nicht gelöscht, sondern nur auf `processed=1` gesetzt (History, siehe `db_access.delete_open_trade`) — wirklich offen ist nur `processed=0`, so filtert auch TradingJournal2 |
+| `trades_open` | FIFO tranches (one row per lot). **Achtung:** Geschlossene Tranchen werden nicht gelöscht, sondern nur auf `processed=1` gesetzt (History, siehe `db_access.delete_open_trade`) — wirklich offen ist nur `processed=0`, so filtert auch TradingJournal |
 | `trades_close` | Completed trades with P&L, ROI, days held |
 | `trading_campaigns` | Campaign per symbol (ACTIVE/PENDING/CLOSED) |
 | `campaign_ledger` | Full audit journal: every action with cash flows |
