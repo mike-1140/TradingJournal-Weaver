@@ -22,6 +22,15 @@ imap_server          = os.getenv("IMAP_SERVER", "imap.gmx.com")
 activity_subject     = os.getenv("IBKR_ACTIVITY_SUBJECT", "Activity Statement")
 activity_subject_de  = os.getenv("IBKR_ACTIVITY_SUBJECT_DE", "Kontoauszug")
 
+# Platzhalterwert aus .env.example — falls nie ausgefuellt, soll das Script sauber
+# abbrechen statt mit einem imaplib-Authentifizierungsfehler zu crashen
+_PLACEHOLDER_USERNAME = "deine@email.at"
+
+
+def _mail_configured() -> bool:
+    """Prueft ob IMAP_USERNAME/IMAP_PASSWORD echt befuellt sind (nicht leer, nicht Platzhalter)."""
+    return bool(username) and username != _PLACEHOLDER_USERNAME and bool(password)
+
 
 def _ensure_dirs():
     """Erstellt Eingangsordner falls nötig."""
@@ -188,6 +197,11 @@ def main():
     logger.info(f"---- FlexQueryEmails ({datetime.now().strftime('%Y-%m-%d - %H:%M:%S')})")
     logger.info("=" * 80)
     logger.info(f"Mail-Account: {username}")
+
+    if not _mail_configured():
+        logger.error("IMAP_USERNAME/IMAP_PASSWORD nicht konfiguriert oder noch auf Platzhalterwert — Abbruch (siehe .env)")
+        logger.error("  .env.example kopieren und IMAP_USERNAME/IMAP_PASSWORD mit echten Werten befuellen")
+        return 0
 
     _ensure_dirs()
 
