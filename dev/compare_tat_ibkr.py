@@ -2,10 +2,10 @@
 TAT vs. IBKR Datenvergleich — CLI
 Vergleicht Trade Automation Tool CSV mit IBKR DB-Daten.
 
-Verwendung:
-    python compare_tat_ibkr.py trades.csv
-    python compare_tat_ibkr.py trades.csv --env autom_money
-    python compare_tat_ibkr.py trades.csv --tolerance 0.05
+Verwendung (aus dem xml_proj-Root-Ordner):
+    python dev/compare_tat_ibkr.py trades.csv
+    python dev/compare_tat_ibkr.py trades.csv --env autom_money
+    python dev/compare_tat_ibkr.py trades.csv --tolerance 0.05
 """
 
 import sys
@@ -14,8 +14,10 @@ import argparse
 from pathlib import Path
 from decimal import Decimal, InvalidOperation
 
-# xml_proj config importieren (liest .env aus xml_proj/)
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+# xml_proj config importieren (liest .env aus xml_proj/) - liegt seit dem Umzug nach
+# dev/ eine Ebene hoeher als frueher (dev/ ist Geschwisterordner von src/, nicht mehr
+# im selben Ordner wie compare_tat_ibkr.py selbst)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from config import get_engine, TABLE_PREFIX, TABLE_TRADES_CLOSE
 
 import pandas as pd

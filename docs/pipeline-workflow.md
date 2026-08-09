@@ -859,10 +859,12 @@ Das `campaign_ledger` wurde um drei kumulierte Salden erweitert, die bei jedem I
 | `cum_commission` | SUM(commission) je Kampagne | Gesamtkosten-Verlauf |
 | `cum_premium` | SUM(proceeds) je Kampagne | Prämieneinnahmen (Wheel-Tracking) |
 
-Bestehende Daten wurden per `src/migrate_running_balance.py` nachbefüllt (Window-Functions):
+Bestehende Daten wurden per `dev/migrate_running_balance.py` nachbefüllt (Window-Functions,
+liegt seit einer Aufräum-Aktion in `dev/` statt `src/` — reine Einmal-Migrationsskripte, auf
+einer frischen Installation nie gebraucht):
 ```bash
-python -m src.migrate_running_balance                  # alle Environments
-python -m src.migrate_running_balance money mike_      # einzelnes Target
+python -m dev.migrate_running_balance                  # alle Environments
+python -m dev.migrate_running_balance money mike_      # einzelnes Target
 ```
 
 ---
@@ -1116,7 +1118,6 @@ xml_proj/
 │   ├── import_ibkr_trades.py    ← Phase 1: XML/CSV-Import → trades_raw
 │   ├── process_ibkr_trades.py   ← Phase 2: FIFO-Processing → Endtabellen
 │   ├── xml_append_summary.py    ← Phase 3: Summary-XML für DB-Rebuild
-│   ├── migrate_running_balance.py ← Migration: cum_pnl/cum_commission/cum_premium
 │   ├── import_activity_statement.py ← CSV-Snapshot-Import (account_snapshots)
 │   ├── import_csv_snapshots.py  ← Snapshot-Step der Pipeline (Activity-CSVs, TWRR exakt)
 │   ├── import_flexquery_snapshot.py ← Snapshot-Alternative (FlexQuery-XMLs, TWRR berechnet)
@@ -1155,6 +1156,18 @@ xml_proj/
 ├── docs/
 │   ├── pipeline-workflow.md     ← diese Dokumentation
 │   └── pipeline-workflow.pdf    ← PDF-Export
+├── dev/                         ← Einmal-Migrationen, persönliche Tools — nie für einen
+│   │                               frischen Rechner nötig, absichtlich nicht in
+│   │                               sql/src/tools/maintenance (siehe Sparse-Checkout-Hinweis
+│   │                               in windows-prerequisites.md für schlanke Installationen)
+│   ├── migrate_running_balance.py ← Migration: cum_pnl/cum_commission/cum_premium
+│   ├── migrate_add_campaign_id_to_trade_planner.py
+│   ├── migrate_add_fees_open_to_trade_planner.py
+│   ├── migrate_add_open_types_to_psychology.py
+│   ├── migrate_backfill_assignment_linkid.py
+│   ├── compare_tat_ibkr.py      ← manueller TAT-vs-IBKR-Abgleich
+│   ├── options_pnl.py           ← Nachschlage-Text zu IBKR-P&L-Feldern
+│   └── setup.py                 ← veraltet/ungenutzt (echter Weg: requirements.txt)
 ├── tests/                       ← pytest (DummyLogger, DummyDBAccess)
 ├── input/                       ← Test-XML/CSV-Dateien
 └── log/                         ← Anwendungslogs (RotatingFileHandler)
