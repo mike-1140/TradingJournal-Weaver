@@ -1123,6 +1123,7 @@ xml_proj/
 │   ├── import_flexquery_snapshot.py ← Snapshot-Alternative (FlexQuery-XMLs, TWRR berechnet)
 │   ├── config.py                ← get_engine(), ACCOUNT_MAP, DB_MAP, load_users(), TABLE_PREFIX
 │   ├── trade_enums.py           ← TradeStatus, AssetCategory, CampaignStatus
+│   ├── options_pnl.py           ← calculate_pnl()/get_position_summary(), von flex_parser.py verwendet (Produktivcode, kein dev-Tool)
 │   ├── parsers/
 │   │   ├── flex_parser.py       ← XML-Orchestrator (process_flex_file)
 │   │   ├── day_trade_processor.py  ← Element-Extraktion (Trades, EAE, CorpActions)
@@ -1166,7 +1167,6 @@ xml_proj/
 │   ├── migrate_add_open_types_to_psychology.py
 │   ├── migrate_backfill_assignment_linkid.py
 │   ├── compare_tat_ibkr.py      ← manueller TAT-vs-IBKR-Abgleich
-│   ├── options_pnl.py           ← Nachschlage-Text zu IBKR-P&L-Feldern
 │   └── setup.py                 ← veraltet/ungenutzt (echter Weg: requirements.txt)
 ├── tests/                       ← pytest (DummyLogger, DummyDBAccess)
 ├── input/                       ← Test-XML/CSV-Dateien
