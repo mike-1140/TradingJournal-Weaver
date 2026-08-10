@@ -207,3 +207,36 @@ class TestBug4LedgerKommissionNurCloseAnteil:
         # Nur 30/100 der Close-Order entfallen auf diese Tranche -> Close-Commission
         # wird anteilig gebucht, die Open-Commission (-100) taucht nirgends auf.
         assert close_call["commission"] == Decimal("-10") * (Decimal("30") / Decimal("100"))
+
+
+class TestBug2OptNormalCloseBuchtNetcash:
+    """Bug 2 (behoben laut CLAUDE.md 'OPT normal close records zero cash in
+    campaign ledger'): beim regulaeren Schliessen einer Option per Gegen-Order
+    (buy-to-close/sell-to-close -- NICHT Expiration/Assignment/Cash-Settlement)
+    wurden netcash/proceeds/commission im Ledger als 0 statt der tatsaechlichen
+    Werte gebucht. Betrifft den 'else'-Zweig im OPT-Ast von Case 2c."""
+
+    def test_normaler_buy_to_close_bucht_echten_cashflow(self, dummy_logger, fake_repo, fake_tracker):
+        fake_repo.seed_open_trade(
+            symbol="XYZ 260220P50", assetCategory="OPT", quantity=Decimal("-1"),
+            putCall="P", strike=Decimal("50"), expiry=datetime(2026, 2, 20),
+            multiplier=Decimal("100"), tradePrice=Decimal("2.50"),
+            netCash=Decimal("250"), proceeds=Decimal("250"), ibCommission=Decimal("-0.65"),
+            dateTime=datetime(2026, 1, 5), buySell="SELL", currency="USD",
+            fxRateToBase=Decimal("1"), tradeID="O700",
+        )
+        close = _raw_trade(
+            id=701, symbol="XYZ 260220P50", assetCategory="OPT", quantity=Decimal("1"),
+            putCall="P", strike=Decimal("50"), expiry=datetime(2026, 2, 20), multiplier=Decimal("100"),
+            buySell="BUY", tradePrice=Decimal("1.00"), netCash=Decimal("-100"),
+            proceeds=Decimal("-100"), ibCommission=Decimal("-0.65"),
+            dateTime=datetime(2026, 1, 10), tradeID="T701", status="Closed",
+        )
+
+        process_raw_trade(dummy_logger, close, fake_repo, fake_tracker, campaign_id=1)
+
+        [ledger_call] = fake_tracker.ledger_calls
+        assert ledger_call["action"] == LedgerAction.OPT_PUT_BUY_CLOSE
+        assert ledger_call["netcash"] == Decimal("-100")
+        assert ledger_call["proceeds"] == Decimal("-100")
+        assert ledger_call["commission"] == Decimal("-0.65")

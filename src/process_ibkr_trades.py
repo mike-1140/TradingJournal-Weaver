@@ -174,9 +174,7 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
             split_result = _handle_split_trade(trade, split_buffer, repo, table_trades_raw)
             if split_result == 'processed':
                 # Campaign-ID direkt aus holdings lesen — ohne Inventory-Update
-                # Nach _handle_split_trade ist trade['symbol'] bereits auf das neue Symbol gesetzt;
-                # underlyingSymbol des alten Split-Legs wäre sonst z.B. "APDN.OLD" statt "APDN".
-                split_symbol = trade.get('symbol')
+                split_symbol = _resolve_split_holdings_symbol(trade)
                 campaign_id = (tracker.holdings.get(split_symbol) or {}).get('campaign_id')
                 process_stock_split(repo, trade, tracker, campaign_id)
                 # In-memory Bestand an neuen Faktor anpassen
@@ -215,6 +213,24 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
     logger.info("=" * 80)
     logger.info("Trade-Verarbeitung abgeschlossen")
     logger.info("=" * 80)
+
+
+def _resolve_split_holdings_symbol(trade: Dict[str, Any]) -> str:
+    """
+    Ermittelt das Symbol, unter dem ein verarbeiteter Split-Trade im
+    tracker.holdings-Dict nachgeschlagen werden muss.
+
+    Nach _handle_split_trade() ist trade['symbol'] bereits auf das NEUE
+    Symbol nach dem Split gesetzt; trade['underlyingSymbol'] zeigt beim alten
+    Split-Leg dagegen oft noch auf das ALTE Symbol (z.B. "APDN.OLD").
+
+    Regressions-Bug (behoben 2026-05-11): eine frühere Fassung löste hier
+    'underlyingSymbol or symbol' auf und griff dadurch ins Leere — die
+    Kampagne wurde im Tracker nie gefunden, der In-Memory-Bestand nie
+    aktualisiert, die Kampagne blieb fälschlich ACTIVE obwohl der Bestand
+    nach dem Split rechnerisch 0 war.
+    """
+    return trade.get('symbol')
 
 
 def _handle_split_trade(trade: Dict[str, Any], split_buffer: Dict, repo,
