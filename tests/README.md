@@ -10,6 +10,10 @@ pytest tests/ -v
 Einzelne Datei: `pytest tests/test_process_raw_trade.py -v`
 Einzelner Test: `pytest tests/test_process_raw_trade.py::TestCase2aTeilschluss -v`
 
+## CI (GitHub Actions)
+
+`.github/workflows/tests.yml` — läuft auf jedem Push/PR gegen `master` und auf jedem PR: frisches Ubuntu, nur `requirements.txt` installiert, kein `.env`/keine DB nötig (siehe „Keine Datenbank nötig" oben). Lokal als Trockenlauf geprüft: `pip install -r requirements.txt` in einem leeren venv, alle 36 Tests grün.
+
 Keine Datenbank nötig — alle Tests laufen komplett gegen In-Memory-Fakes, siehe unten.
 
 ## Testdateien

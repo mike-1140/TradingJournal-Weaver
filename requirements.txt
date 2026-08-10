@@ -16,3 +16,6 @@ requests==2.32.4
 
 # Dashboard (display_xml_data.py)
 streamlit
+
+# Tests
+pytest==9.1.1
