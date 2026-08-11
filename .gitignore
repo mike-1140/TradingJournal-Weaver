@@ -1,6 +1,7 @@
 # === Sensible / maschinenspezifische Daten ===
 .env
 pipeline.toml
+accounts.toml
 
 # === Python ===
 __pycache__/

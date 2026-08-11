@@ -5,7 +5,7 @@ get_flexquery_api.py nach C:\\Trade_XML\\incoming_api\\ geschrieben).
 Ablauf:
   1. Alle XMLs in IN_FOLDER_XML_INCOMING_API scannen (oder einzelne Datei via --file)
   2. Pro XML: alle FlexStatements parsen (ein Statement = ein Snapshot-Tag)
-  3. accountId → Environment/User/Prefix via ACCOUNT_MAP aus config.py auflösen
+  3. accountId → Environment/User/Prefix via accounts.toml (config.py::get_account_config()) auflösen
   4. Snapshot in account_snapshots einfügen (Duplikate überspringen)
 
 Verschiebt/loescht die XML-Datei NICHT — das uebernimmt der nachfolgende import-Schritt
@@ -122,7 +122,7 @@ def process_xml_file(xml_path: Path, dry_run: bool) -> int:
         if not account_cfg:
             logger.warning(
                 f"{xml_path.name}: accountId '{snap['account_id']}' "
-                f"nicht in ACCOUNT_MAP — übersprungen"
+                f"nicht in accounts.toml — übersprungen"
             )
             continue
         try:

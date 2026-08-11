@@ -276,22 +276,22 @@ Environment/Prefix routet, werden importiert und verschoben — alle anderen ble
 in `incoming_mail\`/`incoming_api\` liegen. `run_pipeline.py` nutzt diesen Modus
 automatisch, sobald `--users`/`--envs` gesetzt sind (§ 3.2).
 
-**Routing via `src/config.py` → `ACCOUNT_MAP`:**
-```python
-# Key = letzte 4 Ziffern der IBKR accountId
-# "U***9360" und "U12369360" ergeben denselben Key "9360"
-# Tabellen-Prefix steht bewusst nicht hier, sondern wird zur Laufzeit aus users.toml
-# aufgeloest (get_account_config()) — einzige Quelle fuer "mike" -> "mike_" im Projekt.
-ACCOUNT_MAP = {
-    "5466": {"user": "mike",   "environment": "autom_money"},
-    "9254": {"user": "mike",   "environment": "autom_paper"},
-    "9360": {"user": "mike",   "environment": "money"},
-    "4049": {"user": "mike",   "environment": "paper"},
-    "8145": {"user": "karola", "environment": "money"},
-}
-```
+**Routing via `accounts.toml` (`src/config.py` → `get_account_config()`):**
 
-Neue IBKR-Konten müssen hier ergänzt werden — XMLs mit unbekannter accountId werden beim Import übersprungen (Warnung im Log). Neue User zusätzlich in `users.toml` eintragen.
+Das Mapping steht — wie `pipeline.toml` — in einer maschinen-/personenspezifischen,
+nicht versionierten Datei (`accounts.toml`, Vorlage `accounts.toml.example`), nicht
+im Code:
+```toml
+# Key = letzte 4 Ziffern der IBKR accountId
+# "U***1234" und "U12341234" ergeben denselben Key "1234"
+[1234]
+user = "dein_user"
+environment = "money"
+```
+Tabellen-Prefix steht bewusst nicht hier, sondern wird zur Laufzeit aus `users.toml`
+aufgelöst (`get_account_config()`) — einzige Quelle für `user → prefix` im Projekt.
+
+Neue IBKR-Konten müssen in `accounts.toml` ergänzt werden — XMLs mit unbekannter accountId werden beim Import übersprungen (Warnung im Log). Neue User zusätzlich in `users.toml` eintragen.
 
 Jede XML-Datei enthält immer nur Daten eines einzigen Kontos. Die `accountId` im `<FlexStatement>` bestimmt, welchem User und Environment die Trades zugeordnet werden.
 
@@ -877,7 +877,8 @@ python -m dev.migrate_running_balance money mike_      # einzelnes Target
 |---|---|---|
 | `.env` | Secrets (DB-Passwort, API-Keys) | **Nein** (gitignore, siehe `.env.example`) |
 | `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`) | **Ja** — teamweit gültig, nicht maschinenspezifisch |
-| `config.py` | Account-Mapping (`ACCOUNT_MAP`, ohne Prefix), DB-Konfiguration | Ja |
+| `config.py` | DB-Konfiguration, lädt Account-Mapping aus `accounts.toml` (`get_account_config()`) | Ja |
+| `accounts.toml` | Account-Mapping (accountId-Suffix → User/Environment, ohne Prefix) | **Nein** (gitignore, siehe `accounts.toml.example`) — enthält reale Kontodaten |
 | `pipeline.toml` | Pipeline-Schritte, aktive User dieser Maschine | **Nein** (gitignore, siehe `pipeline.toml.example`) — maschinenspezifisch: jede Maschine verarbeitet nur die dort tatsächlich per `reset_IBKR_DB.py` initialisierten User/Environments |
 | `CLAUDE.md` | Entwickler-Dokumentation | Ja |
 
@@ -1121,7 +1122,7 @@ xml_proj/
 │   ├── import_activity_statement.py ← CSV-Snapshot-Import (account_snapshots)
 │   ├── import_csv_snapshots.py  ← Snapshot-Step der Pipeline (Activity-CSVs, TWRR exakt)
 │   ├── import_flexquery_snapshot.py ← Snapshot-Alternative (FlexQuery-XMLs, TWRR berechnet)
-│   ├── config.py                ← get_engine(), ACCOUNT_MAP, DB_MAP, load_users(), TABLE_PREFIX
+│   ├── config.py                ← get_engine(), get_account_config(), DB_MAP, load_users(), TABLE_PREFIX
 │   ├── trade_enums.py           ← TradeStatus, AssetCategory, CampaignStatus
 │   ├── options_pnl.py           ← calculate_pnl()/get_position_summary(), von flex_parser.py verwendet (Produktivcode, kein dev-Tool)
 │   ├── parsers/

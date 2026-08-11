@@ -88,7 +88,7 @@ def _import_xml_files(target_environment: str | None = None, target_table_prefix
     OptionEAE/BookTrades/CorporateActions), incoming_api danach — Trades sind dank
     Checksum-Dedup (tradeID+dateTime+symbol+quantity+tradePrice) in flex_parser.py
     unabhaengig von der Reihenfolge sicher gegen doppeltes Einfuegen.
-    Routing: accountId -> ACCOUNT_MAP -> environment + user + table_prefix.
+    Routing: accountId -> accounts.toml (get_account_config()) -> environment + user + table_prefix.
     Verarbeitete Dateien werden nach <env>/<user>/processed/ bzw. <env>/<user>/deleted/ verschoben.
 
     Mit target_environment/target_table_prefix: Dateien anderer Environments/Prefixe werden
@@ -242,7 +242,7 @@ def _import_test_files(prefix: str, user: str) -> int:
 def _import_activity_csvs(target_environment: str | None = None, target_table_prefix: str | None = None) -> int:
     """
     Scannt C:\\Trade_CSV\\incoming\\ nach Activity Statement CSVs.
-    Routing: accountId aus Dateiinhalt -> ACCOUNT_MAP -> environment + user + table_prefix.
+    Routing: accountId aus Dateiinhalt -> accounts.toml (get_account_config()) -> environment + user + table_prefix.
     Verarbeitete Dateien werden nach incoming/<user>/processed/ verschoben.
 
     Mit target_environment/target_table_prefix: CSVs anderer Environments/Prefixe werden

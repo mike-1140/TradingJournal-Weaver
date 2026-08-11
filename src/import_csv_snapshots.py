@@ -3,8 +3,8 @@ Scannt C:\\Trade_CSV\\incoming\\ nach neuen Activity-Statement-CSVs,
 importiert jeden als account_snapshots-Eintrag und verschiebt die Datei
 nach C:\\Trade_CSV\\incoming\\{user}\\processed\\.
 
-Routing: accountId aus dem CSV-Inhalt → ACCOUNT_MAP in config.py
-         (funktioniert mit maskierten IDs wie U***09360)
+Routing: accountId aus dem CSV-Inhalt → accounts.toml (via config.py::get_account_config())
+         (funktioniert mit maskierten IDs wie U***1234)
 
 Verwendung:
     python -m src.import_csv_snapshots
@@ -124,7 +124,7 @@ def process_csv_file(csv_path: Path, dry_run: bool) -> bool:
     if not account_cfg:
         logger.warning(
             f"{csv_path.name}: accountId '{parser.account_id}' "
-            f"nicht in ACCOUNT_MAP — übersprungen"
+            f"nicht in accounts.toml — übersprungen"
         )
         return False
 

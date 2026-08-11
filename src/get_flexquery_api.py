@@ -19,9 +19,9 @@ Schreibt nach OUT_FOLDER_XML_API (C:\\Trade_XML\\incoming_api\\), getrennt von
 get_flexquery_emails.py's C:\\Trade_XML\\incoming_mail\\ — beide Ordner werden vom
 import-Step gleichwertig gescannt (siehe import_ibkr_trades.py).
 
-Unterstützt mehrere Konten/Logins (money, paper, autom_money, autom_paper, karola ...).
+Unterstützt mehrere Konten/Logins (money, paper, autom_money, autom_paper, mehrere User ...).
 Das Routing zum richtigen Environment erfolgt automatisch über die accountId im XML
-(ACCOUNT_MAP in config.py) — kein manuelles Zuordnen nötig.
+(accounts.toml, aufgelöst via config.py::get_account_config()) — kein manuelles Zuordnen nötig.
 
 Ablauf pro Query:
   1. SendRequest  → IBKR gibt einen ReferenceCode zurück

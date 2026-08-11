@@ -1,0 +1,21 @@
+# accounts.toml.example — Vorlage fuer lokale Konfiguration
+# Kopieren als "accounts.toml" und mit den eigenen IBKR-Konten befuellen.
+# "accounts.toml" ist wie pipeline.toml maschinen-/personenspezifisch und daher
+# NICHT versioniert — enthaelt reale Kontodaten, gehoert nie ins Repo.
+#
+# Key = letzte 4 Ziffern der IBKR accountId (maskiert "U***1234" und unmaskiert
+# "U12341234" ergeben denselben Key "1234"). "user" muss zu einem Eintrag in
+# users.toml passen. "environment": money | paper | autom_money | autom_paper
+
+[1234]
+user = "dein_user"
+environment = "money"
+
+[5678]
+user = "dein_user"
+environment = "paper"
+
+# Weiteres Konto (z.B. zweiter User oder automatisiertes Trading):
+# [9012]
+# user = "zweiter_user"
+# environment = "autom_money"

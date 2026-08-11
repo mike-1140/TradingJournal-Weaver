@@ -93,27 +93,30 @@ DEBUG_SQL = os.getenv("DEBUG_SQL", "false").lower() == "true"
 
 
 # === Account-Mapping: IBKR accountId → User / Environment / Prefix ===
+# Liegt in accounts.toml (wie pipeline.toml maschinen-/personenspezifisch, nicht
+# versioniert) — enthaelt reale IBKR-Kontodaten, siehe accounts.toml.example fuer
+# das Format. Tabellen-Prefix steht dort bewusst nicht mit drin — kommt zur Laufzeit
+# aus users.toml (siehe get_account_config), damit Prefixe nur an einer Stelle stehen.
+
+@lru_cache(maxsize=1)
+def load_account_map() -> dict[str, dict]:
+    """Liest accounts.toml: {letzte 4 Ziffern der accountId: {user, environment}}. Leeres Dict falls Datei fehlt."""
+    toml_path = ROOT_DIR / "accounts.toml"
+    if not toml_path.exists():
+        return {}
+    with open(toml_path, "rb") as f:
+        return tomllib.load(f)
+
 
 def _normalize_account_id(raw: str) -> str:
-    """Letzte 4 Ziffern — maskiert ('U***9360') und unmaskiert ('U12369360') ergeben denselben Key."""
+    """Letzte 4 Ziffern — maskierte und unmaskierte accountId ergeben denselben Key."""
     digits = ''.join(filter(str.isdigit, raw))
     return digits[-4:]
 
-# Key = letzte 4 Ziffern der IBKR accountId
-# Beispiele: "U***65466" → "5466",  "U12368145" → "8145",  "DU***4049" → "4049"
-# Tabellen-Prefix steht bewusst NICHT hier — kommt zur Laufzeit aus users.toml (siehe
-# get_account_config), damit "mike_"/"karola_" nur an einer Stelle im Projekt steht.
-ACCOUNT_MAP: dict[str, dict] = {
-    "5466": {"user": "mike",   "environment": "autom_money"},
-    "9254": {"user": "mike",   "environment": "autom_paper"},
-    "9360": {"user": "mike",   "environment": "money"},
-    "4049": {"user": "mike",   "environment": "paper"},
-    "8145": {"user": "karola", "environment": "money"},
-}
 
 def get_account_config(raw_account_id: str) -> dict | None:
     """Gibt {user, table_prefix, environment} für eine accountId zurück (maskiert oder voll)."""
-    entry = ACCOUNT_MAP.get(_normalize_account_id(raw_account_id))
+    entry = load_account_map().get(_normalize_account_id(raw_account_id))
     if entry is None:
         return None
     return {

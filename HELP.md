@@ -28,21 +28,21 @@ falls beides gesetzt ist).
 
 ## Account-Zuordnung (Routing)
 
-Die Zuordnung XML/CSV → User + Environment steht in **`src/config.py` → `ACCOUNT_MAP`**.
-Key sind die **letzten 4 Ziffern** der IBKR-accountId — funktioniert daher auch mit
-maskierten IDs (`U***9360` und `U12369360` ergeben denselben Key).
+Die Zuordnung XML/CSV → User + Environment steht in **`accounts.toml`** (nicht
+versioniert, wie `pipeline.toml` — Vorlage: `accounts.toml.example`), aufgelöst über
+`src/config.py` → `get_account_config()`. Key sind die **letzten 4 Ziffern** der
+IBKR-accountId — funktioniert daher auch mit maskierten IDs (`U***1234` und
+`U12341234` ergeben denselben Key).
 
-| accountId endet auf | User | Environment |
-|---|---|---|
-| 9360 | mike | money |
-| 4049 | mike | paper |
-| 5466 | mike | autom_money |
-| 9254 | mike | autom_paper |
-| 8145 | karola | money |
+```toml
+[1234]
+user = "dein_user"
+environment = "money"
+```
 
 Der Importer liest die accountId aus dem ersten `<FlexStatement>` der XML.
 Unbekannte accountIds werden übersprungen (Warnung im Log). Neue Konten müssen
-in `ACCOUNT_MAP` ergänzt werden.
+in `accounts.toml` ergänzt werden.
 
 **Kein Dateinamen-Filter mehr (Normalbetrieb):** Der Importer verarbeitet alle `*.xml`-Dateien
 in `incoming_mail\` und `incoming_api\` gleichwertig — die Quelle (Mail vs. FlexQuery-API)
@@ -79,7 +79,7 @@ Der `test\<user>\`-Ordner existiert nur für User mit einem `[[test]]`-Eintrag i
 
 ## TEST-Environment — manuelle XMLs automatisch erkennen
 
-Für TEST gibt es kein echtes IBKR-Konto, also auch keinen `ACCOUNT_MAP`-Eintrag —
+Für TEST gibt es kein echtes IBKR-Konto, also auch keinen `accounts.toml`-Eintrag —
 Environment und Prefix werden stattdessen durch das **Verzeichnis** bestimmt, nicht
 durch die accountId in der XML. Kein Umbenennen der accountId, kein manuelles
 Patchen der XML nötig.
@@ -297,7 +297,7 @@ dritten Währung wird stillschweigend nicht importiert. Details + Begründung: `
 
 Scannt `C:\Trade_XML\incoming_mail\` **und** `C:\Trade_XML\incoming_api\` nach
 `*.xml`-Dateien (kein Dateinamen-Filter im Normalbetrieb). Routing erfolgt automatisch
-per `accountId` aus der XML → `ACCOUNT_MAP` (in `src/config.py`) → Environment + User +
+per `accountId` aus der XML → `accounts.toml` (via `src/config.py::get_account_config()`) → Environment + User +
 Prefix. Verarbeitete Dateien landen in `C:\Trade_XML\<env>\<user>\processed\` (aus
 beiden Quellordnern gleichermaßen).
 
