@@ -9,10 +9,10 @@ pandas==3.0.0
 numpy==2.3.3
 
 # Konfiguration
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 
 # HTTP
-requests==2.32.4
+requests==2.34.2
 
 # Dashboard (display_xml_data.py)
 streamlit
