@@ -56,7 +56,7 @@ Details in den Kommentaren von `.env.example`.
 ### Datenbank einrichten
 
 ```bash
-python -m tools.maintenance.reset_IBKR_DB money mike_
+python -m tools.maintenance.reset_IBKR_DB money dein_user_
 ```
 
 Destruktiv — legt das Schema aus `sql/` neu an. Pro benötigtem Environment einmal
@@ -101,6 +101,8 @@ pytest
 |---|---|
 | `HELP.md` | Befehlsreferenz aller Scripts (Argumente, Beispiele, typische Abläufe) |
 | `docs/pipeline-workflow.md` | Technische Gesamtdokumentation (Architektur, FIFO-Logik, DB-Schema) |
+| `docs/setup/windows-prerequisites(-einsteiger).md` | Grundausstattung (Git, XAMPP, Composer, Node.js, Python) — auch für TradingJournal |
+| `docs/setup/xml_proj-setup(-einsteiger).md` | Setup-Anleitung für dieses Repo, technisch bzw. für Einsteiger |
 | `CLAUDE.md` | Entwickler-Notizen (Module, Konventionen, bekannte Fixes) |
 | `CONTRIBUTING.md` | Wie beitragen — Konventionen, Test-Erwartung, PR-Ablauf |
 | `SECURITY.md` | Meldeweg für Sicherheitslücken |

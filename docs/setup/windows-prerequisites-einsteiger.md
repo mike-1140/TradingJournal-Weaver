@@ -1,0 +1,334 @@
+# Windows-Grundausstattung — Anleitung für Einsteiger
+
+Diese Anleitung erklärt Schritt für Schritt, welche Programme auf einem Windows-Rechner
+installiert werden müssen, damit das Trading-Journal-Projekt läuft — **auch wenn du bisher
+wenig Erfahrung mit Programmieren, Terminals oder Entwickler-Tools hast.**
+
+Es gibt zu diesem Thema auch eine kürzere, technischere Version:
+[`windows-prerequisites.md`](windows-prerequisites.md). Diese Seite hier erklärt dieselben
+Schritte, nur ausführlicher und mit mehr Erklärungen dazwischen. Am Ende landest du beim
+gleichen Ergebnis.
+
+**Zeitaufwand:** ca. 30–60 Minuten, je nach Internetverbindung (mehrere Programme müssen
+heruntergeladen werden).
+
+---
+
+## Inhalt
+
+1. [Was du am Ende hast](#1-was-du-am-ende-hast)
+2. [Ein paar Begriffe vorab](#2-ein-paar-begriffe-vorab)
+3. [Git installieren](#3-git-installieren)
+4. [XAMPP installieren (Datenbank + Webserver)](#4-xampp-installieren-datenbank--webserver)
+5. [Composer installieren](#5-composer-installieren)
+6. [Node.js installieren](#6-nodejs-installieren)
+7. [Python installieren](#7-python-installieren)
+8. [Projektordner anlegen und Code herunterladen](#8-projektordner-anlegen-und-code-herunterladen)
+9. [Alles überprüfen](#9-alles-überprüfen)
+10. [Wie geht's weiter?](#10-wie-gehts-weiter)
+
+---
+
+## 1. Was du am Ende hast
+
+Nach dieser Anleitung sind auf dem Rechner fünf Programme installiert:
+
+| Programm | Wofür |
+|---|---|
+| **Git** | Lädt den Programmcode von GitHub herunter und hält ihn aktuell |
+| **XAMPP** | Enthält gleich drei Dinge: einen Webserver (Apache), die Programmiersprache PHP und die Datenbank (MySQL) |
+| **Composer** | Installiert Zusatz-Bausteine für den PHP-Teil des Projekts |
+| **Node.js** | Baut die Optik (CSS/JavaScript) der Weboberfläche |
+| **Python** | Führt die Import-Skripte aus, die die Handelsdaten von Interactive Brokers holen und verarbeiten |
+
+Außerdem liegen am Ende drei Ordner mit dem eigentlichen Projekt-Code auf der Festplatte.
+
+---
+
+## 2. Ein paar Begriffe vorab
+
+Diese Begriffe tauchen im Folgenden immer wieder auf — kurz erklärt, damit nichts wie
+"Fachchinesisch" wirkt:
+
+- **PowerShell / Terminal**: Ein Fenster, in das man statt mit der Maus zu klicken, Befehle
+  als Text eintippt und mit Enter bestätigt. Wirkt zuerst ungewohnt, ist aber nur eine
+  andere Art, dem Computer zu sagen, was er tun soll. Wie man es öffnet, steht in Schritt 8.
+- **Installer**: Eine `.exe`-Datei, die man herunterlädt und doppelklickt — startet einen
+  Installationsassistenten mit "Weiter"-Buttons, wie bei jedem anderen Programm auch.
+- **Git / Repository / "klonen"**: Der Programmcode für dieses Projekt liegt online auf
+  [GitHub](https://github.com) in drei separaten "Repositories" (Projektordnern mit
+  Versionsverlauf). "Klonen" bedeutet: eine komplette Kopie davon auf den eigenen Rechner
+  herunterladen.
+- **PATH**: Eine Liste von Ordnern, in denen Windows automatisch nach Programmen sucht,
+  wenn man im Terminal nur den Programmnamen eintippt (z.B. `php` statt dem kompletten
+  Pfad `C:\xampp\php\php.exe`). Diese Liste muss man XAMPP nach der Installation manuell
+  hinzufügen — das erklärt Schritt 4.
+
+**Wichtiger Tipp für die ganze Anleitung:** Befehle, die in einem grauen Kasten stehen,
+immer **exakt so abtippen oder besser kopieren** (Rechtsklick → Kopieren, dann im
+Terminal-Fenster Rechtsklick → Einfügen). Groß-/Kleinschreibung und Sonderzeichen spielen
+eine Rolle.
+
+---
+
+## 3. Git installieren
+
+1. Diese Seite öffnen: [git-scm.com/download/win](https://git-scm.com/download/win) — der
+   Download startet automatisch nach ein paar Sekunden.
+2. Die heruntergeladene Datei doppelklicken, um die Installation zu starten.
+3. Durch den Installationsassistenten klicken. Bei der Seite mit der Überschrift
+   **"Adjusting your PATH environment"** die Option **"Git from the command line and also
+   from 3rd-party software"** auswählen (meistens schon vorausgewählt).
+4. Bei allen anderen Seiten die vorausgewählte Option ("Next") übernehmen, bis die
+   Installation fertig ist.
+
+### Git kurz einrichten
+
+Ein Terminal-Fenster öffnen: Windows-Taste drücken, `PowerShell` eintippen, Enter drücken.
+Dann folgende zwei Zeilen eintippen (mit dem eigenen Namen bzw. der eigenen Mailadresse) und
+jeweils mit Enter bestätigen:
+
+```powershell
+git config --global user.name "Dein Name"
+git config --global user.email "deine@mail-adresse.at"
+```
+
+Das war's — Git merkt sich diese Angabe automatisch für jede zukünftige Aktion. Später,
+beim ersten Herunterladen des Projekt-Codes, öffnet sich einmalig ein Browser-Fenster zum
+Einloggen bei GitHub — danach merkt sich Windows das automatisch, keine weitere Eingabe
+nötig.
+
+---
+
+## 4. XAMPP installieren (Datenbank + Webserver)
+
+XAMPP bringt in einem Paket gleich drei Dinge mit: **Apache** (Webserver, zeigt die
+Trading-Journal-Seite im Browser an), **PHP** (die Programmiersprache, in der die
+Weboberfläche geschrieben ist) und **MySQL** (die Datenbank, in der alle Handelsdaten
+gespeichert werden).
+
+**Wichtig bei der Auswahl:** Auf der Download-Seite gibt es mehrere Versionen nebeneinander.
+Für dieses Projekt wird **PHP Version 8.2 oder neuer** gebraucht — also die
+**"8.2.x"-Version** (oder eine neuere Zahl) auswählen, nicht blind irgendeine.
+
+### Installieren
+
+1. Seite öffnen: [apachefriends.org](https://www.apachefriends.org/)
+2. Installer für die passende PHP-Version (siehe oben) herunterladen und doppelklicken.
+3. Bei der Frage nach den Komponenten mindestens **Apache**, **MySQL** und **PHP**
+   angehakt lassen — den Rest (FileZilla, Mercury Mail, Tomcat) kann man abwählen, wird
+   nicht gebraucht.
+4. Als Installationsordner den vorgeschlagenen Pfad `C:\xampp` übernehmen.
+5. Installation abschließen, XAMPP am Ende **nicht sofort starten** (Häkchen ggf. entfernen)
+   — der nächste Schritt kümmert sich darum.
+
+### XAMPP starten
+
+1. **XAMPP Control Panel** über das Startmenü öffnen.
+2. Rechts neben **Apache** auf **Start** klicken, dasselbe bei **MySQL**. Beide Zeilen
+   sollten kurz danach grün hinterlegt sein und "Running" anzeigen.
+
+Falls bei Apache eine Fehlermeldung zum Port 80 erscheint (z.B. weil Skype oder ein anderes
+Programm den Port schon benutzt): dieses andere Programm kurz beenden und XAMPP erneut
+starten. Ausführlichere Lösungen dazu stehen in der technischen Version dieser Anleitung.
+
+### PHP für das Terminal verfügbar machen
+
+Ohne diesen Schritt kennt das Terminal die Befehle `php` und `composer` nicht.
+
+1. Windows-Taste drücken, `Umgebungsvariablen` eintippen, **"Umgebungsvariablen für dieses
+   Konto bearbeiten"** öffnen.
+2. Im oberen Bereich ("Benutzervariablen") die Zeile **`Path`** anklicken (einmal, nicht
+   doppelt), dann auf **Bearbeiten** klicken.
+3. Auf **Neu** klicken, dann eintippen: `C:\xampp\php`
+4. Nochmal auf **Neu** klicken, dann eintippen: `C:\xampp\mysql\bin`
+5. Überall auf **OK** klicken, um die Fenster zu schließen.
+6. **Wichtig:** Alle offenen PowerShell-Fenster schließen — die Änderung wirkt erst in
+   einem neu geöffneten Fenster.
+
+**Testen:** Neues PowerShell-Fenster öffnen, `php -v` eintippen und Enter drücken. Es sollte
+etwas wie `PHP 8.2.x` angezeigt werden. Kommt stattdessen eine Fehlermeldung, Schritt 3–6
+nochmal genau durchgehen.
+
+### Eine PHP-Einstellung anpassen ("zip"-Erweiterung)
+
+Dieser Schritt ist wichtig, aber leicht zu übersehen — XAMPP hat eine Funktion namens `zip`
+standardmäßig **ausgeschaltet**, die später beim Einrichten der Weboberfläche gebraucht
+wird. Ohne diesen Schritt kommt dort eine Fehlermeldung mit dem Wort "zip" darin.
+
+1. Den Datei-Explorer öffnen und zu `C:\xampp\php` navigieren.
+2. Die Datei **`php.ini`** mit einem Text-Editor öffnen (Rechtsklick → **Öffnen mit** →
+   **Editor**).
+3. Im Editor mit `Strg+F` nach `zip` suchen. Es sollte eine Zeile erscheinen, die so aussieht:
+   `;extension=zip`
+4. Das Semikolon (`;`) ganz am Anfang dieser einen Zeile löschen, sodass nur noch
+   `extension=zip` dasteht. Sonst nichts an der Zeile verändern.
+5. Datei speichern (`Strg+S`) und den Editor schließen.
+6. Ein **neues** PowerShell-Fenster öffnen (wichtig: ein neues, kein altes weiterverwenden)
+   und eintippen: `php -m`. In der langen Liste, die erscheint, sollte irgendwo `zip` stehen.
+
+### XAMPP automatisch starten lassen (optional, aber empfohlen)
+
+Ohne diesen Schritt muss man vor jeder Nutzung erst das XAMPP Control Panel öffnen und
+Apache/MySQL manuell anklicken. Mit diesem Schritt starten beide automatisch mit Windows.
+
+1. XAMPP Control Panel schließen, dann über das Startmenü erneut öffnen — diesmal per
+   **Rechtsklick** auf das XAMPP-Symbol → **"Als Administrator ausführen"**.
+2. Ganz links in der Zeile **Apache** gibt es eine kleine Spalte **"Svc"** — dort das
+   Kästchen anklicken. Dasselbe in der Zeile **MySQL**.
+
+Falls das nicht klappt: kein Problem, XAMPP funktioniert auch ohne diesen Schritt — dann
+einfach vor jeder Nutzung kurz das Control Panel öffnen und beide Module starten.
+
+### Datenbank-Passwort
+
+Nach einer frischen XAMPP-Installation hat die Datenbank einen Benutzer namens `root` **ohne
+Passwort**. Für die lokale Nutzung auf dem eigenen Rechner ist das in Ordnung — diese
+Datenbank ist nicht aus dem Internet erreichbar. Dieser leere Wert wird später beim
+Einrichten des eigentlichen Projekts (in einer Datei namens `.env`) einfach so übernommen.
+
+---
+
+## 5. Composer installieren
+
+Composer lädt automatisch alle Zusatz-Bausteine, die der Weboberflächen-Teil des Projekts
+braucht.
+
+1. Seite öffnen: [getcomposer.org/download](https://getcomposer.org/download/)
+2. Datei **`Composer-Setup.exe`** herunterladen und doppelklicken.
+3. Der Installer erkennt PHP normalerweise automatisch (weil es ja schon installiert ist).
+   Falls nachgefragt wird, wo PHP liegt: `C:\xampp\php\php.exe` eintragen.
+4. Restliche Schritte mit "Weiter" durchklicken.
+
+**Testen:** Neues PowerShell-Fenster öffnen, `composer -V` eintippen. Es sollte eine
+Versionsnummer erscheinen.
+
+---
+
+## 6. Node.js installieren
+
+Node.js wird gebraucht, um die Optik (Farben, Icons, Layout) der Weboberfläche
+zusammenzubauen.
+
+1. Seite öffnen: [nodejs.org](https://nodejs.org/)
+2. Die als **"LTS"** gekennzeichnete Version herunterladen (das ist die empfohlene,
+   stabilste Version) und installieren — überall die Standardeinstellungen übernehmen.
+
+**Testen:** Neues PowerShell-Fenster öffnen, `node -v` und danach `npm -v` eintippen — beide
+sollten eine Versionsnummer anzeigen.
+
+---
+
+## 7. Python installieren
+
+Python führt die Skripte aus, die die Handelsdaten von Interactive Brokers abrufen und in
+die Datenbank einsortieren.
+
+1. Seite öffnen: [python.org/downloads](https://www.python.org/downloads/)
+2. Aktuellen Installer herunterladen und starten.
+3. **Ganz wichtig, leicht zu übersehen:** Ganz unten auf der ersten Installer-Seite gibt es
+   eine Checkbox **"Add python.exe to PATH"** — die **muss angehakt sein**, bevor man auf
+   "Install Now" klickt. Ohne diesen Haken funktioniert `python` später nicht im Terminal.
+4. Installation abschließen.
+
+**Testen:** Neues PowerShell-Fenster öffnen, `python --version` eintippen — sollte
+`Python 3.14.x` (oder ähnlich) anzeigen.
+
+---
+
+## 8. Projektordner anlegen und Code herunterladen
+
+### Terminal öffnen und Startordner verstehen
+
+Ein neu geöffnetes PowerShell-Fenster startet **nicht immer am selben Ort** — meistens im
+eigenen Benutzerordner (`C:\Users\<dein Anmeldename>`), aber wenn man es über "Als
+Administrator ausführen" öffnet, landet man stattdessen in einem Systemordner
+(`C:\Windows\System32`). Falls du dich also mal wunderst, warum du "irgendwo landest": das
+ist normal, kein Fehler.
+
+Man kann jederzeit mit dem Befehl `cd` in einen anderen Ordner wechseln, z.B.:
+```powershell
+cd C:\Users\<dein Anmeldename>
+```
+(`<dein Anmeldename>` durch den eigenen Windows-Anmeldenamen ersetzen — der steht z.B. oben
+im Startmenü.)
+
+### Projektordner anlegen
+
+Ein neues PowerShell-Fenster öffnen (normal, **nicht** als Administrator) und folgende zwei
+Zeilen eintippen:
+
+```powershell
+New-Item -ItemType Directory -Force -Path C:\Users\<dein Anmeldename>\trading
+Set-Location C:\Users\<dein Anmeldename>\trading
+```
+
+Die erste Zeile legt einen neuen, leeren Ordner namens `trading` an. Die zweite wechselt
+dort hinein — alle folgenden Befehle in diesem Fenster beziehen sich jetzt auf diesen
+Ordner. (Der Name/Ort dieses Ordners ist frei wählbar — `trading` ist nur ein Vorschlag.)
+
+### Die drei Projekte herunterladen ("klonen")
+
+Jetzt die folgenden drei Befehle **einzeln, nacheinander** eintippen (nach jeder Zeile
+Enter drücken und warten, bis der Download fertig ist, bevor die nächste Zeile kommt):
+
+```powershell
+git clone https://github.com/mike-1140/xml_proj.git
+```
+```powershell
+git clone https://github.com/mike-1140/TradingJournal.git
+```
+```powershell
+git clone https://github.com/mike-1140/shared_python.git
+```
+
+Beim allerersten dieser Befehle öffnet sich vermutlich ein Browser-Fenster mit einer
+GitHub-Anmeldeseite — dort einloggen, danach läuft alles automatisch weiter. Das passiert
+nur einmal.
+
+**Ergebnis:** Im Ordner `trading` liegen jetzt drei Unterordner: `xml_proj`,
+`TradingJournal`, `shared_python`. Das lässt sich mit folgendem Befehl überprüfen — er
+listet den Inhalt des aktuellen Ordners auf:
+
+```powershell
+Get-ChildItem
+```
+
+---
+
+## 9. Alles überprüfen
+
+Ein **neues** PowerShell-Fenster öffnen (wichtig: neu, nicht dasselbe wie vorher weiterverwenden)
+und der Reihe nach eintippen — nach jeder Zeile sollte eine Versionsnummer erscheinen, keine
+Fehlermeldung:
+
+```powershell
+git --version
+php -v
+composer -V
+node -v
+npm -v
+python --version
+```
+
+Zusätzlich: XAMPP Control Panel öffnen und prüfen, dass **Apache** und **MySQL** grün
+("Running") angezeigt werden.
+
+Falls bei einem dieser Befehle eine Fehlermeldung kommt (z.B. "wird nicht als Befehl
+erkannt"): meistens bedeutet das, dass entweder die Installation noch nicht komplett ist,
+oder dass die PATH-Änderung (Schritt 4) noch nicht wirkt, weil das Terminal-Fenster zu alt
+ist — ein frisches Fenster öffnen und nochmal probieren.
+
+---
+
+## 10. Wie geht's weiter?
+
+Die Grundausstattung ist fertig. Als Nächstes folgen die eigentlichen Projekt-Einrichtungen
+— dort geht es dann konkret um dieses Trading-Journal-Projekt (Datenbank befüllen, erste
+Anmeldung usw.):
+
+1. [`xml_proj-setup-einsteiger.md`](xml_proj-setup-einsteiger.md) — Einrichtung der
+   Datenimport-Pipeline
+2. [TradingJournal-Setup für Einsteiger](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup-einsteiger.md) — Einrichtung
+   der Weboberfläche, ebenfalls für Einsteiger erklärt
+3. [UI-Erstkonfiguration](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/ui-first-run.md) — erste Schritte in der Weboberfläche
