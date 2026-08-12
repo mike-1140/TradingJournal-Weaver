@@ -17,10 +17,10 @@ Jeder User hat einen eigenen Tabellen-Prefix, zentral definiert in **`users.toml
 
 | User | Prefix |
 |---|---|
-| mike | `mike_` |
-| karola | `karola_` |
+| dein_user | `dein_user_` |
+| zweiter_user | `zweiter_user_` |
 
-Beispiel: Prefix `mike_` → Tabellen `mike_trades_raw`, `mike_trades_open`, ...
+Beispiel: Prefix `dein_user_` → Tabellen `dein_user_trades_raw`, `dein_user_trades_open`, ...
 
 Für manuelle Einzelaufrufe ohne CLI-Prefix-Argument: `.env` → `DEFAULT_USER=<name>` (Prefix
 wird aus `users.toml` aufgelöst) oder direkt `TABLE_PREFIX=<prefix>` (Override, gewinnt
@@ -89,10 +89,10 @@ Patchen der XML nötig.
 
 ```toml
 [[test]]
-user = "mike"
+user = "dein_user"
 
 [[test]]
-user = "karola"
+user = "zweiter_user"
 ```
 
 Zum Deaktivieren einfach den Eintrag aus der TOML entfernen/auskommentieren.
@@ -104,7 +104,7 @@ Zum Deaktivieren einfach den Eintrag aus der TOML entfernen/auskommentieren.
 Rename-Item C:\Trade_XML\incoming_mail\meine_datei.xml flex.meine_datei.xml
 
 # 2. In den passenden User-Ordner legen — kein incoming_mail/incoming_api der Hauptroute!
-Move-Item flex.meine_datei.xml C:\Trade_XML\test\mike\incoming\
+Move-Item flex.meine_datei.xml C:\Trade_XML\test\dein_user\incoming\
 ```
 
 ```bash
@@ -124,13 +124,13 @@ aus `pipeline.toml` liest.
 **Kein Summary für TEST:** `xml_append_summary.py` lässt TEST im Auto-Modus bewusst aus
 — Testdaten brauchen kein Summary-Replay, sie lassen sich jederzeit erneut importieren.
 Ein `summary_<prefix>test.xml` entsteht daher nicht automatisch (nur bei explizitem
-CLI-Aufruf `python -m src.xml_append_summary test mike_`).
+CLI-Aufruf `python -m src.xml_append_summary test dein_user_`).
 
 **Alternative — Einzeldatei manuell testen, ohne pipeline.toml-Eintrag:**
 ```bash
 # Datei liegt in C:\Trade_XML\incoming_mail\ (Hauptordner), Prefix explizit angeben
-python -m src.import_ibkr_trades test mike_
-python -m src.process_ibkr_trades test mike_
+python -m src.import_ibkr_trades test dein_user_
+python -m src.process_ibkr_trades test dein_user_
 ```
 Ohne Prefix-Argument wird der erste `[[test]]`-Eintrag aus `pipeline.toml` verwendet,
 sonst `TABLE_PREFIX` aus `.env`. Dieser Modus scannt den **Hauptordner** `incoming_mail\`
@@ -141,7 +141,7 @@ sonst `TABLE_PREFIX` aus `.env`. Dieser Modus scannt den **Hauptordner** `incomi
 Neustart die TEST-DB des Prefixes zurücksetzen (⚠️ löscht alle bisherigen TEST-Daten
 dieses Prefixes):
 ```bash
-python -m tools.maintenance.reset_IBKR_DB test mike_
+python -m tools.maintenance.reset_IBKR_DB test dein_user_
 ```
 
 ---
@@ -156,7 +156,7 @@ python run_pipeline.py
 
 # Nur bestimmte User
 python run_pipeline.py --users mike
-python run_pipeline.py --users mike karola
+python run_pipeline.py --users dein_user zweiter_user
 
 # Nur bestimmte Environments
 python run_pipeline.py --envs money
@@ -306,20 +306,20 @@ beiden Quellordnern gleichermaßen).
 python -m src.import_ibkr_trades
 
 # CLI-Override: nur ein Environment/Prefix importieren, alles andere bleibt liegen
-python -m src.import_ibkr_trades money mike_
-python -m src.import_ibkr_trades paper mike_
+python -m src.import_ibkr_trades money dein_user_
+python -m src.import_ibkr_trades paper dein_user_
 
 # Aus summary.xml importieren (explizites Environment + Prefix erforderlich)
-python -m src.import_ibkr_trades from_summary money mike_
-python -m src.import_ibkr_trades from_summary money karola_
-python -m src.import_ibkr_trades from_summary autom_paper mike_
+python -m src.import_ibkr_trades from_summary money dein_user_
+python -m src.import_ibkr_trades from_summary money zweiter_user_
+python -m src.import_ibkr_trades from_summary autom_paper dein_user_
 ```
 
 **Argumente:**
 | Position | Wert | Pflicht |
 |---|---|---|
 | 1 | Environment (CLI-Override) oder `from_summary` oder `test` | Nein — ohne Argument: Auto-Modus |
-| 2 | Table-Prefix (z.B. `mike_`) | Bei CLI-Override/`from_summary`: Ja. Sonst optional/Standard aus `.env` |
+| 2 | Table-Prefix (z.B. `dein_user_`) | Bei CLI-Override/`from_summary`: Ja. Sonst optional/Standard aus `.env` |
 | 3 | `from_summary` | Nur im from_summary-Modus, an letzter Position |
 
 Bei CLI-Override (`<env> <prefix>`) werden Dateien anderer Environments/Prefixe in
@@ -339,8 +339,8 @@ python -m src.process_ibkr_trades
 
 # CLI-Override: explizites Environment (überschreibt pipeline.toml)
 python -m src.process_ibkr_trades money
-python -m src.process_ibkr_trades money mike_
-python -m src.process_ibkr_trades money karola_
+python -m src.process_ibkr_trades money dein_user_
+python -m src.process_ibkr_trades money zweiter_user_
 ```
 
 **Argumente (CLI-Override):**
@@ -370,10 +370,10 @@ fiel aus) — die Trades sind in der DB vorhanden, fehlen aber bei einem künfti
 python -m src.xml_append_summary
 
 # CLI-Override: explizites Environment + Prefix (überschreibt pipeline.toml)
-python -m src.xml_append_summary money mike_
-python -m src.xml_append_summary paper mike_
-python -m src.xml_append_summary autom_money mike_
-python -m src.xml_append_summary money karola_
+python -m src.xml_append_summary money dein_user_
+python -m src.xml_append_summary paper dein_user_
+python -m src.xml_append_summary autom_money dein_user_
+python -m src.xml_append_summary money zweiter_user_
 ```
 
 **Argumente (CLI-Override):**
@@ -392,11 +392,11 @@ Das Script liegt in `tools/maintenance/` (nicht in `src/`).
 
 ```bash
 # Pflichtargument: Environment; optional: Prefix
-python -m tools.maintenance.reset_IBKR_DB money mike_
-python -m tools.maintenance.reset_IBKR_DB paper mike_
-python -m tools.maintenance.reset_IBKR_DB money karola_
-python -m tools.maintenance.reset_IBKR_DB autom_money mike_
-python -m tools.maintenance.reset_IBKR_DB autom_paper mike_
+python -m tools.maintenance.reset_IBKR_DB money dein_user_
+python -m tools.maintenance.reset_IBKR_DB paper dein_user_
+python -m tools.maintenance.reset_IBKR_DB money zweiter_user_
+python -m tools.maintenance.reset_IBKR_DB autom_money dein_user_
+python -m tools.maintenance.reset_IBKR_DB autom_paper dein_user_
 ```
 
 **Hinweis:** Neue Zusatz-Tabellen werden bewusst **nicht** über reset_IBKR_DB angelegt,
@@ -416,9 +416,9 @@ Tabellen zu löschen).
 
 ### Erster Setup (einmalig)
 ```bash
-python -m tools.maintenance.reset_IBKR_DB money mike_
-python -m tools.maintenance.reset_IBKR_DB paper mike_
-python -m tools.maintenance.reset_IBKR_DB money karola_
+python -m tools.maintenance.reset_IBKR_DB money dein_user_
+python -m tools.maintenance.reset_IBKR_DB paper dein_user_
+python -m tools.maintenance.reset_IBKR_DB money zweiter_user_
 ```
 
 ### Täglicher Lauf (automatisch, alle User/Envs laut pipeline.toml)
@@ -448,14 +448,14 @@ python run_pipeline.py --steps fetch_emails import
 ### Nur ein Environment importieren (CLI-Override, seit run_pipeline-Update)
 ```bash
 python run_pipeline.py --steps import --envs money
-# entspricht intern: python -m src.import_ibkr_trades money mike_
-#                     python -m src.import_ibkr_trades money karola_
+# entspricht intern: python -m src.import_ibkr_trades money dein_user_
+#                     python -m src.import_ibkr_trades money zweiter_user_
 ```
 
 ### Einzelnen Account aus summary.xml neu importieren
 ```bash
-python -m src.import_ibkr_trades from_summary money mike_
-python -m src.process_ibkr_trades money mike_
+python -m src.import_ibkr_trades from_summary money dein_user_
+python -m src.process_ibkr_trades money dein_user_
 ```
 
 ### Manuell erhaltene XML importieren (z.B. Karola)
@@ -466,15 +466,15 @@ Move-Item K_Echt.xml C:\Trade_XML\incoming_mail\
 ```bash
 # Import (Routing per accountId automatisch) + Processing + Summary
 python -m src.import_ibkr_trades
-python -m src.process_ibkr_trades money karola_
-python -m src.xml_append_summary money karola_
+python -m src.process_ibkr_trades money zweiter_user_
+python -m src.xml_append_summary money zweiter_user_
 ```
 
 ### XML schnell im TEST-Environment testen
 Siehe [TEST-Environment](#test-environment--manuelle-xmls-automatisch-erkennen) für Details.
 ```powershell
 Rename-Item C:\Trade_XML\incoming_mail\meine_datei.xml flex.meine_datei.xml
-Move-Item C:\Trade_XML\incoming_mail\flex.meine_datei.xml C:\Trade_XML\test\mike\incoming\
+Move-Item C:\Trade_XML\incoming_mail\flex.meine_datei.xml C:\Trade_XML\test\dein_user\incoming\
 ```
 ```bash
 python run_pipeline.py
