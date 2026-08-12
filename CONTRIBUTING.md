@@ -34,6 +34,6 @@ per Tripwire verifiziert: Fix kurz zurückdrehen → Test muss fehlschlagen).
 
 ## Secrets
 
-`.env`/`pipeline.toml` niemals committen. Falls versehentlich doch: sofort im Issue oder per
+`.env`/`pipeline.toml`/`accounts.toml` niemals committen. Falls versehentlich doch: sofort im Issue oder per
 [SECURITY.md](SECURITY.md) melden statt einen "stillen" Fix-PR aufzumachen — die History muss
 bereinigt werden, nicht nur der aktuelle Stand.
