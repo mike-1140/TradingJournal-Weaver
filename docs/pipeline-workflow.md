@@ -179,7 +179,7 @@ python run_pipeline.py                     # alle Schritte
 python run_pipeline.py --steps import      # nur Import
 python run_pipeline.py --steps process     # nur Processing
 python run_pipeline.py --envs money        # nur Echtgeld
-python run_pipeline.py --users mike        # nur User mike
+python run_pipeline.py --users dein_user   # nur User dein_user
 ```
 
 **`pipeline.toml` — Konfiguration:**
@@ -188,10 +188,10 @@ python run_pipeline.py --users mike        # nur User mike
 steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summary"]
 #        ↑ Phase 0 Mail  ↑ Phase 0 API ↑ Snapshots    ↑ Phase 1  ↑ Phase 2  ↑ Phase 3
 
-[users.mike]
+[users.dein_user]
 environments = ["money", "paper", "autom_money", "autom_paper"]
 
-[users.karola]
+[users.zweiter_user]
 environments = ["money"]
 ```
 Tabellen-Prefix kommt aus `users.toml` (zentrale, versionierte Registry, siehe § 9.1) — in
@@ -269,7 +269,7 @@ verlangt weiterhin `flex.*.xml`.
 
 **CLI-Override — gezielt ein Environment importieren:**
 ```bash
-python -m src.import_ibkr_trades money mike_
+python -m src.import_ibkr_trades money dein_user_
 ```
 Analog zu `process_ibkr_trades.py`: nur Dateien, deren accountId auf dieses
 Environment/Prefix routet, werden importiert und verschoben — alle anderen bleiben
@@ -676,12 +676,12 @@ DB-Namen können per `.env` überschrieben werden (`DB_NAME_MONEY`, `DB_NAME_PAP
 
 **Tabellen-Präfix** (`TABLE_PREFIX` aus `.env`):
 ```sql
--- User "mike" mit prefix "mike_":
-SELECT * FROM mike_trades_raw;
-SELECT * FROM mike_trading_campaigns;
+-- User "dein_user" mit prefix "dein_user_":
+SELECT * FROM dein_user_trades_raw;
+SELECT * FROM dein_user_trading_campaigns;
 
--- User "karola" mit prefix "karola_":
-SELECT * FROM karola_trades_raw;
+-- User "zweiter_user" mit prefix "zweiter_user_":
+SELECT * FROM zweiter_user_trades_raw;
 ```
 
 Dies erlaubt mehrere User in **einer MySQL-Datenbank** ohne Kollisionen.
@@ -805,7 +805,7 @@ dateTime
 Die drei `cum_*`-Spalten ermöglichen Zeitreise-Abfragen ohne vollständigen Replay:
 ```sql
 -- P&L-Stand der Kampagne am 15. März:
-SELECT cum_pnl FROM mike_campaign_ledger
+SELECT cum_pnl FROM dein_user_campaign_ledger
 WHERE campaign_id = 42 AND dateTime <= '2025-03-15'
 ORDER BY dateTime DESC, id DESC LIMIT 1;
 ```
@@ -864,7 +864,7 @@ liegt seit einer Aufräum-Aktion in `dev/` statt `src/` — reine Einmal-Migrati
 einer frischen Installation nie gebraucht):
 ```bash
 python -m dev.migrate_running_balance                  # alle Environments
-python -m dev.migrate_running_balance money mike_      # einzelnes Target
+python -m dev.migrate_running_balance money dein_user_      # einzelnes Target
 ```
 
 ---
@@ -876,7 +876,7 @@ python -m dev.migrate_running_balance money mike_      # einzelnes Target
 | Datei | Zweck | Versioniert? |
 |---|---|---|
 | `.env` | Secrets (DB-Passwort, API-Keys) | **Nein** (gitignore, siehe `.env.example`) |
-| `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`) | **Ja** — teamweit gültig, nicht maschinenspezifisch |
+| `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `dein_user` → `dein_user_`) | **Ja** — teamweit gültig, nicht maschinenspezifisch |
 | `config.py` | DB-Konfiguration, lädt Account-Mapping aus `accounts.toml` (`get_account_config()`) | Ja |
 | `accounts.toml` | Account-Mapping (accountId-Suffix → User/Environment, ohne Prefix) | **Nein** (gitignore, siehe `accounts.toml.example`) — enthält reale Kontodaten |
 | `pipeline.toml` | Pipeline-Schritte, aktive User dieser Maschine | **Nein** (gitignore, siehe `pipeline.toml.example`) — maschinenspezifisch: jede Maschine verarbeitet nur die dort tatsächlich per `reset_IBKR_DB.py` initialisierten User/Environments |
@@ -888,8 +888,8 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
 DB_PASS=...
-DEFAULT_USER=mike
-# Alternative/Override statt DEFAULT_USER: TABLE_PREFIX=mike_ direkt
+DEFAULT_USER=dein_user
+# Alternative/Override statt DEFAULT_USER: TABLE_PREFIX=dein_user_ direkt
 
 IMAP_USERNAME=deine@email.at
 IMAP_PASSWORD=...
@@ -914,6 +914,146 @@ MySQL-Modus für Windows 11 Kompatibilität — wird bei jeder Verbindung gesetz
 ```python
 # Verhindert MySQL-Fehler bei NULL-Datumswerten (Win11 ist strenger als Win10)
 SET SESSION sql_mode='NO_ZERO_IN_DATE,NO_ZERO_DATE,NO_ENGINE_SUBSTITUTION'
+```
+
+### 9.4 Zusammenspiel `.env` / `accounts.toml` / `pipeline.toml`
+
+Alle drei sind gitignored und maschinen-/personenspezifisch (im Gegensatz zum versionierten
+`users.toml`), haben aber unterschiedliche Aufgaben und greifen an unterschiedlichen Stellen
+im Ablauf:
+
+```
+.env              → WER bin ich (DB-Zugang, Mail-/API-Zugang, optional DEFAULT_USER)
+accounts.toml     → WEM gehört diese XML-Datei (accountId → User + Environment)
+pipeline.toml     → WAS läuft auf DIESER Maschine (welche User/Environments werden verarbeitet)
+```
+
+**Ablauf beim Import einer neuen FlexQuery-XML:**
+
+1. `.env` liefert die DB-Zugangsdaten für die Verbindung selbst — unabhängig davon, welchem
+   User/Environment die Datei am Ende zugeordnet wird.
+2. `import_ibkr_trades.py` liest die `accountId` aus dem `<FlexStatement>` der XML und schlägt
+   sie in `accounts.toml` nach (§ 5.1) → ergibt User (z.B. `dein_user`) + Environment
+   (z.B. `money`). Der Tabellen-Prefix selbst steht nicht in `accounts.toml`, sondern wird
+   erst zur Laufzeit aus `users.toml` aufgelöst (`get_account_config()`) — `accounts.toml`
+   kennt also nur den User-*Namen*, nicht das Prefix.
+3. Im Auto-Modus (kein CLI-Override) ist dieses Routing für den `import`-Step vollständig
+   unabhängig von `pipeline.toml` — jede Datei landet dort, wohin ihre `accountId` zeigt,
+   auch wenn dieser User/dieses Environment auf der aktuellen Maschine gar nicht in
+   `pipeline.toml` eingetragen ist.
+4. `pipeline.toml` wirkt erst beim `process`-Step (und bei `run_pipeline.py` generell für
+   die Auswahl, welche User×Environment-Kombinationen ein Lauf überhaupt anfasst, § 3.2):
+   nur wer hier eingetragen ist, wird verarbeitet — Daten für einen User, dessen Tabellen auf
+   dieser Maschine nie per `reset_IBKR_DB.py` angelegt wurden, blieben sonst mit
+   "Tabelle nicht gefunden" hängen.
+
+**Praktische Konsequenz:** Ein neues IBKR-Konto anzulegen heißt **immer zwei Schritte**:
+`accounts.toml` (Routing: welcher User/welches Environment) **und**, falls es sich um einen
+komplett neuen User handelt, zusätzlich `users.toml` (Prefix) — sonst kennt `get_account_config()`
+zwar den User-Namen, findet aber kein Prefix dafür. `pipeline.toml` muss nur ergänzt werden,
+wenn diese Maschine den neuen User/das neue Environment auch tatsächlich lokal verarbeiten soll.
+
+### 9.5 Konkretes Beispiel
+
+Fiktives Setup: **Anna** nutzt die App allein, auf einem Rechner, mit einem Live-Konto
+und einem Paper-Konto. So sehen ihre drei Dateien aus:
+
+```ini
+# .env — WER bin ich (DB-Zugang)
+DB_USER=root
+DB_PASS=geheim123
+DEFAULT_USER=anna
+```
+
+```toml
+# users.toml (versioniert!) — Anna → Prefix
+[anna]
+prefix = "anna_"
+```
+
+```toml
+# accounts.toml — welches IBKR-Konto gehört zu welchem User/Environment
+[4321]
+user = "anna"
+environment = "money"
+
+[8765]
+user = "anna"
+environment = "paper"
+```
+
+```toml
+# pipeline.toml — was verarbeitet DIESER Rechner
+[users.anna]
+environments = ["money", "paper"]
+```
+
+**Was passiert, wenn eine neue FlexQuery-XML von Annas Live-Konto ankommt** (`accountId`
+in der XML z.B. `U11114321`, maskiert oder voll — nur die letzten 4 Ziffern zählen):
+
+1. `import_ibkr_trades.py` öffnet die XML, liest `accountId = U11114321` aus dem
+   `<FlexStatement>`-Tag.
+2. `config.py` extrahiert die letzten 4 Ziffern (`4321`) und schlägt sie in `accounts.toml`
+   nach → Treffer: `user = "anna"`, `environment = "money"`.
+3. Für den Tabellen-Prefix wird zusätzlich `users.toml` nachgeschlagen: `anna` → `anna_`.
+4. Ergebnis: Die Trades aus dieser Datei landen in `ibkr_money.anna_trades_raw` — DB-Zugang
+   dafür kommt aus `.env` (Schritt 1 dort war nur "wie verbinde ich mich", nicht "wessen
+   Daten sind das").
+5. Beim nächsten `run_pipeline.py`-Lauf (ohne `--users`/`--envs`-Filter) prüft `pipeline.toml`:
+   ist `anna`/`money` dort eingetragen? Ja → wird im `process`-Step mitverarbeitet.
+
+**Jetzt zieht Annas Bruder Tom mit ein**, eigenes Paper-Konto, dieselbe Maschine:
+
+- `users.toml` bekommt einen neuen Block `[tom]` mit `prefix = "tom_"` (versioniert, gilt
+  für alle Maschinen/alle Mitwirkenden).
+- `accounts.toml` bekommt einen neuen Eintrag für Toms accountId-Suffix, z.B.
+  `[2468] user = "tom" / environment = "paper"` (nur lokal, nicht geteilt).
+- `pipeline.toml` bekommt `[users.tom] environments = ["paper"]` — **aber erst, nachdem**
+  `python -m tools.maintenance.reset_IBKR_DB paper tom_` gelaufen ist. Vorher würde
+  `run_pipeline.py` beim `process`-Step mit "Tabelle nicht gefunden" abbrechen, weil
+  `tom_trades_raw` noch gar nicht existiert.
+- `.env` bleibt unverändert — DB-Zugangsdaten sind nicht pro Person, sondern pro Maschine.
+
+**Alle vier Dateien im Endzustand, nachdem Tom eingezogen ist:**
+
+```ini
+# .env — unverändert
+DB_USER=root
+DB_PASS=geheim123
+DEFAULT_USER=anna
+```
+
+```toml
+# users.toml (versioniert) — neuer Block [tom]
+[anna]
+prefix = "anna_"
+
+[tom]
+prefix = "tom_"
+```
+
+```toml
+# accounts.toml — neuer Eintrag [2468]
+[4321]
+user = "anna"
+environment = "money"
+
+[8765]
+user = "anna"
+environment = "paper"
+
+[2468]
+user = "tom"
+environment = "paper"
+```
+
+```toml
+# pipeline.toml — neuer Block [users.tom]
+[users.anna]
+environments = ["money", "paper"]
+
+[users.tom]
+environments = ["paper"]
 ```
 
 ---
