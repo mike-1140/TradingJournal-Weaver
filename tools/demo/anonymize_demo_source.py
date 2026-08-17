@@ -42,6 +42,20 @@ SOURCE_FILES = [
     "input/test/processed/SPY_SPX_all.xml",
     # Großer realer Kontoauszug (mehrere Symbole, ein Monat)
     "input/flex/flex.1116666.paper_30_report.20250818.20250916.xml",
+    # Closing-Trades fuer die SPY-Zuteilung aus xflex.SPY_Assigned.xml (23.09.2025,
+    # 700 Stk @ 664): ohne diese Datei bleibt die daraus resultierende Aktienposition
+    # in der Demo dauerhaft offen (4 Verkaeufe -29/-71/-100/-500 = 700, verteilt auf
+    # 25.09.-01.10.2025)
+    "input/test/processed/flex.1116666.paper_30_report.20250922.20251020.xml",
+    # Verfalls-Ereignisse fuer sonst dauerhaft "offen" bleibende, kalendarisch laengst
+    # verfallene Optionspositionen (2026-08-14 gefunden: OpenOptions filtert nur nach
+    # processed=0, nicht nach Expiry-Datum) — je Datei die enthaltenen Expirations:
+    #   20250901.20250929 -> ON 250919C00053000
+    #   20251001.20251030 -> GE 251024P00282500/287500, CLS 251024P00235-250000 (2 Spreads)
+    #   20251120.20251219 -> SPX 251121 Iron Condor (4 Legs)
+    "input/test/processed/xflex.1116666.paper_30_report.20250901.20250929.xml",
+    "input/test/processed/flex.1116666.paper_30_report.20251001.20251030.xml",
+    "input/test/processed/flex.1116666.paper_30_report.20251120.20251219.xml",
     # Sonstige/Vielfalt
     "input/test/xflex.FULC.xml",
     "input/test/processed/xflex.Cash.xml",
