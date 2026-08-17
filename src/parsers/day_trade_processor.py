@@ -13,6 +13,23 @@ def extract_trades_for_db(stmt, logger):
         if t.get("assetCategory") == "CASH":
             base, quote = t.get("symbol").split(".")
             link_id = str(uuid.uuid4())
+
+            # Eine Zeile pro Umtausch fuer trades_fx (Basis-/Zielwaehrung nebeneinander,
+            # nicht als zwei synthetische from/to-Zeilen wie unten fuer trades_raw)
+            cashfx_table.append({
+                "assetCategory": t.get("assetCategory"),
+                "tradeID": t.get("tradeID"),
+                "ibOrderID": t.get("ibOrderID"),
+                "symbol": t.get("symbol"),
+                "baseCurrency": base,
+                "quoteCurrency": quote,
+                "baseAmount": to_decimal(t.get("quantity") or 0),
+                "quoteAmount": to_decimal(t.get("proceeds") or 0),
+                "fxRate": to_decimal(t.get("tradePrice") or 0),
+                "commission": to_decimal(t.get("ibCommission") or 0),
+                "dateTime": parse_datetime_flex(t.get("dateTime"), logger),
+            })
+
             trades_data.append({
                 "symID": None,
                 "assetCategory": t.get("assetCategory"),

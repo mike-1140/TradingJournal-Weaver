@@ -7,6 +7,7 @@ CREATE TABLE `__PREFIX__trades_fx` (
    `id` int(11) NOT NULL auto_increment,
    `assetCategory` varchar(20) DEFAULT NULL,
    `tradeID` varchar(20) DEFAULT NULL,
+   `ibOrderID` varchar(50) DEFAULT NULL,
    `symbol` varchar(50) DEFAULT NULL,
    `baseCurrency` varchar(20) DEFAULT NULL,
    `quoteCurrency` varchar(20) DEFAULT NULL,
