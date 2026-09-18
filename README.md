@@ -32,6 +32,10 @@ Trading-Journal (MySQL) um.
 - IBKR-Konto mit FlexQuery-Zugriff für echten Datenimport — das `test`-Environment
   funktioniert auch ohne (XML-Dateien manuell einspielen, siehe `pipeline.toml.example`)
 
+> Diese Anleitung beschreibt die lokale Installation. Für einen eigenen Server (Remote-
+> Zugriff von mehreren Geräten via VPN) siehe stattdessen
+> [`TradingJournal/docs/setup/server-deployment.md`](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/server-deployment.md).
+
 ## Installation
 
 ```bash

@@ -73,6 +73,7 @@ tools/demo/output/
 # Root-Anker (/) → tests/data/*.xml und input/ bleiben unberuehrt.
 /*.csv
 /*.xml
+/*.sql
 
 # === DB-Backups ===
 database/
