@@ -103,7 +103,7 @@ pytest
 
 | Datei | Inhalt |
 |---|---|
-| `HELP.md` | Befehlsreferenz aller Scripts (Argumente, Beispiele, typische Abläufe) |
+| `docs/HELP.md` | Befehlsreferenz aller Scripts (Argumente, Beispiele, typische Abläufe) |
 | `docs/pipeline-workflow.md` | Technische Gesamtdokumentation (Architektur, FIFO-Logik, DB-Schema) |
 | `docs/setup/windows-prerequisites(-einsteiger).md` | Grundausstattung (Git, XAMPP, Composer, Node.js, Python) — auch für TradingJournal |
 | `docs/setup/xml_proj-setup(-einsteiger).md` | Setup-Anleitung für dieses Repo, technisch bzw. für Einsteiger |

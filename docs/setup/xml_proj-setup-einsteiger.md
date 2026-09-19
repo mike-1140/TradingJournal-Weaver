@@ -234,5 +234,5 @@ Nach der Ersteinrichtung, für den täglichen Gebrauch:
 | Datei | Inhalt |
 |---|---|
 | [`xml_proj-setup.md`](xml_proj-setup.md) | Dieselben Schritte, technischer/kompakter |
-| `HELP.md` (im `xml_proj`-Ordner) | Vollständige Befehlsreferenz aller Scripts |
+| `docs/HELP.md` (im `xml_proj`-Ordner) | Vollständige Befehlsreferenz aller Scripts |
 | [TradingJournal-Setup für Einsteiger](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup-einsteiger.md) | Einrichtung der Weboberfläche (nächster Schritt) |

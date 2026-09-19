@@ -1251,7 +1251,6 @@ xml_proj/
 ├── run_pipeline.py              ← Einstiegspunkt (orchestriert alle Phasen)
 ├── pipeline.toml                ← Pipeline-Konfiguration (aktive User/Environments, Steps) — maschinenspezifisch, gitignored
 ├── users.toml                   ← Zentrale User↔Prefix-Registry — versioniert, teamweit
-├── HELP.md                      ← Befehlsreferenz aller Scripts
 ├── README.md                    ← Projekt-Kurzbeschreibung
 ├── src/
 │   ├── get_flexquery_emails.py  ← Phase 0: IMAP-Abruf → incoming_mail/ + Trade_CSV/incoming
@@ -1297,7 +1296,8 @@ xml_proj/
 │   └── campaign_ledger.sql      ← inkl. cum_pnl, cum_commission, cum_premium
 ├── docs/
 │   ├── pipeline-workflow.md     ← diese Dokumentation
-│   └── pipeline-workflow.pdf    ← PDF-Export
+│   ├── HELP.md                  ← Befehlsreferenz aller Scripts
+│   └── setup/                   ← Setup-Anleitungen (windows-prerequisites, xml_proj-setup, je auch als Einsteiger-Variante)
 ├── dev/                         ← Einmal-Migrationen, persönliche Tools — nie für einen
 │   │                               frischen Rechner nötig, absichtlich nicht in
 │   │                               sql/src/tools/maintenance (siehe Sparse-Checkout-Hinweis

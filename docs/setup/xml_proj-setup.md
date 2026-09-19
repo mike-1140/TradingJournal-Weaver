@@ -4,7 +4,7 @@
 > [`xml_proj-setup-einsteiger.md`](xml_proj-setup-einsteiger.md).
 
 Installations- und Erstinitialisierungs-Anleitung für `xml_proj` auf einem neuen Rechner.
-Für Befehlsreferenz siehe `HELP.md`, für Architektur/FIFO-Logik/DB-Schema im Detail siehe
+Für Befehlsreferenz siehe `docs/HELP.md`, für Architektur/FIFO-Logik/DB-Schema im Detail siehe
 `docs/pipeline-workflow.md` (beide im `xml_proj`-Repo).
 
 **Grundlegende Software** (Git, Python, MySQL/MariaDB via XAMPP) muss vorher installiert
@@ -172,6 +172,6 @@ python run_pipeline.py --users dein_user --envs test
 
 | Datei | Inhalt |
 |---|---|
-| `HELP.md` | Vollständige Befehlsreferenz aller Scripts |
+| `docs/HELP.md` | Vollständige Befehlsreferenz aller Scripts |
 | `docs/pipeline-workflow.md` | Architektur, FIFO-Logik, DB-Schema im Detail |
 | [TradingJournal-Setup](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup.md) | Setup der Laravel-UI (liest dieselben Datenbanken) |
