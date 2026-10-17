@@ -198,10 +198,9 @@ environments = ["money"]
 Tabellen-Prefix kommt aus `users.toml` (zentrale, versionierte Registry, siehe § 9.1) — in
 `pipeline.toml` nur bei Bedarf per `prefix = "..."` explizit überschreibbar.
 
-`snapshot_import` (account_snapshots aus FlexQuery-XML) existiert noch als Step, ist aber
-nicht in den Standard-Steps und liefert keine Daten: Die FlexQueries enthalten keine
-Snapshot-Sektionen — `account_snapshots` kommt ausschließlich aus dem Kontoauszug (CSV per
-Mail), siehe § 8.2.
+`account_snapshots` kommt ausschließlich aus dem Kontoauszug (CSV per Mail) über
+`snapshot_csv`, siehe § 8.2. Der frühere Step `snapshot_import` (Snapshots aus FlexQuery-XML)
+wurde 2026-10-17 entfernt — die FlexQueries enthalten keine Snapshot-Sektionen.
 
 Der `import`-Step läuft ohne `--users`/`--envs`-Filter **einmal global** (accountId-Routing
 deckt intern alle User/Envs ab); mit gesetztem Filter erzeugt `run_pipeline.py` einen
@@ -847,9 +846,8 @@ Befüllt **ausschließlich** von `import_csv_snapshots.py` (`activity_csv_parser
 den IBKR nur per Mail zustellt — eine Abfrage per Web-API gibt es dafür nicht, und die
 FlexQueries (Mail wie API) enthalten keine Snapshot-Sektionen
 (geprüft 2026-10-17: keine der 763 FlexQuery-XMLs aus Mail- und API-Kanal enthält Snapshot-Sektionen). Bleibt die Mail an einem Tag aus, fehlt der Snapshot dieses Tages.
-`import_flexquery_snapshot.py` (`flexquery_snapshot_parser.py`) stammt aus einer früheren
-Query-Konfiguration mit EquitySummary/CashReport, ist nicht in `pipeline.toml` verdrahtet und
-findet mit den aktuellen Queries keine Daten (TWRR wäre darüber ohnehin nur angenähert).
+Der frühere XML-Weg (`import_flexquery_snapshot.py` / `flexquery_snapshot_parser.py`, aus
+einer älteren Query-Konfiguration mit EquitySummary/CashReport) wurde 2026-10-17 entfernt.
 
 **⚠️ Limitierung: fest auf EUR + USD verdrahtet, nicht generisch.**
 Anders als bei Einzeltrades (`trades_raw.currency` ist freier Text, `FX_EXCHANGE_FROM_*`/`TO_*`-Actions
@@ -857,8 +855,6 @@ in `campaign_ledger` lesen das Währungspaar dynamisch aus dem Trade) ist die Ca
 Portfolio-Snapshot **hartverdrahtet auf genau zwei Währungen**:
 
 - Schema: `sql/account_snapshots.sql` hat feste Spalten `cash_eur` / `cash_usd`, keine generische Struktur.
-- XML-Import (nicht aktiv, s.o.): `flexquery_snapshot_parser.py::_parse_statement()` sucht explizit
-  `CashReportCurrency[@currency="EUR"]` und `[@currency="USD"]`.
 - CSV-Import: `activity_csv_parser.py::_extract_cash()` ruft `find('Ending Cash', 'EUR')` und
   `find('Ending Cash', 'USD')` auf.
 
@@ -1280,7 +1276,6 @@ xml_proj/
 │   ├── xml_append_summary.py    ← Phase 3: Summary-XML für DB-Rebuild
 │   ├── import_activity_statement.py ← CSV-Snapshot-Import (account_snapshots)
 │   ├── import_csv_snapshots.py  ← Snapshot-Step der Pipeline (Activity-CSVs, TWRR exakt)
-│   ├── import_flexquery_snapshot.py ← Altbestand: Snapshots aus FlexQuery (aktuell keine Daten)
 │   ├── config.py                ← get_engine(), get_account_config(), DB_MAP, load_users(), TABLE_PREFIX
 │   ├── trade_enums.py           ← TradeStatus, AssetCategory, CampaignStatus
 │   ├── options_pnl.py           ← calculate_pnl()/get_position_summary(), von flex_parser.py verwendet (Produktivcode, kein dev-Tool)

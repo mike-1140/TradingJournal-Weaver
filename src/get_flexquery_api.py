@@ -11,8 +11,7 @@ genauso konfiguriert wie die Mail-Query: Trades + OptionEAE + CorporateActions.
     Expiry-Events und Splits ueber beide Kanaele (Checksum-Dedup verhindert Doppelungen).
   - KEINE Snapshot-Daten: account_snapshots kommt ausschliesslich aus dem Kontoauszug
     (Activity Statement, CSV nur per Mail) ueber snapshot_csv. Die FlexQueries enthalten
-    keine EquitySummary/CashReport-Sektionen — import_flexquery_snapshot.py (Altbestand)
-    findet darin keine Daten.
+    keine EquitySummary/CashReport-Sektionen.
 
 Schreibt nach OUT_FOLDER_XML_API (C:\\Trade_XML\\incoming_api\\), getrennt von
 get_flexquery_emails.py's C:\\Trade_XML\\incoming_mail\\ — beide Ordner werden vom

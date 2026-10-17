@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VALID_STEPS = ["fetch_emails", "fetch_api", "snapshot_csv", "snapshot_import", "import", "process", "summary", "reset"]
+VALID_STEPS = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summary", "reset"]
 
 # Module-Notation (-m) statt Dateipfad: Projektwurzel bleibt in sys.path,
 # dadurch funktionieren "from src.xyz import ..." Importe in den Scripts korrekt.
@@ -20,7 +20,6 @@ STEP_SCRIPTS = {
     "fetch_emails":    "src.get_flexquery_emails",
     "fetch_api":       "src.get_flexquery_api",
     "snapshot_csv":    "src.import_csv_snapshots",
-    "snapshot_import": "src.import_flexquery_snapshot",
     "import":          "src.import_ibkr_trades",
     "process":         "src.process_ibkr_trades",
     "summary":         "src.xml_append_summary",
@@ -58,7 +57,7 @@ def build_task_list(config: dict, filter_users: list[str], filter_envs: list[str
     tasks = []
 
     for step in steps_to_run:
-        if step in ("fetch_emails", "fetch_api", "snapshot_csv", "snapshot_import", "process", "summary"):
+        if step in ("fetch_emails", "fetch_api", "snapshot_csv", "process", "summary"):
             # Laufen einmal ohne Args — Scripts iterieren intern ueber pipeline.toml
             tasks.append({"step": step, "label": step, "args": []})
 

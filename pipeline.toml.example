@@ -7,7 +7,7 @@
 
 [settings]
 # Schritte in Ausfuehrungsreihenfolge (Standard-Pipeline, ohne reset)
-# Moegliche Werte: fetch_emails | fetch_api | snapshot_csv | snapshot_import | import | process | summary | reset
+# Moegliche Werte: fetch_emails | fetch_api | snapshot_csv | import | process | summary | reset
 steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summary"]
 
 # --- User-Konfiguration ---

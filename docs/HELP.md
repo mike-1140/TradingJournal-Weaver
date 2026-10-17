@@ -196,7 +196,6 @@ python run_pipeline.py --config meine_pipeline.toml
 | `fetch_emails` | `src.get_flexquery_emails` | Einmal gesamt |
 | `fetch_api` | `src.get_flexquery_api` | Einmal gesamt |
 | `snapshot_csv` | `src.import_csv_snapshots` | Einmal gesamt (intern pipeline.toml) |
-| `snapshot_import` | `src.import_flexquery_snapshot` | Einmal gesamt — **nicht** in den Standard-Steps, liefert mit den aktuellen Queries keine Daten (s.u.) |
 | `import` | `src.import_ibkr_trades` | Ohne `--users`/`--envs`: einmal gesamt. Mit Filter: pro passendem User × Environment |
 | `process` | `src.process_ibkr_trades` | Einmal gesamt (intern pipeline.toml) |
 | `summary` | `src.xml_append_summary` | Einmal gesamt (intern pipeline.toml) |
@@ -211,9 +210,9 @@ intern), mit gesetztem Filter läuft es pro passendem User × Environment.
 **`account_snapshots` kommt ausschließlich aus dem Kontoauszug (Activity Statement, CSV per
 Mail) über `snapshot_csv`.** Den Kontoauszug gibt es nicht per Web-API, und die FlexQueries
 (Mail wie API) enthalten keine Snapshot-Sektionen (EquitySummary, CashReport, MTM)
-(geprüft 2026-10-17: keine der 763 FlexQuery-XMLs aus Mail- und API-Kanal enthält Snapshot-Sektionen). `snapshot_import` (`import_flexquery_snapshot.py`) stammt aus einer
-früheren Query-Konfiguration, ist nicht in den Standard-Steps und findet mit den aktuellen
-Queries keine Daten.
+(geprüft 2026-10-17: keine der 763 FlexQuery-XMLs aus Mail- und API-Kanal enthält Snapshot-Sektionen). Der frühere Step `snapshot_import`
+(`import_flexquery_snapshot.py`, Snapshots aus FlexQuery-XMLs) wurde deshalb am 2026-10-17
+entfernt.
 
 ---
 
@@ -272,14 +271,12 @@ alle Accounts ein Token/Query konfiguriert ist.
 
 ---
 
-## import_csv_snapshots.py / import_flexquery_snapshot.py — account_snapshots
+## import_csv_snapshots.py — account_snapshots
 
 Importieren Kontostands-Snapshots in `account_snapshots`:
 
-- `import_csv_snapshots` — aus Activity-CSVs (**einziger aktiver Weg**, TWRR exakt); Teil der Standard-Pipeline
-- `import_flexquery_snapshot` — würde aus FlexQuery-XMLs lesen, die aktuellen Queries enthalten
-  aber keine Snapshot-Sektionen → **liefert keine Daten**, nicht in der Standard-Pipeline
-  (Altbestand aus einer früheren Query-Konfiguration, siehe oben bei `snapshot_import`)
+- `import_csv_snapshots` — aus den Activity-CSVs (Kontoauszug per Mail, **einzige Quelle**,
+  TWRR exakt); Teil der Standard-Pipeline (`snapshot_csv`)
 
 ```bash
 # Auto-Modus: alle aktiven Targets aus pipeline.toml
@@ -287,7 +284,7 @@ python -m src.import_csv_snapshots
 ```
 
 **Achtung:** Cash-Positionen werden fest auf EUR + USD verdrahtet erfasst (`cash_eur`/`cash_usd`
-in `sql/account_snapshots.sql`, Parser suchen explizit nach diesen zwei Währungen). Cash in einer
+in `sql/account_snapshots.sql`, der CSV-Parser sucht explizit nach diesen zwei Währungen). Cash in einer
 dritten Währung wird stillschweigend nicht importiert. Details + Begründung: `docs/pipeline-workflow.md` § 8.2 `account_snapshots`.
 
 ---

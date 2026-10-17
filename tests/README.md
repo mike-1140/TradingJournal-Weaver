@@ -12,7 +12,7 @@ Einzelner Test: `pytest tests/test_process_raw_trade.py::TestCase2aTeilschluss -
 
 ## CI (GitHub Actions)
 
-`.github/workflows/tests.yml` — läuft auf jedem Push/PR gegen `master` und auf jedem PR: frisches Ubuntu, nur `requirements.txt` installiert, kein `.env`/keine DB nötig (siehe „Keine Datenbank nötig" oben). Lokal als Trockenlauf geprüft: `pip install -r requirements.txt` in einem leeren venv, alle 36 Tests grün.
+`.github/workflows/tests.yml` — läuft auf jedem Push/PR gegen `master` und auf jedem PR: frisches Ubuntu, nur `requirements.txt` installiert, kein `.env`/keine DB nötig (siehe „Keine Datenbank nötig" oben). Lokal als Trockenlauf geprüft: `pip install -r requirements.txt` in einem leeren venv, alle Tests grün.
 
 Keine Datenbank nötig — alle Tests laufen komplett gegen In-Memory-Fakes, siehe unten.
 
@@ -26,6 +26,7 @@ Keine Datenbank nötig — alle Tests laufen komplett gegen In-Memory-Fakes, sie
 | `test_split_handling.py` | `_resolve_split_holdings_symbol()` — welches Symbol nach einem Stock Split im Tracker nachgeschlagen wird |
 | `test_campaign_cleanup.py` | `InventoryTracker.close_old_pending_campaigns()` — Gap-Fenster wird ab `reference_date` berechnet, nicht ab heute |
 | `test_flexquery_email_import.py` | `_process_flexquery_mails()` / `_process_activity_statement_mails()` — Mails werden immer geloescht, unabhaengig davon ob/was gespeichert wurde |
+| `test_run_pipeline_steps.py` | `run_pipeline.py` — jeder Step in `VALID_STEPS`/`STEP_SCRIPTS` zeigt auf ein existierendes Modul; entfernter Step `snapshot_import` ist nicht mehr wählbar |
 
 ## Fixtures in `conftest.py`
 
