@@ -122,9 +122,10 @@ IBKR erzeugt bei **automatischen Schließungsereignissen** (Verfall, Ausübung, 
                         ▼
 ┌──────────────────────────────────────────────────────────┐
 │                    DATENQUELLEN                          │
-│   C:\Trade_XML\incoming_mail\  + incoming_api\            │
-│   └── *.xml  ← FlexQuery (Trades; incoming_mail\ zusaetzlich│
-│                 EAE, CorporateActions — incoming_api\ nicht)│
+│   C:\Trade_XML\incoming_mail\  + incoming_api\           │
+│   └── *.xml  ← FlexQuery: Trades, OptionEAE,             │
+│                 CorporateActions (in beiden Ordnern,     │
+│                 sofern die API-Query gleich konfiguriert)│
 │   C:\Trade_CSV\incoming\                                 │
 │   └── U1234567_20250117.csv  ← Activity Statement        │
 │                                 (Kontostands-Snapshots)  │
@@ -197,9 +198,10 @@ environments = ["money"]
 Tabellen-Prefix kommt aus `users.toml` (zentrale, versionierte Registry, siehe § 9.1) — in
 `pipeline.toml` nur bei Bedarf per `prefix = "..."` explizit überschreibbar.
 
-`snapshot_import` (account_snapshots aus FlexQuery-XML) existiert als Step, ist aber
-bewusst nicht in den Standard-Steps — bekannte Datenlücken (TWRR fehlt, `unrealized_pnl_eur`
-ist Marktwert statt P&L, `mtd_pnl`/`ytd_pnl` nur angenähert), siehe § 8.2.
+`snapshot_import` (account_snapshots aus FlexQuery-XML) existiert noch als Step, ist aber
+nicht in den Standard-Steps und liefert keine Daten: Die FlexQueries enthalten keine
+Snapshot-Sektionen — `account_snapshots` kommt ausschließlich aus dem Kontoauszug (CSV per
+Mail), siehe § 8.2.
 
 Der `import`-Step läuft ohne `--users`/`--envs`-Filter **einmal global** (accountId-Routing
 deckt intern alle User/Envs ab); mit gesetztem Filter erzeugt `run_pipeline.py` einen
@@ -240,7 +242,7 @@ IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 
 **Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Ein Namensmuster ist im Normalbetrieb **nicht** mehr erforderlich (siehe Phase 1) — nur der dedizierte TEST-Modus verlangt weiterhin `flex.*.xml`.
 
-**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` — kein reiner Verifikationskanal mehr, sondern zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Die Query liefert kein `OptionEAE`/`BookTrades` — Assignment-/Expiry-Events kommen weiterhin nur aus den Mail-XMLs. Timing: Der Report wird bei Anfrage on-demand generiert, kein fixes Tages-Zeitfenster (frühere Annahme "erst ab ca. 14–15 Uhr MEZ" war falsch) — funktioniert bereits kurz nach Handelsschluss zuverlässig (bestätigt: erfolgreicher Lauf 2026-08-06 um 06:01 Uhr lokal). Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
+**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` — kein reiner Verifikationskanal mehr, sondern zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Ist die API-Query mit denselben Sektionen eingerichtet wie die Mail-Query (Trades, Option Exercises/Assignments/Expirations, Corporate Actions), liefert sie auch `OptionEAE`/BookTrades und CorporateActions — geprüft 2026-10-17 an den produktiven API-XMLs; die frühere Einschränkung "Assignment-/Expiry-Events nur aus den Mail-XMLs" galt nur für die alte, reine Trades-Query. Timing: Der Report wird bei Anfrage on-demand generiert, kein fixes Tages-Zeitfenster (frühere Annahme "erst ab ca. 14–15 Uhr MEZ" war falsch) — funktioniert bereits kurz nach Handelsschluss zuverlässig (bestätigt: erfolgreicher Lauf 2026-08-06 um 06:01 Uhr lokal). Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
 
 ---
 
@@ -521,10 +523,11 @@ Aktion: INSERT trades_close (60 Stück, status=Closed)
 ```python
 ratio = close_qty / open_qty  # z.B. 60/100 = 0.6
 
-# Alle Open-Trade-Werte werden mit ratio skaliert:
-netCash_close   = open_trade.netCash   * ratio
-commission_close = open_trade.commission * ratio
-# → ROI und P&L sind korrekt trotz Teilabschluss
+# Die Open-Werte werden auf den geschlossenen Anteil skaliert:
+netCash_open_anteil    = open_trade.netCash      * ratio
+proceeds_open_anteil   = open_trade.proceeds     * ratio
+commission_open_anteil = open_trade.ibCommission * ratio
+# → ROI und P&L sind korrekt trotz Teilabschluss (Details: § 6.4)
 ```
 
 #### Fall 2b: Umkehrung (Reversal)
@@ -608,28 +611,46 @@ FIELD_TYPES = {"quantity": Decimal, "tradePrice": Decimal, ...}
 assert status in [TradeStatus.OPEN, TradeStatus.REV_OPEN, TradeStatus.SPLIT_REST]
 ```
 
-**`to_closed_trade(open_trade, close_data, ratio)`:**
+**`to_closed_trade(open_trade, close_data, ratio)`** (Fall 2b/2c) und
+**`partial_close_new_open(...)`** (Fall 2a):
 
-Dies ist die **kritischste Funktion** im System. Sie konvertiert eine offene Tranche in einen abgeschlossenen Trade:
+Dies sind die **kritischsten Funktionen** im System. Sie erzeugen aus einer offenen Tranche und
+dem schließenden Trade einen abgeschlossenen Trade (`trades_close`). Vereinfacht für
+`to_closed_trade` — die offene Tranche wird hier immer vollständig geschlossen, skaliert wird nur
+der Anteil des schließenden Trades (`ratio`):
 
 ```python
-# Open-Seite (skaliert mit ratio):
-netCash_open = open_trade.netCash * ratio
-commission_open = open_trade.commission * ratio
+# Open-Seite (Tranche vollständig):
+proceeds_open    = open_trade.proceeds
+open_commission  = open_trade.ibCommission
 
-# Close-Seite (vom neuen Trade):
-netCash_close = close_data.netCash * ratio
+# Close-Seite (nur der Anteil, der diese Tranche schließt):
+proceeds_close   = close_data.proceeds     * ratio
+close_commission = close_data.ibCommission * ratio
 
-# P&L-Berechnung:
-profit = netCash_open + netCash_close - commission_open - commission_close
-# (netCash_open ist negativ bei Long-Kauf → profit steigt wenn netCash_close positiv)
+# P&L — BRUTTO, ohne Kommissionen:
+profit     = proceeds_open + proceeds_close
+profit_EUR = proceeds_open * fxRate_open + proceeds_close * fxRate_close
 
-# ROI-Berechnung:
-roi = profit / abs(netCash_open)  # Basis: investiertes Kapital
+# Kommissionen separat (IBKR: negativ):
+ibCommission = open_commission + close_commission
+# Netto-P&L wird erst in der Anzeige gebildet: profit + ibCommission
+
+# ROI in Prozent, Basis: eingesetztes Kapital (netCashOpen), Vorzeichen wie profit:
+ROI = abs(profit / netCashOpen * 100)    # negativ, wenn profit < 0
 
 # Haltezeit:
-days_held, duration_text = calculate_hold_metrics(open_dt, close_dt)
+days_held, total_seconds, duration_text = calculate_hold_metrics(open_dt, close_dt)
 ```
+
+Bei `partial_close_new_open` (Fall 2a) ist es umgekehrt: Der schließende Trade zählt vollständig,
+die Open-Seite (`netCash`, `proceeds`, `ibCommission`) wird mit dem geschlossenen Anteil skaliert,
+der Rest bleibt als `SPLIT_REST` offen.
+
+**Warum `proceeds` statt `netCash`?** `proceeds` ist der reine Handelsbetrag ohne Kommission und
+funktioniert für alle Abschlussarten — auch für Cash Settlement, bei dem `netCashClose` 0 ist,
+`proceeds` aber den Barausgleich enthält. Alle P&L-Felder (`trades_close.profit`,
+`campaign_ledger.realized_pnl`) sind deshalb **brutto**; die Kommission steht immer separat.
 
 ---
 
@@ -821,15 +842,14 @@ realized_pnl_eur, unrealized_pnl_eur,
 mtd_pnl, ytd_pnl,
 imported_at
 ```
-Befüllt von `import_csv_snapshots.py` (`activity_csv_parser.py`) — **einziger aktiver
-Weg in der Standard-Pipeline** (`snapshot_csv`-Step, TWRR exakt von IBKR).
-`import_flexquery_snapshot.py` (`flexquery_snapshot_parser.py`, liest `incoming_api\`)
-existiert als Alternative, ist aber bewusst **nicht** in `pipeline.toml` verdrahtet:
-TWRR ist über keine FlexQuery-Sektion verfügbar (nur Modified-Dietz-Näherung möglich),
-`unrealized_pnl_eur` entspricht dort dem absoluten Marktwert statt echtem P&L gegen
-Einstand, und `mtd_pnl`/`ytd_pnl` sind nur über `CashReport`-Cashflows angenähert statt
-exakter Realized-S/T-Werte. Manuell nutzbar (`python -m src.import_flexquery_snapshot --dry-run`),
-z.B. als Notlösung falls die Mail an einem Tag ausbleibt.
+Befüllt **ausschließlich** von `import_csv_snapshots.py` (`activity_csv_parser.py`,
+`snapshot_csv`-Step, TWRR exakt von IBKR) aus dem **Kontoauszug (Activity Statement, CSV)**,
+den IBKR nur per Mail zustellt — eine Abfrage per Web-API gibt es dafür nicht, und die
+FlexQueries (Mail wie API) enthalten keine Snapshot-Sektionen
+(geprüft 2026-10-17: keine der 763 FlexQuery-XMLs aus Mail- und API-Kanal enthält Snapshot-Sektionen). Bleibt die Mail an einem Tag aus, fehlt der Snapshot dieses Tages.
+`import_flexquery_snapshot.py` (`flexquery_snapshot_parser.py`) stammt aus einer früheren
+Query-Konfiguration mit EquitySummary/CashReport, ist nicht in `pipeline.toml` verdrahtet und
+findet mit den aktuellen Queries keine Daten (TWRR wäre darüber ohnehin nur angenähert).
 
 **⚠️ Limitierung: fest auf EUR + USD verdrahtet, nicht generisch.**
 Anders als bei Einzeltrades (`trades_raw.currency` ist freier Text, `FX_EXCHANGE_FROM_*`/`TO_*`-Actions
@@ -837,7 +857,7 @@ in `campaign_ledger` lesen das Währungspaar dynamisch aus dem Trade) ist die Ca
 Portfolio-Snapshot **hartverdrahtet auf genau zwei Währungen**:
 
 - Schema: `sql/account_snapshots.sql` hat feste Spalten `cash_eur` / `cash_usd`, keine generische Struktur.
-- XML-Import: `flexquery_snapshot_parser.py::_parse_statement()` sucht explizit
+- XML-Import (nicht aktiv, s.o.): `flexquery_snapshot_parser.py::_parse_statement()` sucht explizit
   `CashReportCurrency[@currency="EUR"]` und `[@currency="USD"]`.
 - CSV-Import: `activity_csv_parser.py::_extract_cash()` ruft `find('Ending Cash', 'EUR')` und
   `find('Ending Cash', 'USD')` auf.
@@ -1260,7 +1280,7 @@ xml_proj/
 │   ├── xml_append_summary.py    ← Phase 3: Summary-XML für DB-Rebuild
 │   ├── import_activity_statement.py ← CSV-Snapshot-Import (account_snapshots)
 │   ├── import_csv_snapshots.py  ← Snapshot-Step der Pipeline (Activity-CSVs, TWRR exakt)
-│   ├── import_flexquery_snapshot.py ← Snapshot-Alternative (FlexQuery-XMLs, TWRR berechnet)
+│   ├── import_flexquery_snapshot.py ← Altbestand: Snapshots aus FlexQuery (aktuell keine Daten)
 │   ├── config.py                ← get_engine(), get_account_config(), DB_MAP, load_users(), TABLE_PREFIX
 │   ├── trade_enums.py           ← TradeStatus, AssetCategory, CampaignStatus
 │   ├── options_pnl.py           ← calculate_pnl()/get_position_summary(), von flex_parser.py verwendet (Produktivcode, kein dev-Tool)

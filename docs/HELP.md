@@ -196,7 +196,7 @@ python run_pipeline.py --config meine_pipeline.toml
 | `fetch_emails` | `src.get_flexquery_emails` | Einmal gesamt |
 | `fetch_api` | `src.get_flexquery_api` | Einmal gesamt |
 | `snapshot_csv` | `src.import_csv_snapshots` | Einmal gesamt (intern pipeline.toml) |
-| `snapshot_import` | `src.import_flexquery_snapshot` | Einmal gesamt — **nicht** in den Standard-Steps (s.u.) |
+| `snapshot_import` | `src.import_flexquery_snapshot` | Einmal gesamt — **nicht** in den Standard-Steps, liefert mit den aktuellen Queries keine Daten (s.u.) |
 | `import` | `src.import_ibkr_trades` | Ohne `--users`/`--envs`: einmal gesamt. Mit Filter: pro passendem User × Environment |
 | `process` | `src.process_ibkr_trades` | Einmal gesamt (intern pipeline.toml) |
 | `summary` | `src.xml_append_summary` | Einmal gesamt (intern pipeline.toml) |
@@ -208,13 +208,12 @@ alle anderen bleiben unangetastet liegen. `run_pipeline.py` nutzt das automatisc
 ohne `--users`/`--envs` läuft `import` einmal global (effizient, accountId routet
 intern), mit gesetztem Filter läuft es pro passendem User × Environment.
 
-`snapshot_import` ist bewusst **nicht** in den Standard-Steps von `pipeline.toml`
-aktiv — der FlexQuery-API-Weg für `account_snapshots` hat bekannte Datenlücken
-(TWRR fehlt komplett, `unrealized_pnl_eur` ist Marktwert statt echtes P&L,
-`mtd_pnl`/`ytd_pnl` nur angenähert). `account_snapshots` kommt daher weiterhin
-exakt über `snapshot_csv` (Mail + Activity-Report). `snapshot_import` bleibt als
-Script nutzbar (`python -m src.import_flexquery_snapshot --dry-run`), nur eben
-nicht automatisch verdrahtet.
+**`account_snapshots` kommt ausschließlich aus dem Kontoauszug (Activity Statement, CSV per
+Mail) über `snapshot_csv`.** Den Kontoauszug gibt es nicht per Web-API, und die FlexQueries
+(Mail wie API) enthalten keine Snapshot-Sektionen (EquitySummary, CashReport, MTM)
+(geprüft 2026-10-17: keine der 763 FlexQuery-XMLs aus Mail- und API-Kanal enthält Snapshot-Sektionen). `snapshot_import` (`import_flexquery_snapshot.py`) stammt aus einer
+früheren Query-Konfiguration, ist nicht in den Standard-Steps und findet mit den aktuellen
+Queries keine Daten.
 
 ---
 
@@ -248,8 +247,9 @@ Verifikationskanal mehr. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt vo
 `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben). Der
 `import`-Step scannt **beide** Ordner und importiert daraus `trades_raw` — die
 Query liefert dieselben Trades wie die Mail-XML, Checksum-Dedup verhindert
-doppelte Einträge. Kein `OptionEAE`/`BookTrades` in dieser Query — Assignment-/
-Expiry-Events kommen weiterhin nur aus den Mail-XMLs.
+doppelte Einträge. Mit denselben Sektionen eingerichtet wie die Mail-Query
+(Trades, Option Exercises/Assignments/Expirations, Corporate Actions) liefert die
+API-Query auch Assignment-/Expiry-Events und Splits — vollwertiger zweiter Kanal.
 
 Timing: Der Report wird bei Anfrage **on-demand generiert**, kein fixes Tages-Zeitfenster
 (die frühere Annahme "erst ab ca. 14–15 Uhr MEZ" war falsch). Voraussetzung ist nur, dass
@@ -277,14 +277,13 @@ alle Accounts ein Token/Query konfiguriert ist.
 Importieren Kontostands-Snapshots in `account_snapshots`:
 
 - `import_csv_snapshots` — aus Activity-CSVs (**einziger aktiver Weg**, TWRR exakt); Teil der Standard-Pipeline
-- `import_flexquery_snapshot` — aus FlexQuery-XMLs (`incoming_api\`, TWRR nur angenähert);
-  **bewusst nicht** in der Standard-Pipeline aktiv (bekannte Datenlücken, siehe oben bei
-  `fetch_api`/`snapshot_import`) — nur manuell nutzbar
+- `import_flexquery_snapshot` — würde aus FlexQuery-XMLs lesen, die aktuellen Queries enthalten
+  aber keine Snapshot-Sektionen → **liefert keine Daten**, nicht in der Standard-Pipeline
+  (Altbestand aus einer früheren Query-Konfiguration, siehe oben bei `snapshot_import`)
 
 ```bash
 # Auto-Modus: alle aktiven Targets aus pipeline.toml
 python -m src.import_csv_snapshots
-python -m src.import_flexquery_snapshot
 ```
 
 **Achtung:** Cash-Positionen werden fest auf EUR + USD verdrahtet erfasst (`cash_eur`/`cash_usd`

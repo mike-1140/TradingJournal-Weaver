@@ -23,8 +23,10 @@ them into a structured trading journal with P&L, campaign tracking, and open/clo
 
 **Import-Routing:** `import_ibkr_trades.py` scannt `C:\Trade_XML\incoming_mail\` (Mail) UND
 `C:\Trade_XML\incoming_api\` (FlexQuery Web-API) gleichwertig, kein Dateinamen-Filter mehr.
-User + Environment werden per accountId über `ACCOUNT_MAP` in `src/config.py` ermittelt
-(Key = letzte 4 Ziffern der accountId). Checksum-Dedup verhindert doppelte Trades, falls
+User + Environment werden per accountId über `accounts.toml` ermittelt (maschinenspezifisch,
+nicht versioniert, Vorlage `accounts.toml.example`; gelesen von `load_account_map()` /
+`get_account_config()` in `src/config.py`, Key = letzte 4 Ziffern der accountId). Der
+Tabellen-Prefix kommt aus `users.toml`. Unbekannte accountIds werden mit Warnung übersprungen. Checksum-Dedup verhindert doppelte Trades, falls
 dieselben Daten über beide Kanäle ankommen.
 
 ### Running the pipeline
@@ -105,8 +107,9 @@ IBKR sign convention: **BUY → netCash negative, SELL → netCash positive**
 - `.env` — DB credentials, `DEFAULT_USER` (e.g. `mike`, Prefix wird aus `users.toml` aufgelöst) oder direkt `TABLE_PREFIX` als Override, environment DB names, API keys (z.B. Mail-Zugang für `get_flexquery_emails.py`)
 - `users.toml` — zentrale, versionierte User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`)
 - `pipeline.toml` — maschinenspezifisch, gitignored; aktive User/Environments dieser Maschine (siehe `pipeline.toml.example`)
-- `src/config.py` — `get_engine(env)`, `DB_MAP`, `ACCOUNT_MAP` (ohne Prefix), `load_users()`, table name constants
-- `.gitignore` — `.env`, `pipeline.toml` ausgeschlossen (keine Secrets/Maschinenspezifika im Repo!)
+- `accounts.toml` — maschinenspezifisch, gitignored; IBKR-Konto (letzte 4 Ziffern) → User + Environment (siehe `accounts.toml.example`)
+- `src/config.py` — `get_engine(env)`, `DB_MAP`, `load_account_map()`/`get_account_config()` (liest `accounts.toml`), `load_users()`, table name constants
+- `.gitignore` — `.env`, `pipeline.toml`, `accounts.toml` ausgeschlossen (keine Secrets/Maschinenspezifika im Repo!)
 
 Table names use an optional prefix (e.g. `mike_trades_raw`) for multi-user support.
 
@@ -142,6 +145,10 @@ OPT `else` branch now populates `netcash`, `proceeds`, `commission` from `cl_tra
 ### ~~Bug 4 — LOW: Commission double-counted in ledger on full close~~ FIXED
 **File:** `src/trade_schemas/open_trade.py`
 `ibCommission` now stores close commission only; open commission removed from sum.
+**Überholt (Stand 2026-10-17, gegen Code geprüft):** `ibCommission` = Open- + Close-Kommission —
+in `to_closed_trade()` Open vollständig + Close anteilig (`close_portion`), in
+`partial_close_new_open()` Open anteilig + Close vollständig. `profit` ist **brutto**
+(`proceeds_open + proceeds_close`), Netto = `profit + ibCommission` (Kommission negativ).
 
 ---
 

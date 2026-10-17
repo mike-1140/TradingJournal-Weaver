@@ -2,18 +2,17 @@
 get_flexquery_api.py — holt IBKR FlexQuery-XMLs direkt über die FlexWeb-Service-API
 
 Läuft parallel zur Mail-Pipeline (get_flexquery_emails.py), NICHT als Ersatz — beide
-Wege sind gleichzeitig aktiv (siehe pipeline.toml). Die API liefert die "act_money_per_api"-
-Query (Trades + EquitySummary + CashReport + MTMPerformance).
+Wege sind gleichzeitig aktiv (siehe pipeline.toml). Die API-Query ist (Stand 2026-10-17)
+genauso konfiguriert wie die Mail-Query: Trades + OptionEAE + CorporateActions.
   - import (import_ibkr_trades.py) liest daraus die Trades nach trades_raw (gleichwertig
     zu den Mail-XMLs, Checksum-Dedup verhindert doppelte Trades) UND ist fuer
     processed/deleted verantwortlich.
-  - snapshot_import (import_flexquery_snapshot.py) koennte daraus zusaetzlich
-    account_snapshots (EquitySummary/CashReport/MTM) fuellen, ist aber Stand 2026-08-05
-    BEWUSST NICHT in der Standard-Pipeline (siehe pipeline.toml) — der FlexQuery-API-Weg
-    fuer Snapshots funktioniert noch nicht zuverlaessig, account_snapshots kommt aktuell
-    nur ueber snapshot_csv (Mail + Activity-Report).
-  Fehlendes OptionEAE/BookTrades in dieser Query bedeutet: Assignment-/Expiry-Events
-  kommen weiterhin nur aus den Mail-XMLs — die API ist kein vollstaendiger Ersatz dafuer.
+  - Da die Query auch OptionEAE/BookTrades und CorporateActions liefert, kommen Assignment-/
+    Expiry-Events und Splits ueber beide Kanaele (Checksum-Dedup verhindert Doppelungen).
+  - KEINE Snapshot-Daten: account_snapshots kommt ausschliesslich aus dem Kontoauszug
+    (Activity Statement, CSV nur per Mail) ueber snapshot_csv. Die FlexQueries enthalten
+    keine EquitySummary/CashReport-Sektionen — import_flexquery_snapshot.py (Altbestand)
+    findet darin keine Daten.
 
 Schreibt nach OUT_FOLDER_XML_API (C:\\Trade_XML\\incoming_api\\), getrennt von
 get_flexquery_emails.py's C:\\Trade_XML\\incoming_mail\\ — beide Ordner werden vom
