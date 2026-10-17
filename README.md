@@ -110,11 +110,44 @@ pytest
 | `CLAUDE.md` | Entwickler-Notizen (Module, Konventionen, bekannte Fixes) |
 | `CONTRIBUTING.md` | Wie beitragen — Konventionen, Test-Erwartung, PR-Ablauf |
 | `SECURITY.md` | Meldeweg für Sicherheitslücken |
-| `LICENSE` | MIT |
+| `LICENSE` | PolyForm Noncommercial 1.0.0 (siehe Abschnitt „Lizenz“) |
+
+## Lizenz
+
+Dieses Projekt steht unter der **[PolyForm Noncommercial License 1.0.0](LICENSE)**. Der Quellcode
+ist öffentlich einsehbar („source-available“), aber **nicht** Open Source im Sinne der OSI: Die
+Nutzung ist frei für alle nicht-kommerziellen Zwecke, eine kommerzielle Verwertung ist
+ausgeschlossen.
+
+**Erlaubt — ohne Rückfrage:**
+
+- Die Software installieren und für die **eigenen privaten Trading-Konten** nutzen — ausdrücklich
+  auch für Echtgeld-Konten, auch wenn mit dem Trading selbst Gewinn erzielt werden soll (siehe
+  „Additional Permission“ in [`LICENSE`](LICENSE))
+- Den Code lesen, daraus lernen, ihn für sich anpassen und erweitern
+- Die Software oder eigene Änderungen daran **kostenlos** weitergeben — mit beiliegender
+  [`LICENSE`](LICENSE) (inkl. der Zeile `Required Notice: …`)
+- Nutzung durch gemeinnützige Organisationen, Schulen, Hochschulen und Forschungseinrichtungen
+- Beiträge zu diesem Projekt per Issue oder Pull Request (siehe [`CONTRIBUTING.md`](CONTRIBUTING.md))
+
+**Nicht erlaubt:**
+
+- Die Software oder Teile davon **verkaufen** oder gegen Gebühr anbieten — auch nicht als
+  gehosteten Dienst, Abo oder SaaS
+- Den Code (oder wesentliche Teile davon) in ein **kommerzielles Produkt** oder eine kommerzielle
+  Dienstleistung übernehmen
+- Den Einsatz im Rahmen einer bezahlten Tätigkeit für Dritte, z. B. Vermögensverwaltung,
+  Trading-Coaching oder Signal-Dienste, bei denen die Software für Kunden genutzt wird
+- Die Lizenzhinweise entfernen oder die Software unter einer anderen Lizenz weitergeben
+
+**Kommerzielle Nutzung gewünscht?** Wer das Projekt kommerziell einsetzen möchte, kann über ein
+[GitHub-Issue](https://github.com/mike-1140/xml_proj/issues) Kontakt aufnehmen — eine separate Lizenz ist im Einzelfall möglich.
+
+> Diese Zusammenfassung dient der Orientierung. Rechtlich verbindlich ist allein der englische
+> Lizenztext in [`LICENSE`](LICENSE).
 
 ## Rechtliches
 
-- **Lizenz:** MIT, siehe [`LICENSE`](LICENSE).
 - **Kein Support-Anspruch:** Hobbyprojekt, best effort — keine SLA, keine Garantie auf Reaktionszeit bei Issues oder PRs.
 - **Keine Finanzberatung:** Dieses Tool dient ausschließlich der Auswertung und Dokumentation eigener Trades. Es stellt keine Anlage- oder Steuerberatung dar und ersetzt keine professionelle Beratung.
 - **Keine Gewährleistung:** Für die Korrektheit der berechneten P&L-, ROI- oder sonstigen Kennzahlen wird keine Haftung übernommen. Vor jeder Nutzung für reale Entscheidungen die Zahlen gegen die eigenen Broker-Unterlagen prüfen.

@@ -37,3 +37,12 @@ per Tripwire verifiziert: Fix kurz zurückdrehen → Test muss fehlschlagen).
 `.env`/`pipeline.toml`/`accounts.toml` niemals committen. Falls versehentlich doch: sofort im Issue oder per
 [SECURITY.md](SECURITY.md) melden statt einen "stillen" Fix-PR aufzumachen — die History muss
 bereinigt werden, nicht nur der aktuelle Stand.
+
+## Lizenz deiner Beiträge
+
+Das Projekt steht unter der [PolyForm Noncommercial License 1.0.0](LICENSE). Mit dem Einreichen
+eines Pull Requests bestätigst du, dass du die Rechte an deinem Beitrag besitzt, und räumst dem
+Projektinhaber (mike-1140) ein unbefristetes, unentgeltliches und nicht-exklusives Recht ein,
+den Beitrag unter der Projektlizenz **und** unter künftigen oder zusätzlichen Lizenzen
+(einschließlich separater kommerzieller Lizenzen) zu nutzen, zu ändern und weiterzugeben. Deine
+eigenen Rechte an deinem Beitrag bleiben davon unberührt.
