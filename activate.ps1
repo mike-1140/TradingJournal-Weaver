@@ -7,7 +7,7 @@
 #   . .\activate.ps1
 #
 # Funktioniert unabhaengig davon, wo der Monorepo-Root-Ordner liegt (siehe
-# windows-prerequisites.md - Pfad ist frei waehlbar), da relativ zum eigenen Skript-Ort
+# docs/handbuch/technik/40-installation-windows.md - Pfad ist frei waehlbar), da relativ zum eigenen Skript-Ort
 # (xml_proj-Ordner selbst) aufgeloest wird.
 #
 # Falls PowerShell das Ausfuehren lokaler Skripte blockiert (Fehler in etwa: "kann nicht
@@ -23,5 +23,5 @@ if (Test-Path $VenvActivate) {
     . $VenvActivate
     Write-Host "xml_proj bereit: $PSScriptRoot (venv aktiv)" -ForegroundColor Green
 } else {
-    Write-Warning "Keine .venv gefunden unter $VenvActivate - siehe docs/setup/xml_proj-setup.md Schritt 2 (python -m venv .venv)."
+    Write-Warning "Keine .venv gefunden unter $VenvActivate - siehe docs/handbuch/technik/50-installation-xml-proj.md Schritt 2 (python -m venv .venv)."
 }

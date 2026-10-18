@@ -1,14 +1,14 @@
-# xml_proj — Setup (lokale Entwicklungsumgebung)
+# Installation: xml_proj
 
 > Ausführlichere, für Einsteiger geschriebene Version mit mehr Erklärungen:
-> [`xml_proj-setup-einsteiger.md`](xml_proj-setup-einsteiger.md).
+> [Benutzerhandbuch: xml_proj installieren](../benutzer/40-xml-proj-installieren.md).
 
 Installations- und Erstinitialisierungs-Anleitung für `xml_proj` auf einem neuen Rechner.
-Für Befehlsreferenz siehe `docs/HELP.md`, für Architektur/FIFO-Logik/DB-Schema im Detail siehe
-`docs/pipeline-workflow.md` (beide im `xml_proj`-Repo).
+Für Befehlsreferenz siehe `docs/handbuch/technik/30-befehlsreferenz.md`, für Architektur/FIFO-Logik/DB-Schema im Detail siehe
+`docs/handbuch/technik/10-architektur-und-pipeline.md` (beide im `xml_proj`-Repo).
 
 **Grundlegende Software** (Git, Python, MySQL/MariaDB via XAMPP) muss vorher installiert
-sein — siehe [`windows-prerequisites.md`](windows-prerequisites.md). Diese Seite setzt das
+sein — siehe [Installation: Windows-Grundausstattung](40-installation-windows.md). Diese Seite setzt das
 voraus und beschreibt nur noch die projektspezifische Einrichtung.
 
 ---
@@ -18,7 +18,7 @@ voraus und beschreibt nur noch die projektspezifische Einrichtung.
 | Software | Version | Hinweis |
 |---|---|---|
 | Python | 3.14 | Bei der Installation "Add python.exe to PATH" aktivieren |
-| MySQL/MariaDB Server | via XAMPP | Lokal, Port 3306, laufend und erreichbar; Zugangsdaten mit Recht zum Anlegen neuer Datenbanken — siehe `windows-prerequisites.md` |
+| MySQL/MariaDB Server | via XAMPP | Lokal, Port 3306, laufend und erreichbar; Zugangsdaten mit Recht zum Anlegen neuer Datenbanken — siehe „Installation: Windows-Grundausstattung“ |
 | Git | aktuell | Für Clone + Versionsverwaltung |
 
 `shared_python` muss als Sibling-Verzeichnis neben `xml_proj` liegen (`../shared_python`),
@@ -28,7 +28,7 @@ da es per editierbarem Install eingebunden wird.
 
 ## 1. Repository klonen
 
-`xml_proj` hat ein eigenes Git-Repository. Falls schon per [`windows-prerequisites.md`](windows-prerequisites.md)
+`xml_proj` hat ein eigenes Git-Repository. Falls schon per [Installation: Windows-Grundausstattung](40-installation-windows.md)
 Abschnitt 6 geklont, diesen Schritt überspringen.
 
 ```bash
@@ -172,6 +172,6 @@ python run_pipeline.py --users dein_user --envs test
 
 | Datei | Inhalt |
 |---|---|
-| `docs/HELP.md` | Vollständige Befehlsreferenz aller Scripts |
-| `docs/pipeline-workflow.md` | Architektur, FIFO-Logik, DB-Schema im Detail |
-| [TradingJournal-Setup](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup.md) | Setup der Laravel-UI (liest dieselben Datenbanken) |
+| `docs/handbuch/technik/30-befehlsreferenz.md` | Vollständige Befehlsreferenz aller Scripts |
+| `docs/handbuch/technik/10-architektur-und-pipeline.md` | Architektur, FIFO-Logik, DB-Schema im Detail |
+| [TradingJournal-Setup](60-installation-tradingjournal.md) | Setup der Laravel-UI (liest dieselben Datenbanken) |

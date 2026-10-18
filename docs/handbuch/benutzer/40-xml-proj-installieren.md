@@ -1,13 +1,13 @@
-# xml_proj — Setup für Einsteiger
+# xml_proj installieren
 
 Diese Anleitung richtet die Datenimport-Pipeline (`xml_proj`) auf einem Rechner ein — sie
 holt die Handelsdaten von Interactive Brokers und verarbeitet sie für das Trading-Journal.
 Schritt für Schritt, mit Erklärungen, auch wenn du bisher wenig Erfahrung mit
 Terminal-Befehlen oder Python hast. Es gibt dazu auch eine kürzere, technischere Version:
-[`xml_proj-setup.md`](xml_proj-setup.md). Beide führen zum selben Ergebnis.
+[Technisches Handbuch: Installation: xml_proj](../technik/50-installation-xml-proj.md). Beide führen zum selben Ergebnis.
 
 **Bevor du hier startest:** Die Grundausstattung (Git, Python, XAMPP, ...) muss bereits
-installiert sein — siehe [`windows-prerequisites-einsteiger.md`](windows-prerequisites-einsteiger.md).
+installiert sein — siehe [Windows vorbereiten](30-windows-vorbereiten.md).
 
 ---
 
@@ -233,6 +233,6 @@ Nach der Ersteinrichtung, für den täglichen Gebrauch:
 
 | Datei | Inhalt |
 |---|---|
-| [`xml_proj-setup.md`](xml_proj-setup.md) | Dieselben Schritte, technischer/kompakter |
-| `docs/HELP.md` (im `xml_proj`-Ordner) | Vollständige Befehlsreferenz aller Scripts |
-| [TradingJournal-Setup für Einsteiger](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup-einsteiger.md) | Einrichtung der Weboberfläche (nächster Schritt) |
+| [Technisches Handbuch: Installation: xml_proj](../technik/50-installation-xml-proj.md) | Dieselben Schritte, technischer/kompakter |
+| `docs/handbuch/technik/30-befehlsreferenz.md` (im `xml_proj`-Ordner) | Vollständige Befehlsreferenz aller Scripts |
+| [TradingJournal-Setup für Einsteiger](50-tradingjournal-installieren.md) | Einrichtung der Weboberfläche (nächster Schritt) |

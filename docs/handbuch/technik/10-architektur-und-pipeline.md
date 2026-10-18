@@ -1,4 +1,4 @@
-# IBKR Import-Pipeline — Technische Dokumentation
+# Architektur und Import-Pipeline
 
 **Projekt:** xml_proj — Trading-Journal Import-System  
 **Stand:** 2026-08-06 (inkl. Running Balance, feingranulare LedgerActions, Snapshot-Import,
@@ -1310,13 +1310,13 @@ xml_proj/
 │   ├── trading_campaigns.sql
 │   └── campaign_ledger.sql      ← inkl. cum_pnl, cum_commission, cum_premium
 ├── docs/
-│   ├── pipeline-workflow.md     ← diese Dokumentation
-│   ├── HELP.md                  ← Befehlsreferenz aller Scripts
-│   └── setup/                   ← Setup-Anleitungen (windows-prerequisites, xml_proj-setup, je auch als Einsteiger-Variante)
+│   └── handbuch/                ← Benutzer- und technisches Handbuch (gespiegelt aus trading/docs/)
+│       ├── benutzer/            ← Überblick, IBKR einrichten, Installation für Einsteiger, Alltag, Updates
+│       └── technik/             ← u. a. diese Dokumentation (10-…), Befehlsreferenz (30-…), Installation
 ├── dev/                         ← Einmal-Migrationen, persönliche Tools — nie für einen
 │   │                               frischen Rechner nötig, absichtlich nicht in
 │   │                               sql/src/tools/maintenance (siehe Sparse-Checkout-Hinweis
-│   │                               in windows-prerequisites.md für schlanke Installationen)
+│   │                               in 40-installation-windows.md für schlanke Installationen)
 │   ├── migrate_running_balance.py ← Migration: cum_pnl/cum_commission/cum_premium
 │   ├── migrate_add_campaign_id_to_trade_planner.py
 │   ├── migrate_add_fees_open_to_trade_planner.py

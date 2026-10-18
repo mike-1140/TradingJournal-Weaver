@@ -1,0 +1,90 @@
+# Updates einspielen
+
+Beschreibt, wie du eine bestehende Installation (lokaler PC oder eigener Server, siehe
+[Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md)) auf den neuesten Stand von
+xml_proj + TradingJournal bringst. Für die Erstinstallation siehe stattdessen
+[Technisches Handbuch: Installation: xml_proj](../technik/50-installation-xml-proj.md)/
+[Technisches Handbuch: Installation: TradingJournal](../technik/60-installation-tradingjournal.md).
+
+## Was "Update" hier bedeutet
+
+Neuer Code aus GitHub (`git pull`) + alles, was danach nötig ist, damit er auch wirklich
+läuft: neue Python-/Composer-/npm-Abhängigkeiten installieren, neue Datenbank-Migrationen
+anwenden (sowohl Laravel-eigene als auch die kleinen `xml_proj/dev/migrate_*.py`-Skripte),
+Frontend neu bauen (Vite), Laravel-Caches neu aufbauen. **Kein** Neuaufbau der
+Trading-Datenbanken selbst — die bleiben unangetastet, `reset_IBKR_DB.py` ist für Updates
+nie nötig.
+
+## Automatisiert — `update.ps1`
+
+Im TradingJournal-Repo liegt ein fertiges Skript, das alle nötigen Schritte in der
+richtigen Reihenfolge ausführt:
+
+```powershell
+cd TradingJournal
+.\update.ps1
+```
+
+Voraussetzung: `xml_proj` liegt als Geschwister-Verzeichnis neben `TradingJournal` (genau
+wie bei der Installation, siehe README). Das Skript bricht bei jedem Fehler sofort mit
+einer klaren Meldung ab, statt mit einem halbaktualisierten Stand weiterzumachen — meist
+ist die Ursache ein `git pull`-Konflikt durch lokale, nicht committete Änderungen
+(`git status`/`git stash` im betroffenen Repo prüfen, dann `update.ps1` erneut starten).
+
+**Was das Skript macht** (Kurzfassung, siehe Kommentare im Skript für Details):
+1. `git pull` in beiden Repos
+2. Python-Abhängigkeiten (`pip install -r requirements.txt`)
+3. `xml_proj/dev/migrate_*.py`-Skripte (idempotent, überspringen bereits vorhandene Spalten)
+4. Composer- + npm-Abhängigkeiten, `npm run build` (Frontend-Assets)
+5. `php artisan migrate --force` (Laravel-eigene Tabellen wie `users`)
+6. Laravel-Caches neu aufbauen (`config:cache`, `route:cache`, `view:cache`)
+7. Aktuelle Version in `storage/app/version.json` schreiben — erscheint danach in der
+   Sidebar der App
+
+## Update auf dem lokalen PC
+
+Direkt wie oben beschrieben — Terminal öffnen, ins `TradingJournal`-Verzeichnis wechseln,
+`.\update.ps1` ausführen. Kein Neustart von irgendetwas nötig (kein eigener Webserver-Prozess
+läuft dauerhaft im Hintergrund, `php artisan serve`/dein lokaler Webserver liest Code und
+Caches bei jedem Request neu).
+
+## Update auf dem Server
+
+Gleicher Ablauf, nur zuerst per Remote-Zugriff (RDP, RustDesk o. ä. — siehe
+[Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md)) auf den Server verbinden. Dort:
+
+```powershell
+cd C:\trading\TradingJournal
+.\update.ps1
+```
+
+**Kein Apache-Neustart nötig** — weder `httpd.conf` noch geladene PHP-Module ändern sich
+durch ein normales Code-Update; `php artisan config:cache`/`route:cache`/`view:cache`
+überschreiben die Cache-Dateien direkt, Apache/PHP liest sie beim nächsten Request
+automatisch neu ein.
+
+**Ausnahme:** Falls eine neue xml_proj-Version zusätzliche Python-Pakete braucht, die noch
+nicht in `requirements.txt` standen, oder falls `httpd.conf`/`php.ini` manuell angepasst
+werden müssen (z. B. eine neue PHP-Extension wird plötzlich vorausgesetzt) — das würde das
+Skript nicht automatisch erledigen, dann Schritt für Schritt wie in
+„Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server“ nachbessern.
+
+## Welche Version läuft gerade?
+
+Nach einem `update.ps1`-Lauf steht die aktuelle Version (Git-Tag + Kurz-Hash + Zeitpunkt)
+in der TradingJournal-Sidebar. Manuell nachsehen:
+
+```powershell
+cd TradingJournal
+git describe --tags --always
+git rev-parse --short HEAD
+```
+
+## Troubleshooting
+
+| Problem | Ursache | Lösung |
+|---|---|---|
+| `git pull` schlägt fehl | Lokale, nicht committete Änderungen oder kollidierende untracked Dateien | `git status`/`git diff` im betroffenen Repo prüfen, Änderungen sichern (`git stash`) oder committen |
+| `pip install`/`composer install`/`npm install` schlägt fehl | Fehlende Systemvoraussetzung, oder Netzwerkproblem | Fehlermeldung lesen — meist eindeutig (fehlende Extension, Versionskonflikt); `setup/*-setup.md` für Grundvoraussetzungen prüfen |
+| `php artisan migrate --force` meldet Fehler | Migration setzt eine Spalte voraus, die schon anders existiert (z. B. bei sehr alten, manuell angepassten Installationen) | Fehlermeldung + betroffene Migration in `database/migrations/` ansehen, im Zweifel vor dem nächsten Update-Versuch ein Datenbank-Backup ziehen |
+| Seite zeigt nach dem Update einen alten Zustand | Browser-Cache oder alte Vite-Assets | Hard-Reload im Browser (`Strg+Shift+R`); prüfen, dass `npm run build` im Skript-Log erfolgreich durchlief |

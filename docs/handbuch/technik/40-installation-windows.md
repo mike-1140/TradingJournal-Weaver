@@ -1,11 +1,11 @@
-# Windows-Grundausstattung — benötigte Software
+# Installation: Windows-Grundausstattung
 
 > Ausführlichere, für Einsteiger geschriebene Version mit mehr Erklärungen:
-> [`windows-prerequisites-einsteiger.md`](windows-prerequisites-einsteiger.md).
+> [Benutzerhandbuch: Windows vorbereiten](../benutzer/30-windows-vorbereiten.md).
 
 Diese Seite deckt die **Basis-Software** ab, die auf einem neuen Windows-Rechner installiert
-sein muss, bevor die projektspezifischen Setup-Anleitungen ([`xml_proj-setup.md`](xml_proj-setup.md),
-[TradingJournal-Setup](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup.md))
+sein muss, bevor die projektspezifischen Setup-Anleitungen ([Installation: xml_proj](50-installation-xml-proj.md),
+[TradingJournal-Setup](60-installation-tradingjournal.md))
 funktionieren. Beschreibt lokale Entwicklungsrechner.
 
 ---
@@ -206,7 +206,7 @@ nur ein Vorschlag für den Ordner, unter dem das Projekt lokal liegt. Jeder beli
 funktioniert genauso, z.B. `D:\dev\trading` oder `C:\trading`. **Was tatsächlich zählt:**
 `xml_proj`, `TradingJournal` und `shared_python` müssen als **direkte Geschwisterordner** im
 selben Elternverzeichnis liegen — `xml_proj/src/config.py` lädt seine `.env` relativ zum
-eigenen Skript-Pfad, und `pip install -e ../shared_python` (siehe `xml_proj-setup.md`) geht
+eigenen Skript-Pfad, und `pip install -e ../shared_python` (siehe „Installation: xml_proj“) geht
 relativ genau einen Ordner nach oben und dann in `shared_python`. Liegt einer der drei
 woanders, bricht das.
 
@@ -252,7 +252,7 @@ Ergebnis:
 └── shared_python\
 ```
 
-Danach weiter mit [`xml_proj-setup.md`](xml_proj-setup.md) (ab Schritt 2 — Repo ist ja
+Danach weiter mit [Installation: xml_proj](50-installation-xml-proj.md) (ab Schritt 2 — Repo ist ja
 bereits geklont) und der TradingJournal-Setup-Anleitung.
 
 ### Nur für Entwicklung: vollständiger `xml_proj`-Klon
@@ -297,6 +297,6 @@ python --version  # 3.14
 Sowie XAMPP Control Panel: Apache und MySQL zeigen "Running" (grün), und Abschnitt 6 oben
 (Repos geklont, Ordnerstruktur stimmt).
 
-Danach weiter mit [`xml_proj-setup.md`](xml_proj-setup.md) und der
-[TradingJournal-Setup-Anleitung](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup.md)
+Danach weiter mit [Installation: xml_proj](50-installation-xml-proj.md) und der
+[TradingJournal-Setup-Anleitung](60-installation-tradingjournal.md)
 für die projektspezifische Einrichtung.

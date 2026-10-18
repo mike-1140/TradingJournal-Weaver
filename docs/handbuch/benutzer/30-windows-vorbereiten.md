@@ -1,11 +1,11 @@
-# Windows-Grundausstattung — Anleitung für Einsteiger
+# Windows vorbereiten
 
 Diese Anleitung erklärt Schritt für Schritt, welche Programme auf einem Windows-Rechner
 installiert werden müssen, damit das Trading-Journal-Projekt läuft — **auch wenn du bisher
 wenig Erfahrung mit Programmieren, Terminals oder Entwickler-Tools hast.**
 
 Es gibt zu diesem Thema auch eine kürzere, technischere Version:
-[`windows-prerequisites.md`](windows-prerequisites.md). Diese Seite hier erklärt dieselben
+[Technisches Handbuch: Installation: Windows-Grundausstattung](../technik/40-installation-windows.md). Diese Seite hier erklärt dieselben
 Schritte, nur ausführlicher und mit mehr Erklärungen dazwischen. Am Ende landest du beim
 gleichen Ergebnis.
 
@@ -327,8 +327,8 @@ Die Grundausstattung ist fertig. Als Nächstes folgen die eigentlichen Projekt-E
 — dort geht es dann konkret um dieses Trading-Journal-Projekt (Datenbank befüllen, erste
 Anmeldung usw.):
 
-1. [`xml_proj-setup-einsteiger.md`](xml_proj-setup-einsteiger.md) — Einrichtung der
+1. [xml_proj installieren](40-xml-proj-installieren.md) — Einrichtung der
    Datenimport-Pipeline
-2. [TradingJournal-Setup für Einsteiger](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/tradingjournal-setup-einsteiger.md) — Einrichtung
+2. [TradingJournal-Setup für Einsteiger](50-tradingjournal-installieren.md) — Einrichtung
    der Weboberfläche, ebenfalls für Einsteiger erklärt
-3. [UI-Erstkonfiguration](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/ui-first-run.md) — erste Schritte in der Weboberfläche
+3. [UI-Erstkonfiguration](60-erster-start.md) — erste Schritte in der Weboberfläche

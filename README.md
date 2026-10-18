@@ -34,7 +34,7 @@ Trading-Journal (MySQL) um.
 
 > Diese Anleitung beschreibt die lokale Installation. Für einen eigenen Server (Remote-
 > Zugriff von mehreren Geräten via VPN) siehe stattdessen
-> [`TradingJournal/docs/setup/server-deployment.md`](https://github.com/mike-1140/TradingJournal/blob/master/docs/setup/server-deployment.md).
+> [`docs/handbuch/technik/70-server-betrieb.md`](docs/handbuch/technik/70-server-betrieb.md).
 
 ## Installation
 
@@ -101,12 +101,19 @@ pytest
 
 ## Dokumentation
 
+Die ausführliche Doku ist in zwei Handbücher gegliedert — Übersicht aller Kapitel:
+[`docs/handbuch/`](docs/handbuch/README.md). Beide gibt es auch als PDF (siehe Releases des
+TradingJournal-Repos).
+
+| Handbuch | Für wen | Wichtigste Kapitel |
+|---|---|---|
+| [Benutzerhandbuch](docs/handbuch/README.md#benutzerhandbuch) | Anwender, auch ohne Programmierkenntnisse | [IBKR einrichten](docs/handbuch/benutzer/20-ibkr-einrichten.md), [Windows vorbereiten](docs/handbuch/benutzer/30-windows-vorbereiten.md), [xml_proj installieren](docs/handbuch/benutzer/40-xml-proj-installieren.md) |
+| [Technisches Handbuch](docs/handbuch/README.md#technisches-handbuch) | Technisch Interessierte, Betrieb, Mitwirkende | [Architektur und Pipeline](docs/handbuch/technik/10-architektur-und-pipeline.md), [Aufbau einer Flex Query](docs/handbuch/technik/20-aufbau-flexquery.md), [Befehlsreferenz](docs/handbuch/technik/30-befehlsreferenz.md), [Installation (technisch)](docs/handbuch/technik/50-installation-xml-proj.md) |
+
+Weitere Dateien in diesem Repo:
+
 | Datei | Inhalt |
 |---|---|
-| `docs/HELP.md` | Befehlsreferenz aller Scripts (Argumente, Beispiele, typische Abläufe) |
-| `docs/pipeline-workflow.md` | Technische Gesamtdokumentation (Architektur, FIFO-Logik, DB-Schema) |
-| `docs/setup/windows-prerequisites(-einsteiger).md` | Grundausstattung (Git, XAMPP, Composer, Node.js, Python) — auch für TradingJournal |
-| `docs/setup/xml_proj-setup(-einsteiger).md` | Setup-Anleitung für dieses Repo, technisch bzw. für Einsteiger |
 | `CLAUDE.md` | Entwickler-Notizen (Module, Konventionen, bekannte Fixes) |
 | `CONTRIBUTING.md` | Wie beitragen — Konventionen, Test-Erwartung, PR-Ablauf |
 | `SECURITY.md` | Meldeweg für Sicherheitslücken |

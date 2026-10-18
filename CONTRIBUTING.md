@@ -30,7 +30,7 @@ per Tripwire verifiziert: Fix kurz zurückdrehen → Test muss fehlschlagen).
 - Finanzwerte immer als `Decimal`, nie als `float` — `to_decimal()` aus `trading_common`
   bzw. `src/utils/div_utils.py` verwenden
 - Secrets ausschließlich über `.env` (`os.getenv()`), niemals im Code
-- Weitere Architektur-/Modul-Details in [`CLAUDE.md`](CLAUDE.md) und `docs/pipeline-workflow.md`
+- Weitere Architektur-/Modul-Details in [`CLAUDE.md`](CLAUDE.md) und `docs/handbuch/technik/10-architektur-und-pipeline.md`
 
 ## Secrets
 

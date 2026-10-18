@@ -19,7 +19,7 @@ $ShortcutPath = Join-Path $Desktop "xml_proj Pipeline.lnk"
 
 $VenvActivate = Join-Path $XmlProjDir ".venv\Scripts\Activate.ps1"
 if (-not (Test-Path $VenvActivate)) {
-    Write-Warning "Keine .venv gefunden unter $VenvActivate - siehe docs/setup/xml_proj-setup.md Schritt 2 (python -m venv .venv). Verknuepfung wird trotzdem angelegt."
+    Write-Warning "Keine .venv gefunden unter $VenvActivate - siehe docs/handbuch/technik/50-installation-xml-proj.md Schritt 2 (python -m venv .venv). Verknuepfung wird trotzdem angelegt."
 }
 
 $InnerCommand = "Set-Location '$XmlProjDir'; . '$VenvActivate'"

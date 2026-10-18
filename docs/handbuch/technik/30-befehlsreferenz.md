@@ -1,4 +1,4 @@
-# Trading Journal 3.0 — Befehlsreferenz
+# Befehlsreferenz
 
 ## Environments
 
@@ -285,7 +285,7 @@ python -m src.import_csv_snapshots
 
 **Achtung:** Cash-Positionen werden fest auf EUR + USD verdrahtet erfasst (`cash_eur`/`cash_usd`
 in `sql/account_snapshots.sql`, der CSV-Parser sucht explizit nach diesen zwei Währungen). Cash in einer
-dritten Währung wird stillschweigend nicht importiert. Details + Begründung: `docs/pipeline-workflow.md` § 8.2 `account_snapshots`.
+dritten Währung wird stillschweigend nicht importiert. Details + Begründung: `docs/handbuch/technik/10-architektur-und-pipeline.md` § 8.2 `account_snapshots`.
 
 ---
 
