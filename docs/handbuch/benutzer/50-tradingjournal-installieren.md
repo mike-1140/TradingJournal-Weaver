@@ -6,7 +6,7 @@ Diese Anleitung richtet die Weboberfläche (TradingJournal) auf einem Rechner ei
 **Bevor du hier startest:** Die Grundausstattung (XAMPP, Composer, Node.js, ...) muss
 bereits installiert sein — siehe [Windows-Grundausstattung für Einsteiger](30-windows-vorbereiten.md). Und die
 Datenimport-Pipeline sollte schon eingerichtet sein — siehe
-[xml_proj-Setup für Einsteiger](40-xml-proj-installieren.md).
+[TradingJournal-Weaver-Setup für Einsteiger](40-weaver-installieren.md).
 
 ---
 
@@ -24,7 +24,7 @@ Datenimport-Pipeline sollte schon eingerichtet sein — siehe
 
 ## 1. Projekt herunterladen
 
-Ein PowerShell-Fenster öffnen (Windows-Taste drücken, `PowerShell` eintippen, Enter) und in den Ordner wechseln, in dem auch `xml_proj` schon liegt (z.B. `C:\Users\<dein Name>\trading`):
+Ein PowerShell-Fenster öffnen (Windows-Taste drücken, `PowerShell` eintippen, Enter) und in den Ordner wechseln, in dem auch `TradingJournal-Weaver` schon liegt (z.B. `C:\Users\<dein Name>\trading`):
 
 ```powershell
 cd C:\Users\<dein Name>\trading
@@ -91,10 +91,10 @@ php artisan migrate
 
 **Wichtig:** Ohne diesen Schritt gibt es später keine Login-Seite.
 
-Die eigentlichen Handelsdaten-Tabellen kommen von einem anderen Programm (`xml_proj`) — die sollten laut der `xml_proj`-Anleitung schon angelegt worden sein. Falls nicht, jetzt nachholen (aus dem `xml_proj`-Ordner heraus, `<dein Name>_` durch den eigenen gewählten Namen ersetzen):
+Die eigentlichen Handelsdaten-Tabellen kommen von einem anderen Programm (`TradingJournal-Weaver`) — die sollten laut der `TradingJournal-Weaver`-Anleitung schon angelegt worden sein. Falls nicht, jetzt nachholen (aus dem `TradingJournal-Weaver`-Ordner heraus, `<dein Name>_` durch den eigenen gewählten Namen ersetzen):
 
 ```powershell
-cd ..\xml_proj
+cd ..\TradingJournal-Weaver
 python -m tools.maintenance.reset_IBKR_DB money <dein Name>_
 cd ..\TradingJournal
 ```
@@ -188,4 +188,4 @@ Nach der Ersteinrichtung, für den täglichen Gebrauch:
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | [Technisches Handbuch: Installation: TradingJournal](../technik/60-installation-tradingjournal.md) | Dieselben Schritte, technischer/kompakter, plus fortgeschrittene Themen (Apache-VirtualHost) |
 | [Erster Start — UI-Erstkonfiguration](60-erster-start.md)                 | Was nach dem ersten Login einzustellen ist                                                   |
-| [xml_proj-Setup](../technik/50-installation-xml-proj.md) | Setup der Datenimport-Pipeline |
+| [TradingJournal-Weaver-Setup](../technik/50-installation-weaver.md) | Setup der Datenimport-Pipeline |

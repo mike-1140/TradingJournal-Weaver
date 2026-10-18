@@ -6,7 +6,7 @@ noch nicht sichtbar ist, warum eine Position offen bleibt oder woher eine Kennza
 
 Beteiligt sind zwei Programme, die sich eine MySQL-Datenbank teilen:
 
-- **xml_proj** (Python) holt die Berichte von IBKR, liest sie ein und rechnet sie aus. Es *schreibt*
+- **TradingJournal-Weaver** (Python) holt die Berichte von IBKR, liest sie ein und rechnet sie aus. Es *schreibt*
   die Trading-Daten.
 - **TradingJournal** (Laravel-Web-App) zeigt diese Daten an. Es *liest* die Trading-Daten und
   schreibt nur seine eigenen Einträge (Trade Log, Psychologie, Benutzer).
@@ -74,7 +74,7 @@ aufgebaut ist und welche Felder der Import daraus liest, beschreibt das technisc
 
 ## 3. Einlesen: Abholen und Import
 
-Das Einlesen erledigt ein einziger Befehl in `xml_proj`, der alle Schritte nacheinander ausführt
+Das Einlesen erledigt ein einziger Befehl in `TradingJournal-Weaver`, der alle Schritte nacheinander ausführt
 und typischerweise einmal täglich automatisch läuft (Windows-Aufgabenplanung oder Cronjob):
 
 ```

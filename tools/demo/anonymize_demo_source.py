@@ -9,7 +9,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # xml_proj/ in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # TradingJournal-Weaver/ in sys.path
 
 from src.utils.path_utils import get_project_root
 

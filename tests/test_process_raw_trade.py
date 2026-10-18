@@ -1,5 +1,5 @@
 # Ebene-2-Tests fuer process_raw_trade() -- die FIFO-Fallunterscheidung aus
-# process_ibkr_trades.py (siehe Case-Tabelle in xml_proj/CLAUDE.md). Nutzt
+# process_ibkr_trades.py (siehe Case-Tabelle in TradingJournal-Weaver/CLAUDE.md). Nutzt
 # FakeTradeRepository/FakeInventoryTracker aus conftest.py statt echter DB.
 
 from decimal import Decimal

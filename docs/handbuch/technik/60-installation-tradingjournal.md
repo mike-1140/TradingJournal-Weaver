@@ -5,10 +5,10 @@
 
 Installations- und Erstinitialisierungs-Anleitung für `TradingJournal` auf einem neuen Rechner.
 
-**Voraussetzung:** [`xml_proj`](https://github.com/mike-1140/xml_proj) ist bereits eingerichtet
-(siehe [xml_proj-Setup](50-installation-xml-proj.md))
+**Voraussetzung:** [`TradingJournal-Weaver`](https://github.com/mike-1140/TradingJournal-Weaver) ist bereits eingerichtet
+(siehe [TradingJournal-Weaver-Setup](50-installation-weaver.md))
 — TradingJournal zeigt nur Daten an, das Trading-Datenbankschema wird ausschließlich über
-`xml_proj` verwaltet.
+`TradingJournal-Weaver` verwaltet.
 
 **Grundlegende Software** (XAMPP für PHP/Apache/MariaDB, Composer, Node.js) muss vorher
 installiert sein — siehe [Windows-Grundausstattung](40-installation-windows.md).
@@ -23,7 +23,7 @@ Diese Seite setzt das voraus und beschreibt nur noch die projektspezifische Einr
 | PHP                  | ^8.2 (Projekt läuft mit Laravel 12) | Aus XAMPP, siehe Windows-Grundausstattung   |
 | Composer             | aktuell                             |                                             |
 | Node.js + npm        | aktuell                             | Für Vite-Asset-Build                        |
-| MySQL/MariaDB Server | via XAMPP                           | Dieselbe Instanz wie `xml_proj`, Port 3306  |
+| MySQL/MariaDB Server | via XAMPP                           | Dieselbe Instanz wie `TradingJournal-Weaver`, Port 3306  |
 
 ---
 
@@ -64,7 +64,7 @@ Skripts auf diesem System deaktiviert ist"* kommt (Standardeinstellung auf viele
 Windows-Rechnern): einmalig als Administrator
 `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`, danach neues Terminal öffnen und den Befehl erneut ausführen.
 
-**Desktop-Verknüpfung (optional, einmalig einrichten):** `create-desktop-shortcut.ps1` (ebenfalls im `TradingJournal`-Ordner) legt eine `.lnk`-Verknüpfung auf dem Desktop an, die per Doppelklick PowerShell direkt im `TradingJournal`-Ordner öffnet — danach z.B. sofort `php artisan serve` möglich. Genau wie bei `xml_proj` der Umweg über eine `.lnk`-Verknüpfung, weil ein `.ps1` bei Doppelklick nicht automatisch PowerShell startet:
+**Desktop-Verknüpfung (optional, einmalig einrichten):** `create-desktop-shortcut.ps1` (ebenfalls im `TradingJournal`-Ordner) legt eine `.lnk`-Verknüpfung auf dem Desktop an, die per Doppelklick PowerShell direkt im `TradingJournal`-Ordner öffnet — danach z.B. sofort `php artisan serve` möglich. Genau wie bei `TradingJournal-Weaver` der Umweg über eine `.lnk`-Verknüpfung, weil ein `.ps1` bei Doppelklick nicht automatisch PowerShell startet:
 
 ```powershell
 . .\TradingJournal\create-desktop-shortcut.ps1
@@ -96,7 +96,7 @@ TRADING_DB_PASSWORD=<mysql-pass>
 `DB_*` steuert die Laravel-eigene Datenbank (`users`, `sessions`, `cache` — Name frei
 wählbar, z.B. `ibkr_laravel`). `TRADING_DB_*` steuert Zugangsdaten für die fünf
 Trading-Datenbanken. Deren **Namen selbst** (`ibkr_money`, `ibkr_paper`, `ibkr_test`,
-`ibkr_autom_money`, `ibkr_autom_paper`) sind in `config/database.php` fest hinterlegt und nicht über `.env` konfigurierbar — sie müssen mit den in `xml_proj/.env` (`DB_NAME_*`) definierten Namen übereinstimmen.
+`ibkr_autom_money`, `ibkr_autom_paper`) sind in `config/database.php` fest hinterlegt und nicht über `.env` konfigurierbar — sie müssen mit den in `TradingJournal-Weaver/.env` (`DB_NAME_*`) definierten Namen übereinstimmen.
 
 ## 3. Laravel-eigene Tabellen anlegen
 
@@ -110,11 +110,11 @@ existiert keine `users`-Tabelle und kein Login ist möglich.
 
 ## 4. Trading-Tabellen bereitstellen
 
-Kein Laravel-Migrationsschritt. Falls noch nicht geschehen, in `xml_proj` ausführen
-(siehe [xml_proj-Setup](50-installation-xml-proj.md) Schritt 5):
+Kein Laravel-Migrationsschritt. Falls noch nicht geschehen, in `TradingJournal-Weaver` ausführen
+(siehe [TradingJournal-Weaver-Setup](50-installation-weaver.md) Schritt 5):
 
 ```bash
-cd ../xml_proj
+cd ../TradingJournal-Weaver
 python -m tools.maintenance.reset_IBKR_DB money dein_user_
 ```
 
@@ -146,7 +146,7 @@ php artisan auth:create-user "Dein Name" dein_name@example.com "PASSWORT" --pref
 Der Befehl gibt nach dem Anlegen den passenden `reset_IBKR_DB`-Aufruf für den gewählten Prefix aus, falls Schritt 4 noch nicht erledigt wurde.
 
 **Für einen zusätzlichen, weiteren User** (z.B. ein Familienmitglied, nachdem die
-Grundinstallation schon steht): Schritt 4 (`xml_proj`-Tabellen) mit dem neuen Prefix
+Grundinstallation schon steht): Schritt 4 (`TradingJournal-Weaver`-Tabellen) mit dem neuen Prefix
 wiederholen, danach diesen Schritt hier noch einmal mit den neuen Zugangsdaten und
 **demselben Prefix** ausführen.
 
@@ -224,4 +224,4 @@ Konfigurationsfehler prüfen, danach `C:\xampp\apache\bin\httpd.exe -t` (testet 
 | Datei                                                | Inhalt                                                                   |
 | ---------------------------------------------------- | ------------------------------------------------------------------------ |
 | `CLAUDE.md`                                          | Entwickler-Notizen, Architektur-Patterns (Environment/Zeitfilter-Traits) |
-| [xml_proj-Setup](50-installation-xml-proj.md) | Setup der Datenimport-Pipeline (Python) |
+| [TradingJournal-Weaver-Setup](50-installation-weaver.md) | Setup der Datenimport-Pipeline (Python) |

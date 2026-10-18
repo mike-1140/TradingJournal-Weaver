@@ -149,7 +149,7 @@ E-Mail (Betreff beginnt mit *Activity Flex for …*).
 > [!WARNING]
 > IBKR schickt die Berichte **immer an die E-Mail-Adresse, die beim Anlegen des Kontos
 > hinterlegt wurde** — eine eigene Empfängeradresse nur für Berichte gibt es nicht. Das Postfach,
-> das der Abruf in `xml_proj` liest (`IMAP_USERNAME`), muss also diese Adresse sein oder die
+> das der Abruf in `TradingJournal-Weaver` liest (`IMAP_USERNAME`), muss also diese Adresse sein oder die
 > Mails dorthin weiterleiten. Bei einer Weiterleitung muss der Absender
 > `donotreply@interactivebrokers.com` erhalten bleiben — der Abruf filtert danach.
 
@@ -171,12 +171,12 @@ klicken (Abschnitt 1, Nr. 4). IBKR nennt den Zugangsschlüssel **Prüfcode** (en
 | Nr. | Element | Bedeutung |
 |---|---|---|
 | — | **Flex-Web-Service-Status** | muss angehakt sein |
-| 1 | **Aktiver Prüfcode** | der Schlüssel für `xml_proj` |
+| 1 | **Aktiver Prüfcode** | der Schlüssel für `TradingJournal-Weaver` |
 | 2 | **Aktivierungszeitraum** | Gültigkeit — rund **ein Jahr** |
 | 3 | **Neuen Prüfcode generieren** | erzeugt einen neuen Schlüssel, der alte wird **sofort ungültig** |
 
 Gibt es noch keinen Prüfcode, wird er mit *Neuen Prüfcode generieren* erstellt. In
-`xml_proj/.env` werden Prüfcode und Query-ID als Paar eingetragen:
+`TradingJournal-Weaver/.env` werden Prüfcode und Query-ID als Paar eingetragen:
 
 ```
 IBKR_FLEX_QUERIES=Prüfcode:Query-ID
@@ -257,7 +257,7 @@ Journal nicht nötig.
 
 ## 7. Zusammenfassung: was wohin gehört
 
-| Aus dem Kundenportal | Eintrag in `xml_proj` |
+| Aus dem Kundenportal | Eintrag in `TradingJournal-Weaver` |
 |---|---|
 | E-Mail-Adresse des Kontos (bzw. Postfach mit Weiterleitung) | `.env`: `IMAP_USERNAME`, `IMAP_PASSWORD`, `IMAP_SERVER` |
 | Prüfcode + Query-ID der Web-API-Query | `.env`: `IBKR_FLEX_QUERIES=Prüfcode:Query-ID` |

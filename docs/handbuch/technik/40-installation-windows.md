@@ -4,7 +4,7 @@
 > [Benutzerhandbuch: Windows vorbereiten](../benutzer/30-windows-vorbereiten.md).
 
 Diese Seite deckt die **Basis-Software** ab, die auf einem neuen Windows-Rechner installiert
-sein muss, bevor die projektspezifischen Setup-Anleitungen ([Installation: xml_proj](50-installation-xml-proj.md),
+sein muss, bevor die projektspezifischen Setup-Anleitungen ([Installation: TradingJournal-Weaver](50-installation-weaver.md),
 [TradingJournal-Setup](60-installation-tradingjournal.md))
 funktionieren. Beschreibt lokale Entwicklungsrechner.
 
@@ -18,7 +18,7 @@ funktionieren. Beschreibt lokale Entwicklungsrechner.
 | XAMPP | Apache, PHP, MySQL (lokale DB) | [apachefriends.org](https://www.apachefriends.org/) |
 | Composer | PHP-Abhängigkeiten (TradingJournal) | [getcomposer.org](https://getcomposer.org/download/) |
 | Node.js + npm | Frontend-Assets bauen (Vite) | [nodejs.org](https://nodejs.org/) (LTS) |
-| Python 3.14 | Import-Pipeline (xml_proj) | [python.org](https://www.python.org/downloads/) |
+| Python 3.14 | Import-Pipeline (TradingJournal-Weaver) | [python.org](https://www.python.org/downloads/) |
 
 ("Artisan" ist **kein** eigenes Programm — siehe Hinweis am Ende.)
 
@@ -149,7 +149,7 @@ C:\xampp\mysql\bin\mysqld.exe --remove MySQL
 ```
 
 **Datenbank-Zugangsdaten:** Frisches XAMPP hat den User `root` **ohne Passwort**. Für dieses
-Projekt in `.env`/`xml_proj/.env` entsprechend `DB_PASS=`/`TRADING_DB_PASSWORD=` leer lassen,
+Projekt in `.env`/`TradingJournal-Weaver/.env` entsprechend `DB_PASS=`/`TRADING_DB_PASSWORD=` leer lassen,
 oder — empfohlen — ein Passwort setzen (`ALTER USER 'root'@'localhost' IDENTIFIED BY '...'`)
 und in beiden `.env`-Dateien eintragen.
 
@@ -204,9 +204,9 @@ Set-Location C:\Users\<Benutzername>\trading
 **`C:\Users\<Benutzername>\trading\` ist frei wählbar, keine technische Vorgabe** — es ist
 nur ein Vorschlag für den Ordner, unter dem das Projekt lokal liegt. Jeder beliebige Ordner
 funktioniert genauso, z.B. `D:\dev\trading` oder `C:\trading`. **Was tatsächlich zählt:**
-`xml_proj`, `TradingJournal` und `shared_python` müssen als **direkte Geschwisterordner** im
-selben Elternverzeichnis liegen — `xml_proj/src/config.py` lädt seine `.env` relativ zum
-eigenen Skript-Pfad, und `pip install -e ../shared_python` (siehe „Installation: xml_proj“) geht
+`TradingJournal-Weaver`, `TradingJournal` und `shared_python` müssen als **direkte Geschwisterordner** im
+selben Elternverzeichnis liegen — `TradingJournal-Weaver/src/config.py` lädt seine `.env` relativ zum
+eigenen Skript-Pfad, und `pip install -e ../shared_python` (siehe „Installation: TradingJournal-Weaver“) geht
 relativ genau einen Ordner nach oben und dann in `shared_python`. Liegt einer der drei
 woanders, bricht das.
 
@@ -225,7 +225,7 @@ ist das im Regelfall automatisch der Fall.
 
 ### Repos klonen
 
-Bei `xml_proj` per Voreinstellung nur die zum **Betreiben** nötigen Dateien holen, ohne
+Bei `TradingJournal-Weaver` per Voreinstellung nur die zum **Betreiben** nötigen Dateien holen, ohne
 Test-Suite/Tiefendokumentation/persönliche Einmal-Skripte (per Git **Sparse-Checkout** —
 kein Abweichen von "alles kommt aus Git", `git pull` für spätere Updates funktioniert
 danach ganz normal weiter). `TradingJournal` und `shared_python` sind bereits ohne
@@ -233,8 +233,8 @@ Zusatz-Ballast, dort reicht ein normaler `git clone`:
 
 ```powershell
 # Im leeren Root-Ordner (siehe oben):
-git clone --filter=blob:none --no-checkout https://github.com/mike-1140/xml_proj.git
-cd xml_proj
+git clone --filter=blob:none --no-checkout https://github.com/mike-1140/TradingJournal-Weaver.git
+cd TradingJournal-Weaver
 git sparse-checkout init --cone
 git sparse-checkout set sql src tools/maintenance docs
 git checkout master
@@ -247,22 +247,22 @@ git clone https://github.com/mike-1140/shared_python.git
 Ergebnis:
 ```
 <gewählter Root-Ordner>\
-├── xml_proj\    (nur sql/, src/, tools/maintenance/, docs/ + Root-Dateien wie run_pipeline.py)
+├── TradingJournal-Weaver\    (nur sql/, src/, tools/maintenance/, docs/ + Root-Dateien wie run_pipeline.py)
 ├── TradingJournal\
 └── shared_python\
 ```
 
-Danach weiter mit [Installation: xml_proj](50-installation-xml-proj.md) (ab Schritt 2 — Repo ist ja
+Danach weiter mit [Installation: TradingJournal-Weaver](50-installation-weaver.md) (ab Schritt 2 — Repo ist ja
 bereits geklont) und der TradingJournal-Setup-Anleitung.
 
-### Nur für Entwicklung: vollständiger `xml_proj`-Klon
+### Nur für Entwicklung: vollständiger `TradingJournal-Weaver`-Klon
 
-Wer an `xml_proj` selbst mitentwickeln will, braucht zusätzlich die Test-Suite,
+Wer an `TradingJournal-Weaver` selbst mitentwickeln will, braucht zusätzlich die Test-Suite,
 Tiefendokumentation und die persönlichen Einmal-Skripte aus `dev/` — dafür einfach ganz
-normal klonen, ohne Sparse-Checkout, **statt** der obigen drei `xml_proj`-Zeilen:
+normal klonen, ohne Sparse-Checkout, **statt** der obigen drei `TradingJournal-Weaver`-Zeilen:
 
 ```powershell
-git clone https://github.com/mike-1140/xml_proj.git
+git clone https://github.com/mike-1140/TradingJournal-Weaver.git
 ```
 
 ---
@@ -297,6 +297,6 @@ python --version  # 3.14
 Sowie XAMPP Control Panel: Apache und MySQL zeigen "Running" (grün), und Abschnitt 6 oben
 (Repos geklont, Ordnerstruktur stimmt).
 
-Danach weiter mit [Installation: xml_proj](50-installation-xml-proj.md) und der
+Danach weiter mit [Installation: TradingJournal-Weaver](50-installation-weaver.md) und der
 [TradingJournal-Setup-Anleitung](60-installation-tradingjournal.md)
 für die projektspezifische Einrichtung.

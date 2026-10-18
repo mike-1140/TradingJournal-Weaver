@@ -12,7 +12,7 @@ nur `.env`-artige lokale Overrides (Shell-Env-Var, `.env` selbst).
 **Warum `environment=test` statt `paper`:** Der normale, accountId-geroutete Import
 verlangt einen passenden Eintrag in `accounts.toml` UND `users.toml` (Tabellen-Prefix
 wird dort aufgelöst) — für einen Wegwerf-Demo-User müsste man dafür kurzzeitig die
-versionierte `users.toml` anfassen. xml_proj hat für genau diesen Fall bereits einen
+versionierte `users.toml` anfassen. TradingJournal-Weaver hat für genau diesen Fall bereits einen
 TEST-Modus (`import_ibkr_trades.py test <prefix>`), der ganz ohne accountId-Routing
 funktioniert — keine Konfigdatei-Änderung nötig. Die Demo läuft dadurch technisch
 unter Environment `TEST` statt `PAPER`; für eine öffentliche Demo ist das Label
@@ -36,7 +36,7 @@ wegverschieben. Nur mit leerem Ordner weitermachen.
 ## 1. Anonymisierte Quelldateien erzeugen
 
 ```powershell
-cd C:\Users\MikeDev\trading\xml_proj
+cd C:\Users\MikeDev\trading\TradingJournal-Weaver
 .venv\Scripts\python -m tools.demo.anonymize_demo_source
 ```
 
@@ -111,7 +111,7 @@ Zusätzlich die Psychology-Modul-Tabellen anlegen (füllt die Demo mit sinnvolle
 Default-Regelwerken statt einer leeren Sektion):
 
 ```powershell
-cd ..\xml_proj
+cd ..\TradingJournal-Weaver
 .venv\Scripts\python -m tools.maintenance.setup_psychology_tables test demo_
 ```
 
@@ -122,7 +122,7 @@ andere DB).
 ## 5. Dump erzeugen
 
 ```powershell
-mysqldump -u root --default-character-set=utf8mb4 --result-file=C:\Users\MikeDev\trading\xml_proj\tools\demo\output\demo_seed.sql ibkr_demo
+mysqldump -u root --default-character-set=utf8mb4 --result-file=C:\Users\MikeDev\trading\TradingJournal-Weaver\tools\demo\output\demo_seed.sql ibkr_demo
 ```
 
 Eine einzige, in sich geschlossene Datenbank — kein Prefix-Filtern nötig, `ibkr_demo`
@@ -149,7 +149,7 @@ Danach lokalen Dev-Server starten, als Demo-User einloggen, TEST-Umgebung prüfe
 ## 7. Aufräumen
 
 ```powershell
-cd ..\xml_proj
+cd ..\TradingJournal-Weaver
 Remove-Item Env:\DB_NAME_TEST
 
 cd ..\TradingJournal

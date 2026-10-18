@@ -1,13 +1,20 @@
-# Trading Journal 3.0 — xml_proj
+# TradingJournal-Weaver
+
+> Bis Oktober 2026 hieß dieses Repo **`xml_proj`**. Alte Links und Klone leitet GitHub
+> automatisch weiter; wer einen lokalen Klon hat, siehe „Umbenennung“ in
+> [Updates einspielen](docs/handbuch/benutzer/80-updates.md).
+
+Der Name: Der *Weaver* („Weber“) verwebt die einzelnen Trades aus den IBKR-Berichten zu
+Kampagnen, Spreads und P&L-Verläufen.
 
 Import- und Processing-Pipeline für **IBKR FlexQuery-Reports** (XML) und
 **Activity Statements** (CSV). Wandelt die IBKR-Rohdaten in ein strukturiertes
 Trading-Journal (MySQL) um.
 
-> **Teil eines Zwei-Repo-Setups:** xml_proj importiert die Rohdaten und verwaltet das
+> **Teil eines Zwei-Repo-Setups:** TradingJournal-Weaver importiert die Rohdaten und verwaltet das
 > Datenbankschema. Für eine Web-Oberfläche zur Auswertung siehe
 > [TradingJournal](https://github.com/mike-1140/TradingJournal) (Laravel/Livewire) —
-> **xml_proj muss zuerst eingerichtet werden**, TradingJournal zeigt nur an, was hier
+> **TradingJournal-Weaver muss zuerst eingerichtet werden**, TradingJournal zeigt nur an, was hier
 > bereits in der Datenbank steht.
 
 ## Features
@@ -39,8 +46,8 @@ Trading-Journal (MySQL) um.
 ## Installation
 
 ```bash
-git clone https://github.com/mike-1140/xml_proj.git
-cd xml_proj
+git clone https://github.com/mike-1140/TradingJournal-Weaver.git
+cd TradingJournal-Weaver
 
 python -m venv .venv
 .venv\Scripts\activate       # Windows; unter Linux/macOS: source .venv/bin/activate
@@ -107,8 +114,8 @@ TradingJournal-Repos).
 
 | Handbuch | Für wen | Wichtigste Kapitel |
 |---|---|---|
-| [Benutzerhandbuch](docs/handbuch/README.md#benutzerhandbuch) | Anwender, auch ohne Programmierkenntnisse | [IBKR einrichten](docs/handbuch/benutzer/20-ibkr-einrichten.md), [Windows vorbereiten](docs/handbuch/benutzer/30-windows-vorbereiten.md), [xml_proj installieren](docs/handbuch/benutzer/40-xml-proj-installieren.md) |
-| [Technisches Handbuch](docs/handbuch/README.md#technisches-handbuch) | Technisch Interessierte, Betrieb, Mitwirkende | [Architektur und Pipeline](docs/handbuch/technik/10-architektur-und-pipeline.md), [Aufbau einer Flex Query](docs/handbuch/technik/20-aufbau-flexquery.md), [Befehlsreferenz](docs/handbuch/technik/30-befehlsreferenz.md), [Installation (technisch)](docs/handbuch/technik/50-installation-xml-proj.md) |
+| [Benutzerhandbuch](docs/handbuch/README.md#benutzerhandbuch) | Anwender, auch ohne Programmierkenntnisse | [IBKR einrichten](docs/handbuch/benutzer/20-ibkr-einrichten.md), [Windows vorbereiten](docs/handbuch/benutzer/30-windows-vorbereiten.md), [TradingJournal-Weaver installieren](docs/handbuch/benutzer/40-weaver-installieren.md) |
+| [Technisches Handbuch](docs/handbuch/README.md#technisches-handbuch) | Technisch Interessierte, Betrieb, Mitwirkende | [Architektur und Pipeline](docs/handbuch/technik/10-architektur-und-pipeline.md), [Aufbau einer Flex Query](docs/handbuch/technik/20-aufbau-flexquery.md), [Befehlsreferenz](docs/handbuch/technik/30-befehlsreferenz.md), [Installation (technisch)](docs/handbuch/technik/50-installation-weaver.md) |
 
 Weitere Dateien in diesem Repo:
 
@@ -148,7 +155,7 @@ ausgeschlossen.
 - Die Lizenzhinweise entfernen oder die Software unter einer anderen Lizenz weitergeben
 
 **Kommerzielle Nutzung gewünscht?** Wer das Projekt kommerziell einsetzen möchte, kann über ein
-[GitHub-Issue](https://github.com/mike-1140/xml_proj/issues) Kontakt aufnehmen — eine separate Lizenz ist im Einzelfall möglich.
+[GitHub-Issue](https://github.com/mike-1140/TradingJournal-Weaver/issues) Kontakt aufnehmen — eine separate Lizenz ist im Einzelfall möglich.
 
 > Diese Zusammenfassung dient der Orientierung. Rechtlich verbindlich ist allein der englische
 > Lizenztext in [`LICENSE`](LICENSE).

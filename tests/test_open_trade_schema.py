@@ -1,5 +1,5 @@
 # Regressionstests fuer dokumentierte, bereits gefixte Bugs in OpenTradeSchema
-# (siehe xml_proj/CLAUDE.md "Known Bugs"). Ohne diese Tests kann derselbe Fehler
+# (siehe TradingJournal-Weaver/CLAUDE.md "Known Bugs"). Ohne diese Tests kann derselbe Fehler
 # unbemerkt zurueckkehren -- eigener Refactor, externer PR oder eine Nachbar-
 # Aenderung, die die Funktion nur indirekt beruehrt.
 

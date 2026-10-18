@@ -54,18 +54,18 @@ Download: https://www.python.org/downloads/ — **"Add python.exe to PATH"** +
 
 Download: https://git-scm.com/download/win, Standardoptionen.
 
-### 3. Nur `xml_proj` klonen
+### 3. Nur `TradingJournal-Weaver` klonen
 
 ```powershell
 mkdir C:\trading
 cd C:\trading
-git clone https://github.com/mike-1140/xml_proj.git
+git clone https://github.com/mike-1140/TradingJournal-Weaver.git
 ```
 
 ### 4. Minimal-Dependencies
 
 ```powershell
-cd C:\trading\xml_proj
+cd C:\trading\TradingJournal-Weaver
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install python-dotenv requests
 ```
@@ -198,7 +198,7 @@ if ($total -eq 0) {
     exit 0
 }
 
-ssh -i $KeyPath $RemoteTarget "cd C:\trading\xml_proj && .venv\Scripts\python run_pipeline.py"
+ssh -i $KeyPath $RemoteTarget "cd C:\trading\TradingJournal-Weaver && .venv\Scripts\python run_pipeline.py"
 Assert-LastExit "run_pipeline.py (Server)"
 
 Write-Host "Fertig." -ForegroundColor Green
@@ -212,7 +212,7 @@ weiterzulaufen.
 ## Täglicher Ablauf
 
 ```powershell
-cd C:\trading\xml_proj
+cd C:\trading\TradingJournal-Weaver
 .\.venv\Scripts\python.exe -m src.get_flexquery_emails
 
 cd C:\trading

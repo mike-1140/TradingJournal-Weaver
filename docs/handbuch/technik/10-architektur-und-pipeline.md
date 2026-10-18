@@ -1,6 +1,6 @@
 # Architektur und Import-Pipeline
 
-**Projekt:** xml_proj — Trading-Journal Import-System  
+**Projekt:** TradingJournal-Weaver — Trading-Journal Import-System  
 **Stand:** 2026-08-06 (inkl. Running Balance, feingranulare LedgerActions, Snapshot-Import,
 incoming_mail/incoming_api-Trennung, CLI-Override für import_ibkr_trades.py)  
 **Ziel:** Vollständige Dokumentation des Datenflusses von IBKR-Rohdaten (XML/CSV) bis zur befüllten MySQL-Datenbank
@@ -747,7 +747,7 @@ account_snapshots ← Kontostand-Snapshots (aus CSV)
 ### 8.2 Schlüsseltabellen im Detail
 
 Die folgenden Spaltenlisten sind auf die fachlich relevanten Felder gekürzt, aber
-**wörtlich aus `xml_proj/sql/*.sql` übernommen** (keine erfundenen/veralteten Spalten) —
+**wörtlich aus `TradingJournal-Weaver/sql/*.sql` übernommen** (keine erfundenen/veralteten Spalten) —
 für die vollständige Liste inkl. Typen/Defaults ist `sql/*.sql` die Quelle der Wahrheit.
 
 #### `trades_raw` — Rohdaten-Puffer
@@ -1263,7 +1263,7 @@ Basis: Kombination aus trades_open + account_snapshots + TWS API
 ## Anhang: Wichtige Dateipfade
 
 ```
-xml_proj/
+TradingJournal-Weaver/
 ├── run_pipeline.py              ← Einstiegspunkt (orchestriert alle Phasen)
 ├── pipeline.toml                ← Pipeline-Konfiguration (aktive User/Environments, Steps) — maschinenspezifisch, gitignored
 ├── users.toml                   ← Zentrale User↔Prefix-Registry — versioniert, teamweit

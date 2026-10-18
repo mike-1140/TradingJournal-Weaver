@@ -273,7 +273,7 @@ Jetzt die folgenden drei Befehle **einzeln, nacheinander** eintippen (nach jeder
 Enter drücken und warten, bis der Download fertig ist, bevor die nächste Zeile kommt):
 
 ```powershell
-git clone https://github.com/mike-1140/xml_proj.git
+git clone https://github.com/mike-1140/TradingJournal-Weaver.git
 ```
 ```powershell
 git clone https://github.com/mike-1140/TradingJournal.git
@@ -286,7 +286,7 @@ Beim allerersten dieser Befehle öffnet sich vermutlich ein Browser-Fenster mit 
 GitHub-Anmeldeseite — dort einloggen, danach läuft alles automatisch weiter. Das passiert
 nur einmal.
 
-**Ergebnis:** Im Ordner `trading` liegen jetzt drei Unterordner: `xml_proj`,
+**Ergebnis:** Im Ordner `trading` liegen jetzt drei Unterordner: `TradingJournal-Weaver`,
 `TradingJournal`, `shared_python`. Das lässt sich mit folgendem Befehl überprüfen — er
 listet den Inhalt des aktuellen Ordners auf:
 
@@ -327,7 +327,7 @@ Die Grundausstattung ist fertig. Als Nächstes folgen die eigentlichen Projekt-E
 — dort geht es dann konkret um dieses Trading-Journal-Projekt (Datenbank befüllen, erste
 Anmeldung usw.):
 
-1. [xml_proj installieren](40-xml-proj-installieren.md) — Einrichtung der
+1. [TradingJournal-Weaver installieren](40-weaver-installieren.md) — Einrichtung der
    Datenimport-Pipeline
 2. [TradingJournal-Setup für Einsteiger](50-tradingjournal-installieren.md) — Einrichtung
    der Weboberfläche, ebenfalls für Einsteiger erklärt

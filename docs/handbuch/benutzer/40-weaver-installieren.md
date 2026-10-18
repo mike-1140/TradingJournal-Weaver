@@ -1,10 +1,10 @@
-# xml_proj installieren
+# TradingJournal-Weaver installieren
 
-Diese Anleitung richtet die Datenimport-Pipeline (`xml_proj`) auf einem Rechner ein — sie
+Diese Anleitung richtet die Datenimport-Pipeline (`TradingJournal-Weaver`) auf einem Rechner ein — sie
 holt die Handelsdaten von Interactive Brokers und verarbeitet sie für das Trading-Journal.
 Schritt für Schritt, mit Erklärungen, auch wenn du bisher wenig Erfahrung mit
 Terminal-Befehlen oder Python hast. Es gibt dazu auch eine kürzere, technischere Version:
-[Technisches Handbuch: Installation: xml_proj](../technik/50-installation-xml-proj.md). Beide führen zum selben Ergebnis.
+[Technisches Handbuch: Installation: TradingJournal-Weaver](../technik/50-installation-weaver.md). Beide führen zum selben Ergebnis.
 
 **Bevor du hier startest:** Die Grundausstattung (Git, Python, XAMPP, ...) muss bereits
 installiert sein — siehe [Windows vorbereiten](30-windows-vorbereiten.md).
@@ -34,21 +34,21 @@ den Ordner wechseln, in dem die anderen Projekte schon liegen bzw. liegen sollen
 cd C:\Users\<dein Name>\trading
 ```
 
-Falls `xml_proj` dort noch nicht liegt, herunterladen ("klonen"):
+Falls `TradingJournal-Weaver` dort noch nicht liegt, herunterladen ("klonen"):
 
 ```powershell
-git clone https://github.com/mike-1140/xml_proj.git
-cd xml_proj
+git clone https://github.com/mike-1140/TradingJournal-Weaver.git
+cd TradingJournal-Weaver
 ```
 
-**Wichtig für später:** `xml_proj` muss als **Geschwisterordner** neben einem Ordner namens
+**Wichtig für später:** `TradingJournal-Weaver` muss als **Geschwisterordner** neben einem Ordner namens
 `shared_python` liegen (also beide direkt im selben übergeordneten Ordner, nicht
 ineinander verschachtelt) — Schritt 3 unten braucht das. Falls `shared_python` noch fehlt:
 
 ```powershell
 cd ..
 git clone https://github.com/mike-1140/shared_python.git
-cd xml_proj
+cd TradingJournal-Weaver
 ```
 
 ---
@@ -68,7 +68,7 @@ pip install -r requirements.txt
 
 Der zweite Befehl "aktiviert" die Arbeitsumgebung für dieses Terminal-Fenster — am
 vorangestellten `(.venv)` im Prompt erkennbar. Der dritte lädt alle Zusatz-Pakete herunter,
-die `xml_proj` braucht (kann ein bis zwei Minuten dauern).
+die `TradingJournal-Weaver` braucht (kann ein bis zwei Minuten dauern).
 
 **Wichtig:** Die Aktivierung (`.venv\Scripts\activate`) gilt nur für das aktuell offene
 Terminal-Fenster. Bei jedem neuen Fenster muss man diesen einen Befehl wiederholen — dafür
@@ -78,7 +78,7 @@ gibt es aber eine Abkürzung, siehe Schritt 8.
 
 ## 3. Gemeinsame Bausteine installieren
 
-`xml_proj` nutzt einige Hilfsfunktionen (z.B. für Dezimalzahlen-Rechnung), die in einem
+`TradingJournal-Weaver` nutzt einige Hilfsfunktionen (z.B. für Dezimalzahlen-Rechnung), die in einem
 zweiten, gemeinsam genutzten Ordner (`shared_python`) liegen. Dieser Befehl verknüpft beide
 Ordner miteinander:
 
@@ -86,7 +86,7 @@ Ordner miteinander:
 pip install -e ../shared_python
 ```
 
-Funktioniert nur, wenn `shared_python` wirklich als Geschwisterordner neben `xml_proj`
+Funktioniert nur, wenn `shared_python` wirklich als Geschwisterordner neben `TradingJournal-Weaver`
 liegt (siehe Schritt 1). Falls dabei ein Fehler mit dem Wort `BackendUnavailable` erscheint:
 das ist ein bekanntes, seltenes Problem — in dem Fall Bescheid geben, das lässt sich lösen.
 
@@ -94,14 +94,14 @@ das ist ein bekanntes, seltenes Problem — in dem Fall Bescheid geben, das läs
 
 ## 4. Konfigurationsdatei anlegen
 
-Wie beim Trading-Journal selbst braucht auch `xml_proj` eine `.env`-Datei mit den eigenen
+Wie beim Trading-Journal selbst braucht auch `TradingJournal-Weaver` eine `.env`-Datei mit den eigenen
 Zugangsdaten. Vorlage kopieren:
 
 ```powershell
 copy .env.example .env
 ```
 
-Jetzt die neue Datei `.env` im `xml_proj`-Ordner mit einem Text-Editor öffnen (Rechtsklick →
+Jetzt die neue Datei `.env` im `TradingJournal-Weaver`-Ordner mit einem Text-Editor öffnen (Rechtsklick →
 **Öffnen mit** → **Editor**). Folgende Werte eintragen bzw. anpassen:
 
 | Zeile in `.env` | Was dort rein muss |
@@ -114,7 +114,7 @@ Jetzt die neue Datei `.env` im `xml_proj`-Ordner mit einem Text-Editor öffnen (
 nutzen (z.B. eine Familie), bekommt jede Person ihre eigenen Datenbank-Tabellen mit einem
 eigenen "Präfix" (einer Art Namens-Kürzel vor jedem Tabellennamen, z.B. `dein_name_trades_raw`).
 Welches Präfix zu welchem Namen gehört, steht zentral in einer Datei namens `users.toml`
-(liegt schon im `xml_proj`-Ordner) — dort einfach den eigenen Namen eintragen, ohne sich um
+(liegt schon im `TradingJournal-Weaver`-Ordner) — dort einfach den eigenen Namen eintragen, ohne sich um
 das genaue Präfix kümmern zu müssen. Falls der eigene Name dort noch nicht drinsteht: Datei
 `users.toml` öffnen und nach demselben Muster wie die vorhandenen Einträge ergänzen, z.B.:
 ```toml
@@ -153,7 +153,7 @@ python -m tools.maintenance.reset_IBKR_DB test dein_name_
 
 ## 6. Automatisierung einrichten
 
-`xml_proj` kann die Datenverarbeitung automatisch für mehrere Personen/Environments auf
+`TradingJournal-Weaver` kann die Datenverarbeitung automatisch für mehrere Personen/Environments auf
 einmal erledigen — welche das auf **diesem** Rechner sind, steht in einer Datei namens
 `pipeline.toml`, die noch nicht existiert. Aus einer Vorlage anlegen:
 
@@ -198,7 +198,7 @@ Damit man beim nächsten Mal nicht wieder manuell in den Ordner wechseln und die
 Arbeitsumgebung (Schritt 2) aktivieren muss, gibt es eine Desktop-Verknüpfung, die beides in
 einem Doppelklick erledigt.
 
-Einmalig einrichten — im PowerShell-Fenster, das noch im `xml_proj`-Ordner steht:
+Einmalig einrichten — im PowerShell-Fenster, das noch im `TradingJournal-Weaver`-Ordner steht:
 ```powershell
 . .\create-desktop-shortcut.ps1
 ```
@@ -212,9 +212,9 @@ von `.ps1`-Dateien. Einmalig beheben — PowerShell **als Administrator** öffne
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 Danach ein normales (nicht als Administrator geöffnetes) PowerShell-Fenster im
-`xml_proj`-Ordner öffnen und den Befehl von oben nochmal ausführen.
+`TradingJournal-Weaver`-Ordner öffnen und den Befehl von oben nochmal ausführen.
 
-Danach liegt auf dem Desktop eine Verknüpfung namens **"xml_proj Pipeline"**. Doppelklick
+Danach liegt auf dem Desktop eine Verknüpfung namens **"TradingJournal-Weaver Pipeline"**. Doppelklick
 darauf öffnet PowerShell bereits im richtigen Ordner mit aktivierter Arbeitsumgebung — dort
 dann direkt z.B. `python run_pipeline.py` eintippen.
 
@@ -224,7 +224,7 @@ dann direkt z.B. `python run_pipeline.py` eintippen.
 
 Nach der Ersteinrichtung, für den täglichen Gebrauch:
 
-1. Doppelklick auf die Desktop-Verknüpfung "xml_proj Pipeline" (siehe Schritt 8)
+1. Doppelklick auf die Desktop-Verknüpfung "TradingJournal-Weaver Pipeline" (siehe Schritt 8)
 2. Darin eintippen: `python run_pipeline.py`
 
 ---
@@ -233,6 +233,6 @@ Nach der Ersteinrichtung, für den täglichen Gebrauch:
 
 | Datei | Inhalt |
 |---|---|
-| [Technisches Handbuch: Installation: xml_proj](../technik/50-installation-xml-proj.md) | Dieselben Schritte, technischer/kompakter |
-| `docs/handbuch/technik/30-befehlsreferenz.md` (im `xml_proj`-Ordner) | Vollständige Befehlsreferenz aller Scripts |
+| [Technisches Handbuch: Installation: TradingJournal-Weaver](../technik/50-installation-weaver.md) | Dieselben Schritte, technischer/kompakter |
+| `docs/handbuch/technik/30-befehlsreferenz.md` (im `TradingJournal-Weaver`-Ordner) | Vollständige Befehlsreferenz aller Scripts |
 | [TradingJournal-Setup für Einsteiger](50-tradingjournal-installieren.md) | Einrichtung der Weboberfläche (nächster Schritt) |

@@ -17,7 +17,7 @@ Ein Environment ist ein abgetrennter Datenbereich — z.B. `MONEY` für echtes G
 
 **Warum sieht man dort nicht automatisch alle Environments?** 
 
-Der Dropdown zeigt nur die Environments an, für die beim eigenen Nutzer-Konto auch wirklich schon Datenbank-Tabellen angelegt wurden (Schritt "Datenbank-Tabellen anlegen" beim `xml_proj`-Setup). Fehlt ein Environment im Dropdown, ist das **kein Fehler** — es bedeutet nur, dass für dieses Environment noch keine Tabellen existieren. Sobald das nachgeholt wird (`reset_IBKR_DB.py <env> <prefix>` in `xml_proj`), erscheint es automatisch. **TEST** ist immer sichtbar, auch ganz ohne Tabellen — als sicherer Ausgangspunkt.
+Der Dropdown zeigt nur die Environments an, für die beim eigenen Nutzer-Konto auch wirklich schon Datenbank-Tabellen angelegt wurden (Schritt "Datenbank-Tabellen anlegen" beim `TradingJournal-Weaver`-Setup). Fehlt ein Environment im Dropdown, ist das **kein Fehler** — es bedeutet nur, dass für dieses Environment noch keine Tabellen existieren. Sobald das nachgeholt wird (`reset_IBKR_DB.py <env> <prefix>` in `TradingJournal-Weaver`), erscheint es automatisch. **TEST** ist immer sichtbar, auch ganz ohne Tabellen — als sicherer Ausgangspunkt.
 
 ⚠️ **Falle, die für Verwirrung sorgen kann:** 
 

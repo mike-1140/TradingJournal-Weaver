@@ -9,13 +9,13 @@ zusätzlich zur reinen Datenanzeige gibt. Für die technische Pipeline-Architekt
 
 ## 1. Täglicher Datenimport (automatisiert)
 
-Läuft über einen einzigen Einstiegspunkt in `xml_proj`:
+Läuft über einen einzigen Einstiegspunkt in `TradingJournal-Weaver`:
 
 ```bash
 python run_pipeline.py
 ```
 
-Gesteuert durch `xml_proj/pipeline.toml` — Standard-Schrittfolge:
+Gesteuert durch `TradingJournal-Weaver/pipeline.toml` — Standard-Schrittfolge:
 
 ```
 fetch_emails → fetch_api → snapshot_csv → import → process → summary
@@ -101,7 +101,7 @@ ist die systematische Regel-Compliance über die Zeit.
 | Situation                                                                               | Vorgehen                                                                                                                                               |
 | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Neue/geänderte Import-Logik an einer echten XML testen, ohne Produktivdaten zu berühren | XML nach `C:\Trade_XML\test\<user>\incoming\` legen, `python run_pipeline.py` — landet automatisch in der TEST-DB (siehe `docs/handbuch/technik/30-befehlsreferenz.md` § TEST-Environment) |
-| Offene Position liegengeblieben (Open importiert, Close nie gekommen — z. B. Datenlücke) | `xml_proj/tools/maintenance/cleanup_stale_positions.py` (Dry-Run ist Standard, erst mit `--execute` löschen)                                            |
+| Offene Position liegengeblieben (Open importiert, Close nie gekommen — z. B. Datenlücke) | `TradingJournal-Weaver/tools/maintenance/cleanup_stale_positions.py` (Dry-Run ist Standard, erst mit `--execute` löschen)                                            |
 | Kompletter Neuaufbau eines Environment/Prefix                                           | `reset_IBKR_DB.py` (⚠️ destruktiv) + Re-Import über `--from-summary`                                                                                   |
 
 ## 7. Multi-User-Betrieb

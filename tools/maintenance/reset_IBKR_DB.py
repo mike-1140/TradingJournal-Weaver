@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parents[2]))  # xml_proj/ in sys.path
+sys.path.insert(0, str(Path(__file__).parents[2]))  # TradingJournal-Weaver/ in sys.path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import ProgrammingError

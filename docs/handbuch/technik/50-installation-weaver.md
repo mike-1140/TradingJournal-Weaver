@@ -1,11 +1,11 @@
-# Installation: xml_proj
+# Installation: TradingJournal-Weaver
 
 > Ausführlichere, für Einsteiger geschriebene Version mit mehr Erklärungen:
-> [Benutzerhandbuch: xml_proj installieren](../benutzer/40-xml-proj-installieren.md).
+> [Benutzerhandbuch: TradingJournal-Weaver installieren](../benutzer/40-weaver-installieren.md).
 
-Installations- und Erstinitialisierungs-Anleitung für `xml_proj` auf einem neuen Rechner.
+Installations- und Erstinitialisierungs-Anleitung für `TradingJournal-Weaver` auf einem neuen Rechner.
 Für Befehlsreferenz siehe `docs/handbuch/technik/30-befehlsreferenz.md`, für Architektur/FIFO-Logik/DB-Schema im Detail siehe
-`docs/handbuch/technik/10-architektur-und-pipeline.md` (beide im `xml_proj`-Repo).
+`docs/handbuch/technik/10-architektur-und-pipeline.md` (beide im `TradingJournal-Weaver`-Repo).
 
 **Grundlegende Software** (Git, Python, MySQL/MariaDB via XAMPP) muss vorher installiert
 sein — siehe [Installation: Windows-Grundausstattung](40-installation-windows.md). Diese Seite setzt das
@@ -21,19 +21,19 @@ voraus und beschreibt nur noch die projektspezifische Einrichtung.
 | MySQL/MariaDB Server | via XAMPP | Lokal, Port 3306, laufend und erreichbar; Zugangsdaten mit Recht zum Anlegen neuer Datenbanken — siehe „Installation: Windows-Grundausstattung“ |
 | Git | aktuell | Für Clone + Versionsverwaltung |
 
-`shared_python` muss als Sibling-Verzeichnis neben `xml_proj` liegen (`../shared_python`),
+`shared_python` muss als Sibling-Verzeichnis neben `TradingJournal-Weaver` liegen (`../shared_python`),
 da es per editierbarem Install eingebunden wird.
 
 ---
 
 ## 1. Repository klonen
 
-`xml_proj` hat ein eigenes Git-Repository. Falls schon per [Installation: Windows-Grundausstattung](40-installation-windows.md)
+`TradingJournal-Weaver` hat ein eigenes Git-Repository. Falls schon per [Installation: Windows-Grundausstattung](40-installation-windows.md)
 Abschnitt 6 geklont, diesen Schritt überspringen.
 
 ```bash
-git clone https://github.com/mike-1140/xml_proj.git
-cd xml_proj
+git clone https://github.com/mike-1140/TradingJournal-Weaver.git
+cd TradingJournal-Weaver
 ```
 
 ## 2. Virtuelle Umgebung anlegen
@@ -44,11 +44,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-**Komfort-Skript für künftige Sitzungen:** `activate.ps1` (im `xml_proj`-Ordner) wechselt
+**Komfort-Skript für künftige Sitzungen:** `activate.ps1` (im `TradingJournal-Weaver`-Ordner) wechselt
 in dieses Verzeichnis und aktiviert die venv in einem Schritt — mit vorangestelltem Punkt
 aufrufen, damit es im aktuellen Fenster wirkt, nicht nur im Skript selbst:
 ```powershell
-. .\xml_proj\activate.ps1
+. .\TradingJournal-Weaver\activate.ps1
 ```
 
 Falls dabei eine Fehlermeldung wie *"...kann nicht geladen werden, da die Ausführung von
@@ -58,13 +58,13 @@ Windows-Rechnern): einmalig als Administrator
 Terminal öffnen und den Befehl erneut ausführen.
 
 **Desktop-Verknüpfung (optional, einmalig einrichten):** `create-desktop-shortcut.ps1`
-(ebenfalls im `xml_proj`-Ordner) legt eine `.lnk`-Verknüpfung auf dem Desktop an, die per
-Doppelklick PowerShell öffnet, direkt in `xml_proj` mit aktivierter venv — danach z.B.
+(ebenfalls im `TradingJournal-Weaver`-Ordner) legt eine `.lnk`-Verknüpfung auf dem Desktop an, die per
+Doppelklick PowerShell öffnet, direkt in `TradingJournal-Weaver` mit aktivierter venv — danach z.B.
 sofort `python run_pipeline.py` möglich. Ein `.ps1` selbst startet bei Doppelklick **nicht**
 automatisch PowerShell (öffnet sich standardmäßig im Text-Editor), deshalb der Umweg über
 eine echte `.lnk`-Verknüpfung:
 ```powershell
-. .\xml_proj\create-desktop-shortcut.ps1
+. .\TradingJournal-Weaver\create-desktop-shortcut.ps1
 ```
 
 ## 3. `shared_python` installieren

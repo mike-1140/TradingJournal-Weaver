@@ -1,6 +1,6 @@
 # Contributing
 
-Danke fürs Interesse an xml_proj. Das Projekt ist ein Hobbyprojekt — Reviews und Antworten
+Danke fürs Interesse an TradingJournal-Weaver. Das Projekt ist ein Hobbyprojekt — Reviews und Antworten
 auf Issues/PRs laufen best effort, ohne feste Zeitzusage.
 
 ## Bevor du einen PR aufmachst

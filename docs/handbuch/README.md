@@ -1,6 +1,6 @@
 # Handbücher
 
-Die Dokumentation von TradingJournal und xml_proj ist in zwei Handbücher gegliedert. Jede Datei
+Die Dokumentation von TradingJournal und TradingJournal-Weaver ist in zwei Handbücher gegliedert. Jede Datei
 ist ein Kapitel; die Nummer im Dateinamen gibt die Reihenfolge vor. Beide Handbücher gibt es
 auch als gesetztes PDF (siehe Releases des TradingJournal-Repos).
 
@@ -14,7 +14,7 @@ Programmierkenntnisse.
 | [10 · Überblick](benutzer/10-ueberblick.md) | Vom Trade bis zur Auswertung: wie die Daten fließen |
 | [20 · IBKR einrichten](benutzer/20-ibkr-einrichten.md) | Flex Queries, E-Mail-Zustellung, Prüfcode, Kontoauszug — mit Screenshots |
 | [30 · Windows vorbereiten](benutzer/30-windows-vorbereiten.md) | Benötigte Programme installieren |
-| [40 · xml_proj installieren](benutzer/40-xml-proj-installieren.md) | Datenimport einrichten |
+| [40 · TradingJournal-Weaver installieren](benutzer/40-weaver-installieren.md) | Datenimport einrichten |
 | [50 · TradingJournal installieren](benutzer/50-tradingjournal-installieren.md) | Weboberfläche einrichten |
 | [60 · Erster Start](benutzer/60-erster-start.md) | Einloggen, Environments, Dashboard anpassen |
 | [70 · Alltag](benutzer/70-alltag.md) | Täglicher Import, Kampagnen, Trade Log, Psychologie |
@@ -30,7 +30,7 @@ Für technisch Interessierte, den Betrieb auf eigenen Servern und Mitwirkende.
 | [20 · Aufbau einer Flex Query](technik/20-aufbau-flexquery.md) | XML-Beispiel und welche Felder der Import liest |
 | [30 · Befehlsreferenz](technik/30-befehlsreferenz.md) | Alle Skripte mit Argumenten und Beispielen |
 | [40 · Installation: Windows](technik/40-installation-windows.md) | Grundausstattung, kompakt |
-| [50 · Installation: xml_proj](technik/50-installation-xml-proj.md) | Setup der Pipeline, kompakt |
+| [50 · Installation: TradingJournal-Weaver](technik/50-installation-weaver.md) | Setup der Pipeline, kompakt |
 | [60 · Installation: TradingJournal](technik/60-installation-tradingjournal.md) | Setup der Weboberfläche, inkl. Apache-VirtualHost |
 | [70 · Server-Betrieb](technik/70-server-betrieb.md) | Eigener Server statt lokalem PC, Zugriff per VPN |
 | [80 · Verteilter Abruf](technik/80-verteilter-abruf.md) | Minimaler Client nur für den Datenabruf |

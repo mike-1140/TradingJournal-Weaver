@@ -1,12 +1,12 @@
 # Server-Betrieb — TradingJournal auf einem eigenen Server
 
 Alternative zur lokalen Installation (siehe [Installation: TradingJournal](60-installation-tradingjournal.md)):
-TradingJournal + xml_proj laufen auf einem eigenen Windows Server (physisch, VPS, oder ein
+TradingJournal + TradingJournal-Weaver laufen auf einem eigenen Windows Server (physisch, VPS, oder ein
 Rechner, der dauerhaft eingeschaltet bleibt) statt auf dem lokalen Arbeitsplatz-PC. Sinnvoll,
 wenn du von mehreren Geräten (Laptop, Reise-Notebook, Tablet) auf dasselbe Journal zugreifen
 willst, ohne die Datenbank mehrfach zu pflegen.
 
-**Diese Anleitung ersetzt nicht** [Installation: xml_proj](50-installation-xml-proj.md)/
+**Diese Anleitung ersetzt nicht** [Installation: TradingJournal-Weaver](50-installation-weaver.md)/
 [Installation: TradingJournal](60-installation-tradingjournal.md) — sie überträgt dieselben Konzepte auf
 einen Server-Kontext. Grundkenntnisse aus diesen beiden Dokumenten werden vorausgesetzt.
 
@@ -269,14 +269,14 @@ automatisch erkannt. **[PowerShell]** prüfen: `composer --version`
 mkdir C:\trading
 cd C:\trading
 
-git clone https://github.com/mike-1140/xml_proj.git
+git clone https://github.com/mike-1140/TradingJournal-Weaver.git
 git clone https://github.com/mike-1140/TradingJournal.git
 
 mkdir C:\Trade_XML
 mkdir C:\Trade_CSV
 mkdir C:\Trade_XML\incoming_mail
 
-cd C:\trading\xml_proj
+cd C:\trading\TradingJournal-Weaver
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
@@ -287,7 +287,7 @@ deactivate
 
 ## Schritt 8 — `.env`-Dateien
 
-**`C:\trading\xml_proj\.env`** — Vorlage `.env.example` kopieren und anpassen:
+**`C:\trading\TradingJournal-Weaver\.env`** — Vorlage `.env.example` kopieren und anpassen:
 ```ini
 DB_USER=trading_app
 DB_PASS=<db-passwort>
@@ -370,7 +370,7 @@ liefert einen 500er.
 
 **Option A — frisches, leeres Journal:**
 ```powershell
-cd C:\trading\xml_proj
+cd C:\trading\TradingJournal-Weaver
 .venv\Scripts\activate
 python -m tools.maintenance.reset_IBKR_DB money dein_user_
 # pro benötigtem Environment wiederholen (paper/autom_money/autom_paper)
@@ -424,7 +424,7 @@ net stop Apache2.4 && net start Apache2.4
 
 **[PowerShell]:**
 ```powershell
-cd C:\trading\xml_proj
+cd C:\trading\TradingJournal-Weaver
 copy pipeline.toml.example pipeline.toml
 ```
 
