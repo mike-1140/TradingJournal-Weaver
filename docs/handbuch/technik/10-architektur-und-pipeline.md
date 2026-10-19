@@ -697,7 +697,7 @@ from decimal import Decimal
 to_decimal("0.1") + to_decimal("0.2") == Decimal("0.3")  # → True
 ```
 
-`to_decimal()` aus `trading_common` ist robust gegen verschiedene Eingabeformate:
+`to_decimal()` aus `src/utils/div_utils.py` ist robust gegen verschiedene Eingabeformate:
 - Strings mit Tausenderpunkten (`"1.234,56"`)
 - Float (konvertiert über String, vermeidet Float-Fehler)
 - None / leer → `Decimal(0)`
@@ -1277,7 +1277,6 @@ Basis: Kombination aus trades_open + account_snapshots + TWS API
 | XML-Parsing | Python `xml.etree.ElementTree` | stdlib |
 | Konfiguration | python-dotenv | aktuelle |
 | Pipeline-Config | TOML | stdlib (Python 3.11+) |
-| Shared Utilities | `trading_common` (pip install -e) | intern |
 | Tests | pytest | aktuelle |
 
 ---

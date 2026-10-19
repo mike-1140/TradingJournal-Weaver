@@ -97,7 +97,6 @@ sonst lässt Windows das Umbenennen nicht zu.
    python -m venv .venv
    .venv\Scripts\activate
    pip install -r requirements.txt
-   pip install -e ../shared_python
    ```
 
 3. **[Windows-Aufgabenplanung]** Falls der tägliche Lauf als geplante Aufgabe eingerichtet ist:

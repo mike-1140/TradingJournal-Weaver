@@ -12,7 +12,7 @@ auf Issues/PRs laufen best effort, ohne feste Zeitzusage.
 
 ## Setup
 
-Siehe [`README.md`](README.md) sowie `pip install -e ../shared_python`.
+Siehe [`README.md`](README.md).
 
 ## Tests
 
@@ -27,7 +27,7 @@ per Tripwire verifiziert: Fix kurz zurückdrehen → Test muss fehlschlagen).
 
 - Code-Kommentare und Log-Meldungen: Deutsch
 - Variablen- und Funktionsnamen: Englisch
-- Finanzwerte immer als `Decimal`, nie als `float` — `to_decimal()` aus `trading_common`
+- Finanzwerte immer als `Decimal`, nie als `float` — `to_decimal()` aus `src/utils/div_utils.py`
   bzw. `src/utils/div_utils.py` verwenden
 - Secrets ausschließlich über `.env` (`os.getenv()`), niemals im Code
 - Weitere Architektur-/Modul-Details in [`CLAUDE.md`](CLAUDE.md) und `docs/handbuch/technik/10-architektur-und-pipeline.md`

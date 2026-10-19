@@ -65,7 +65,7 @@ Orientierung.
   und das Eintragselement heißen bei den Options-Ereignissen beide `OptionEAE`.
 - Datum mit Uhrzeit hat das Format `dd/MM/yyyy;HHmmss` (z. B. `16/03/2026;153012`), reine
   Datumsfelder `dd/MM/yyyy`. Ein anderes in der Query eingestelltes Format kann der Import nicht
-  lesen (`parse_datetime_flex()` in `trading_common`).
+  lesen (`parse_datetime_flex()` in `src/utils/div_utils.py`).
 - Leere Attribute (`strike=""` bei Aktien) sind normal — IBKR schreibt jedes ausgewählte Feld,
   auch wenn es für den Eintrag keinen Wert hat.
 

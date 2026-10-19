@@ -111,7 +111,7 @@ existiert keine `users`-Tabelle und kein Login ist möglich.
 ## 4. Trading-Tabellen bereitstellen
 
 Kein Laravel-Migrationsschritt. Falls noch nicht geschehen, in `TradingJournal-Weaver` ausführen
-(siehe [TradingJournal-Weaver-Setup](50-installation-weaver.md) Schritt 5):
+(siehe [Installation: TradingJournal-Weaver](50-installation-weaver.md) Schritt 4):
 
 ```bash
 cd ../TradingJournal-Weaver

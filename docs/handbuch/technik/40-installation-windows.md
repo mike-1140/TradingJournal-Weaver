@@ -29,7 +29,8 @@ funktionieren. Beschreibt lokale Entwicklungsrechner.
 - Installer ausführen, Option **"Git from the command line and also from 3rd-party software"**,
   restliche Defaults übernehmen.
 - Prüfen: `git --version`
-- Einmalig konfigurieren (PowerShell):
+- Einmalig konfigurieren (PowerShell) — nur nötig, wenn eigene Commits gemacht werden; Klonen
+  und Updates (`git pull`, `update.ps1`) brauchen es nicht:
   ```powershell
   git config --global user.name "<Name>"
   git config --global user.email "<Mail>"
@@ -66,7 +67,9 @@ Version ungeprüft nehmen, falls die aktuellste einen anderen PHP-Major bündelt
 2. Bei der Komponentenauswahl mindestens **Apache**, **MySQL**, **PHP** aktiviert lassen —
    restliche Komponenten (FileZilla, Mercury, Tomcat) werden nicht gebraucht.
 3. **XAMPP Control Panel** starten, **Apache** und **MySQL** über die jeweiligen "Start"-Buttons
-   hochfahren.
+   hochfahren. Für den Standardbetrieb mit `php artisan serve` reicht MySQL; Apache wird nur für
+   den VirtualHost-Betrieb gebraucht ([Installation: TradingJournal](60-installation-tradingjournal.md),
+   Variante B).
 4. Prüfen: `php -v` (muss `PHP 8.2.x` oder höher zeigen), MySQL-Client testen mit
    `C:\xampp\mysql\bin\mysql -u root -p` (Standard-Passwort bei frischer XAMPP-Installation:
    leer).
@@ -204,11 +207,10 @@ Set-Location C:\Users\<Benutzername>\trading
 **`C:\Users\<Benutzername>\trading\` ist frei wählbar, keine technische Vorgabe** — es ist
 nur ein Vorschlag für den Ordner, unter dem das Projekt lokal liegt. Jeder beliebige Ordner
 funktioniert genauso, z.B. `D:\dev\trading` oder `C:\trading`. **Was tatsächlich zählt:**
-`TradingJournal-Weaver`, `TradingJournal` und `shared_python` müssen als **direkte Geschwisterordner** im
-selben Elternverzeichnis liegen — `TradingJournal-Weaver/src/config.py` lädt seine `.env` relativ zum
-eigenen Skript-Pfad, und `pip install -e ../shared_python` (siehe „Installation: TradingJournal-Weaver“) geht
-relativ genau einen Ordner nach oben und dann in `shared_python`. Liegt einer der drei
-woanders, bricht das.
+`TradingJournal-Weaver` und `TradingJournal` müssen als **direkte Geschwisterordner** im
+selben Elternverzeichnis liegen — `TradingJournal/update.ps1` erwartet den Weaver unter
+`../TradingJournal-Weaver` (relativ zum eigenen Skript). Liegt einer der beiden woanders, bricht
+das Update-Skript ab.
 
 **Unabhängig davon fest verdrahtet:** `C:\Trade_XML\` und `C:\Trade_CSV\` (die
 IBKR-Import-Ordner) stehen in `import_ibkr_trades.py`, `get_flexquery_emails.py` und
@@ -228,7 +230,7 @@ ist das im Regelfall automatisch der Fall.
 Bei `TradingJournal-Weaver` per Voreinstellung nur die zum **Betreiben** nötigen Dateien holen, ohne
 Test-Suite/Tiefendokumentation/persönliche Einmal-Skripte (per Git **Sparse-Checkout** —
 kein Abweichen von "alles kommt aus Git", `git pull` für spätere Updates funktioniert
-danach ganz normal weiter). `TradingJournal` und `shared_python` sind bereits ohne
+danach ganz normal weiter). `TradingJournal` ist bereits ohne
 Zusatz-Ballast, dort reicht ein normaler `git clone`:
 
 ```powershell
@@ -241,15 +243,13 @@ git checkout master
 cd ..
 
 git clone https://github.com/mike-1140/TradingJournal.git
-git clone https://github.com/mike-1140/shared_python.git
 ```
 
 Ergebnis:
 ```
 <gewählter Root-Ordner>\
 ├── TradingJournal-Weaver\    (nur sql/, src/, tools/maintenance/, docs/ + Root-Dateien wie run_pipeline.py)
-├── TradingJournal\
-└── shared_python\
+└── TradingJournal\
 ```
 
 Danach weiter mit [Installation: TradingJournal-Weaver](50-installation-weaver.md) (ab Schritt 2 — Repo ist ja

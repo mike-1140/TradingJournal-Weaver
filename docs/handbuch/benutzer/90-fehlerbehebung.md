@@ -37,7 +37,6 @@ Remove-Item -Recurse -Force .venv
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-pip install -e ../shared_python
 ```
 
 **„Vite manifest not found at: …\public\build\manifest.json“**

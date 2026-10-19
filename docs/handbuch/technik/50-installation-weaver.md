@@ -21,9 +21,6 @@ voraus und beschreibt nur noch die projektspezifische Einrichtung.
 | MySQL/MariaDB Server | via XAMPP | Lokal, Port 3306, laufend und erreichbar; Zugangsdaten mit Recht zum Anlegen neuer Datenbanken — siehe „Installation: Windows-Grundausstattung“ |
 | Git | aktuell | Für Clone + Versionsverwaltung |
 
-`shared_python` muss als Sibling-Verzeichnis neben `TradingJournal-Weaver` liegen (`../shared_python`),
-da es per editierbarem Install eingebunden wird.
-
 ---
 
 ## 1. Repository klonen
@@ -67,17 +64,7 @@ eine echte `.lnk`-Verknüpfung:
 . .\TradingJournal-Weaver\create-desktop-shortcut.ps1
 ```
 
-## 3. `shared_python` installieren
-
-```bash
-pip install -e ../shared_python
-```
-
-Stellt `trading_common` bereit (`to_decimal()`, `build_engine()`, Debug-Utilities).
-Bei `BackendUnavailable`-Fehlern: `shared_python/pyproject.toml` muss
-`build-backend = "setuptools.build_meta"` verwenden (nicht `setuptools.backends.legacy:build`).
-
-## 4. `.env` anlegen
+## 3. `.env` anlegen
 
 ```bash
 copy .env.example .env
@@ -97,7 +84,7 @@ Werte ausfüllen (siehe `.env.example` für alle Felder):
 
 **`users.toml`** (im Repo bereits vorhanden, versioniert) ist die zentrale, einzige Quelle
 für die User↔Prefix-Zuordnung (`dein_user` → `dein_user_`, `zweiter_user` → `zweiter_user_`) — `DEFAULT_USER`
-oben, `ACCOUNT_MAP` in `config.py` und `pipeline.toml` (Schritt 6) lösen den Prefix alle von
+oben, `accounts.toml` (Kontozuordnung) und `pipeline.toml` (Schritt 5) lösen den Prefix alle von
 dort auf. Nur bei einem komplett **neuen** User nötig, dort einen Eintrag zu ergänzen.
 
 Die `DB_NAME_*`-Variablen (`ibkr_money`, `ibkr_paper`, `ibkr_test`, `ibkr_autom_money`,
@@ -105,7 +92,7 @@ Die `DB_NAME_*`-Variablen (`ibkr_money`, `ibkr_paper`, `ibkr_test`, `ibkr_autom_
 tatsächlichen MySQL-Datenbanknamen fest und werden von TradingJournal (`config/database.php`)
 in gleicher Form erwartet.
 
-## 5. Datenbanken initialisieren
+## 4. Datenbanken initialisieren
 
 ⚠️ **Destruktiv** — legt Datenbank + alle Tabellen aus `sql/` neu an, löscht bestehende Daten
 des jeweiligen Environment/Prefix-Paars. Nur beim ersten Setup bzw. bewusstem Reset ausführen.
@@ -128,11 +115,11 @@ python -m tools.maintenance.setup_psychology_tables money dein_user_
 
 **Für einen zusätzlichen, weiteren User** (z.B. ein Familienmitglied, nachdem die
 Grundinstallation schon steht): diesen Schritt mit dem neuen Prefix wiederholen (`users.toml`
-ggf. vorher um den neuen User ergänzen, siehe Schritt 4), danach den passenden Laravel-User
+ggf. vorher um den neuen User ergänzen, siehe Schritt 3), danach den passenden Laravel-User
 anlegen (siehe TradingJournal-Setup-Anleitung, Schritt 5) — **mit demselben Prefix** auf
 beiden Seiten.
 
-## 6. `pipeline.toml` anlegen
+## 5. `pipeline.toml` anlegen
 
 ```bash
 copy pipeline.toml.example pipeline.toml
@@ -140,20 +127,20 @@ copy pipeline.toml.example pipeline.toml
 
 `pipeline.toml` ist **maschinenspezifisch** und daher wie `.env` in `.gitignore` (nicht
 versioniert) — jede Maschine trägt hier nur die User/Environments ein, die auf **ihr**
-tatsächlich per Schritt 5 initialisiert wurden. Ein Eintrag für einen User, dessen Tabellen
+tatsächlich per Schritt 4 initialisiert wurden. Ein Eintrag für einen User, dessen Tabellen
 auf dieser Maschine nicht existieren, lässt `run_pipeline.py` im Auto-Modus mit
 "Tabelle nicht gefunden" fehlschlagen.
 
 ```toml
 [users.dein_user]
-environments = ["money"]   # nur die Environments, die in Schritt 5 initialisiert wurden
+environments = ["money"]   # nur die Environments, die in Schritt 4 initialisiert wurden
 ```
 
 Kein `prefix =` nötig — der wird automatisch aus `users.toml` aufgelöst (User-Name = Name
 der Sektion, hier `dein_user`). Nur falls ein User (noch) nicht in `users.toml` steht, hier per
 `prefix = "..."` explizit setzen.
 
-## 7. Ersten Lauf testen
+## 6. Ersten Lauf testen
 
 ```bash
 python run_pipeline.py --dry-run

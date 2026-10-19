@@ -4,8 +4,8 @@ Diese Anleitung erklärt Schritt für Schritt, welche Programme auf einem Window
 installiert werden müssen, damit das Trading-Journal-Projekt läuft — **auch wenn du bisher
 wenig Erfahrung mit Programmieren, Terminals oder Entwickler-Tools hast.**
 
-Es gibt zu diesem Thema auch eine kürzere, technischere Version:
-[Technisches Handbuch: Installation: Windows-Grundausstattung](../technik/40-installation-windows.md). Diese Seite hier erklärt dieselben
+Es gibt zu diesem Thema auch eine kürzere, technischere Version im technischen Handbuch:
+[Installation: Windows-Grundausstattung](../technik/40-installation-windows.md). Diese Seite hier erklärt dieselben
 Schritte, nur ausführlicher und mit mehr Erklärungen dazwischen. Am Ende landest du beim
 gleichen Ergebnis.
 
@@ -36,12 +36,12 @@ Nach dieser Anleitung sind auf dem Rechner fünf Programme installiert:
 | Programm | Wofür |
 |---|---|
 | **Git** | Lädt den Programmcode von GitHub herunter und hält ihn aktuell |
-| **XAMPP** | Enthält gleich drei Dinge: einen Webserver (Apache), die Programmiersprache PHP und die Datenbank (MySQL) |
+| **XAMPP** | Enthält die Datenbank (MySQL), die Programmiersprache PHP und einen Webserver (Apache, für den Anfang nicht nötig) |
 | **Composer** | Installiert Zusatz-Bausteine für den PHP-Teil des Projekts |
 | **Node.js** | Baut die Optik (CSS/JavaScript) der Weboberfläche |
 | **Python** | Führt die Import-Skripte aus, die die Handelsdaten von Interactive Brokers holen und verarbeiten |
 
-Außerdem liegen am Ende drei Ordner mit dem eigentlichen Projekt-Code auf der Festplatte.
+Außerdem liegen am Ende zwei Ordner mit dem eigentlichen Projekt-Code auf der Festplatte.
 
 ---
 
@@ -56,7 +56,7 @@ Diese Begriffe tauchen im Folgenden immer wieder auf — kurz erklärt, damit ni
 - **Installer**: Eine `.exe`-Datei, die man herunterlädt und doppelklickt — startet einen
   Installationsassistenten mit "Weiter"-Buttons, wie bei jedem anderen Programm auch.
 - **Git / Repository / "klonen"**: Der Programmcode für dieses Projekt liegt online auf
-  [GitHub](https://github.com) in drei separaten "Repositories" (Projektordnern mit
+  [GitHub](https://github.com) in zwei separaten "Repositories" (Projektordnern mit
   Versionsverlauf). "Klonen" bedeutet: eine komplette Kopie davon auf den eigenen Rechner
   herunterladen.
 - **PATH**: Eine Liste von Ordnern, in denen Windows automatisch nach Programmen sucht,
@@ -82,30 +82,25 @@ eine Rolle.
 4. Bei allen anderen Seiten die vorausgewählte Option ("Next") übernehmen, bis die
    Installation fertig ist.
 
-### Git kurz einrichten
+Für das Herunterladen und spätere Aktualisieren des Codes ist sonst nichts einzurichten — auch
+kein GitHub-Konto.
 
-Ein Terminal-Fenster öffnen: Windows-Taste drücken, `PowerShell` eintippen, Enter drücken.
-Dann folgende zwei Zeilen eintippen (mit dem eigenen Namen bzw. der eigenen Mailadresse) und
-jeweils mit Enter bestätigen:
-
-```powershell
-git config --global user.name "Dein Name"
-git config --global user.email "deine@mail-adresse.at"
-```
-
-Das war's — Git merkt sich diese Angabe automatisch für jede zukünftige Aktion. Später,
-beim ersten Herunterladen des Projekt-Codes, öffnet sich einmalig ein Browser-Fenster zum
-Einloggen bei GitHub — danach merkt sich Windows das automatisch, keine weitere Eingabe
-nötig.
+> [!NOTE]
+> Nur wer später selbst Änderungen am Code einreichen möchte, sollte Git noch Namen und
+> Mailadresse mitteilen (PowerShell: `git config --global user.name "Dein Name"` und
+> `git config --global user.email "deine@mail-adresse.at"`). Für die normale Nutzung ist das
+> nicht nötig.
 
 ---
 
 ## 4. XAMPP installieren (Datenbank + Webserver)
 
-XAMPP bringt in einem Paket gleich drei Dinge mit: **Apache** (Webserver, zeigt die
-Trading-Journal-Seite im Browser an), **PHP** (die Programmiersprache, in der die
-Weboberfläche geschrieben ist) und **MySQL** (die Datenbank, in der alle Handelsdaten
-gespeichert werden).
+XAMPP bringt in einem Paket drei Dinge mit: **MySQL** (die Datenbank, in der alle
+Handelsdaten gespeichert werden), **PHP** (die Programmiersprache, in der die Weboberfläche
+geschrieben ist) und **Apache** (ein Webserver). Gebraucht werden zunächst nur MySQL und PHP —
+die Weboberfläche startet später mit einem eigenen, eingebauten Mini-Webserver. Apache ist nur
+für eine fortgeschrittene Variante nötig (Kapitel [TradingJournal
+installieren](50-tradingjournal-installieren.md), Abschnitt „Starten und einloggen“).
 
 **Wichtig bei der Auswahl:** Auf der Download-Seite gibt es mehrere Versionen nebeneinander.
 Für dieses Projekt wird **PHP Version 8.2 oder neuer** gebraucht — also die
@@ -125,12 +120,8 @@ Für dieses Projekt wird **PHP Version 8.2 oder neuer** gebraucht — also die
 ### XAMPP starten
 
 1. **XAMPP Control Panel** über das Startmenü öffnen.
-2. Rechts neben **Apache** auf **Start** klicken, dasselbe bei **MySQL**. Beide Zeilen
-   sollten kurz danach grün hinterlegt sein und "Running" anzeigen.
-
-Falls bei Apache eine Fehlermeldung zum Port 80 erscheint (z.B. weil Skype oder ein anderes
-Programm den Port schon benutzt): dieses andere Programm kurz beenden und XAMPP erneut
-starten. Ausführlichere Lösungen dazu stehen in der technischen Version dieser Anleitung.
+2. Rechts neben **MySQL** auf **Start** klicken. Die Zeile sollte kurz danach grün hinterlegt
+   sein und "Running" anzeigen. **Apache** muss nicht gestartet werden.
 
 ### PHP für das Terminal verfügbar machen
 
@@ -170,15 +161,17 @@ wird. Ohne diesen Schritt kommt dort eine Fehlermeldung mit dem Wort "zip" darin
 ### XAMPP automatisch starten lassen (optional, aber empfohlen)
 
 Ohne diesen Schritt muss man vor jeder Nutzung erst das XAMPP Control Panel öffnen und
-Apache/MySQL manuell anklicken. Mit diesem Schritt starten beide automatisch mit Windows.
+MySQL manuell starten. Mit diesem Schritt startet die Datenbank automatisch mit Windows — das
+ist auch für den automatischen täglichen Datenimport wichtig, der eine laufende Datenbank
+braucht.
 
 1. XAMPP Control Panel schließen, dann über das Startmenü erneut öffnen — diesmal per
    **Rechtsklick** auf das XAMPP-Symbol → **"Als Administrator ausführen"**.
-2. Ganz links in der Zeile **Apache** gibt es eine kleine Spalte **"Svc"** — dort das
-   Kästchen anklicken. Dasselbe in der Zeile **MySQL**.
+2. Ganz links in der Zeile **MySQL** gibt es eine kleine Spalte **"Svc"** — dort das
+   Kästchen anklicken.
 
 Falls das nicht klappt: kein Problem, XAMPP funktioniert auch ohne diesen Schritt — dann
-einfach vor jeder Nutzung kurz das Control Panel öffnen und beide Module starten.
+einfach vor jeder Nutzung kurz das Control Panel öffnen und MySQL starten.
 
 ### Datenbank-Passwort
 
@@ -215,7 +208,8 @@ zusammenzubauen.
    stabilste Version) und installieren — überall die Standardeinstellungen übernehmen.
 
 **Testen:** Neues PowerShell-Fenster öffnen, `node -v` und danach `npm -v` eintippen — beide
-sollten eine Versionsnummer anzeigen.
+sollten eine Versionsnummer anzeigen. Bei `node -v` muss sie **mindestens v20.19** sein (die
+aktuelle LTS-Version erfüllt das); ältere Versionen können die Optik nicht bauen.
 
 ---
 
@@ -232,7 +226,7 @@ die Datenbank einsortieren.
 4. Installation abschließen.
 
 **Testen:** Neues PowerShell-Fenster öffnen, `python --version` eintippen — sollte
-`Python 3.14.x` (oder ähnlich) anzeigen.
+`Python 3.14.x` anzeigen. Mit dieser Version ist das Projekt getestet.
 
 ---
 
@@ -267,9 +261,9 @@ Die erste Zeile legt einen neuen, leeren Ordner namens `trading` an. Die zweite 
 dort hinein — alle folgenden Befehle in diesem Fenster beziehen sich jetzt auf diesen
 Ordner. (Der Name/Ort dieses Ordners ist frei wählbar — `trading` ist nur ein Vorschlag.)
 
-### Die drei Projekte herunterladen ("klonen")
+### Die zwei Projekte herunterladen ("klonen")
 
-Jetzt die folgenden drei Befehle **einzeln, nacheinander** eintippen (nach jeder Zeile
+Jetzt die folgenden zwei Befehle **einzeln, nacheinander** eintippen (nach jeder Zeile
 Enter drücken und warten, bis der Download fertig ist, bevor die nächste Zeile kommt):
 
 ```powershell
@@ -278,16 +272,11 @@ git clone https://github.com/mike-1140/TradingJournal-Weaver.git
 ```powershell
 git clone https://github.com/mike-1140/TradingJournal.git
 ```
-```powershell
-git clone https://github.com/mike-1140/shared_python.git
-```
 
-Beim allerersten dieser Befehle öffnet sich vermutlich ein Browser-Fenster mit einer
-GitHub-Anmeldeseite — dort einloggen, danach läuft alles automatisch weiter. Das passiert
-nur einmal.
+Die Repositories sind öffentlich — eine Anmeldung bei GitHub ist dafür nicht nötig.
 
-**Ergebnis:** Im Ordner `trading` liegen jetzt drei Unterordner: `TradingJournal-Weaver`,
-`TradingJournal`, `shared_python`. Das lässt sich mit folgendem Befehl überprüfen — er
+**Ergebnis:** Im Ordner `trading` liegen jetzt zwei Unterordner: `TradingJournal-Weaver` und
+`TradingJournal`. Das lässt sich mit folgendem Befehl überprüfen — er
 listet den Inhalt des aktuellen Ordners auf:
 
 ```powershell
@@ -311,8 +300,8 @@ npm -v
 python --version
 ```
 
-Zusätzlich: XAMPP Control Panel öffnen und prüfen, dass **Apache** und **MySQL** grün
-("Running") angezeigt werden.
+Zusätzlich: XAMPP Control Panel öffnen und prüfen, dass **MySQL** grün ("Running") angezeigt
+wird.
 
 Falls bei einem dieser Befehle eine Fehlermeldung kommt (z.B. "wird nicht als Befehl
 erkannt"): meistens bedeutet das, dass entweder die Installation noch nicht komplett ist,
@@ -329,6 +318,6 @@ Anmeldung usw.):
 
 1. [TradingJournal-Weaver installieren](40-weaver-installieren.md) — Einrichtung der
    Datenimport-Pipeline
-2. [TradingJournal-Setup für Einsteiger](50-tradingjournal-installieren.md) — Einrichtung
+2. [TradingJournal installieren](50-tradingjournal-installieren.md) — Einrichtung
    der Weboberfläche, ebenfalls für Einsteiger erklärt
-3. [UI-Erstkonfiguration](60-erster-start.md) — erste Schritte in der Weboberfläche
+3. [Erster Start — UI-Erstkonfiguration](60-erster-start.md) — erste Schritte in der Weboberfläche

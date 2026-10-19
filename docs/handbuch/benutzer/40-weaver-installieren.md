@@ -15,12 +15,11 @@ installiert sein — siehe [Windows vorbereiten](30-windows-vorbereiten.md).
 
 1. [Projekt herunterladen](#1-projekt-herunterladen)
 2. [Python-Arbeitsumgebung einrichten](#2-python-arbeitsumgebung-einrichten)
-3. [Gemeinsame Bausteine installieren](#3-gemeinsame-bausteine-installieren)
-4. [Konfigurationsdatei anlegen](#4-konfigurationsdatei-anlegen)
-5. [Datenbank-Tabellen anlegen](#5-datenbank-tabellen-anlegen)
-6. [Automatisierung einrichten](#6-automatisierung-einrichten)
-7. [Ersten Testlauf machen](#7-ersten-testlauf-machen)
-8. [Praktisch: Schnellzugriff einrichten](#8-praktisch-schnellzugriff-einrichten)
+3. [Konfigurationsdatei anlegen](#3-konfigurationsdatei-anlegen)
+4. [Datenbank-Tabellen anlegen](#4-datenbank-tabellen-anlegen)
+5. [Automatisierung einrichten](#5-automatisierung-einrichten)
+6. [Ersten Testlauf machen](#6-ersten-testlauf-machen)
+7. [Praktisch: Schnellzugriff einrichten](#7-praktisch-schnellzugriff-einrichten)
 
 ---
 
@@ -38,16 +37,6 @@ Falls `TradingJournal-Weaver` dort noch nicht liegt, herunterladen ("klonen"):
 
 ```powershell
 git clone https://github.com/mike-1140/TradingJournal-Weaver.git
-cd TradingJournal-Weaver
-```
-
-**Wichtig für später:** `TradingJournal-Weaver` muss als **Geschwisterordner** neben einem Ordner namens
-`shared_python` liegen (also beide direkt im selben übergeordneten Ordner, nicht
-ineinander verschachtelt) — Schritt 3 unten braucht das. Falls `shared_python` noch fehlt:
-
-```powershell
-cd ..
-git clone https://github.com/mike-1140/shared_python.git
 cd TradingJournal-Weaver
 ```
 
@@ -72,27 +61,11 @@ die `TradingJournal-Weaver` braucht (kann ein bis zwei Minuten dauern).
 
 **Wichtig:** Die Aktivierung (`.venv\Scripts\activate`) gilt nur für das aktuell offene
 Terminal-Fenster. Bei jedem neuen Fenster muss man diesen einen Befehl wiederholen — dafür
-gibt es aber eine Abkürzung, siehe Schritt 8.
+gibt es aber eine Abkürzung, siehe Schritt 7.
 
 ---
 
-## 3. Gemeinsame Bausteine installieren
-
-`TradingJournal-Weaver` nutzt einige Hilfsfunktionen (z.B. für Dezimalzahlen-Rechnung), die in einem
-zweiten, gemeinsam genutzten Ordner (`shared_python`) liegen. Dieser Befehl verknüpft beide
-Ordner miteinander:
-
-```powershell
-pip install -e ../shared_python
-```
-
-Funktioniert nur, wenn `shared_python` wirklich als Geschwisterordner neben `TradingJournal-Weaver`
-liegt (siehe Schritt 1). Falls dabei ein Fehler mit dem Wort `BackendUnavailable` erscheint:
-das ist ein bekanntes, seltenes Problem — in dem Fall Bescheid geben, das lässt sich lösen.
-
----
-
-## 4. Konfigurationsdatei anlegen
+## 3. Konfigurationsdatei anlegen
 
 Wie beim Trading-Journal selbst braucht auch `TradingJournal-Weaver` eine `.env`-Datei mit den eigenen
 Zugangsdaten. Vorlage kopieren:
@@ -127,13 +100,13 @@ prefix = "dein_name_"
 
 ---
 
-## 5. Datenbank-Tabellen anlegen
+## 4. Datenbank-Tabellen anlegen
 
 Dieser Befehl legt die eigentlichen Datenbank-Tabellen an, in denen später die Handelsdaten
 landen. **Wichtig:** Läuft man ihn ein zweites Mal für dieselbe Kombination, werden
 bestehende Daten dort gelöscht und neu angelegt — beim allerersten Setup aber genau richtig.
 
-Den eigenen Namen (aus Schritt 4, mit Unterstrich am Ende) und die gewünschten
+Den eigenen Namen (aus Schritt 3, mit Unterstrich am Ende) und die gewünschten
 Environments einsetzen — mindestens eines ist nötig, z.B. `money` für den Echtgeld-Bereich
 oder `test` zum ersten Ausprobieren ohne echtes IBKR-Konto:
 
@@ -151,7 +124,7 @@ python -m tools.maintenance.reset_IBKR_DB test dein_name_
 
 ---
 
-## 6. Automatisierung einrichten
+## 5. Automatisierung einrichten
 
 `TradingJournal-Weaver` kann die Datenverarbeitung automatisch für mehrere Personen/Environments auf
 einmal erledigen — welche das auf **diesem** Rechner sind, steht in einer Datei namens
@@ -162,20 +135,20 @@ copy pipeline.toml.example pipeline.toml
 ```
 
 Jetzt `pipeline.toml` im Text-Editor öffnen und den Platzhalter-Abschnitt anpassen — eigenen
-Namen (ohne Unterstrich) und die in Schritt 5 angelegten Environments eintragen:
+Namen (ohne Unterstrich) und die in Schritt 4 angelegten Environments eintragen:
 
 ```toml
 [users.dein_name]
 environments = ["money"]
 ```
 
-**Wichtig:** Hier nur Environments eintragen, für die Schritt 5 auch wirklich schon gelaufen
+**Wichtig:** Hier nur Environments eintragen, für die Schritt 4 auch wirklich schon gelaufen
 ist — sonst bricht die automatische Verarbeitung später mit einer Fehlermeldung ab, weil die
 zugehörigen Tabellen fehlen.
 
 ---
 
-## 7. Ersten Testlauf machen
+## 6. Ersten Testlauf machen
 
 Erst eine "Trockenübung", die nichts wirklich ausführt, nur zeigt was passieren würde:
 
@@ -183,7 +156,7 @@ Erst eine "Trockenübung", die nichts wirklich ausführt, nur zeigt was passiere
 python run_pipeline.py --dry-run
 ```
 
-Sieht das plausibel aus (die eigenen Environments aus Schritt 6 tauchen auf), ein echter
+Sieht das plausibel aus (die eigenen Environments aus Schritt 5 tauchen auf), ein echter
 Testlauf — den eigenen Namen einsetzen:
 
 ```powershell
@@ -192,7 +165,7 @@ python run_pipeline.py --users dein_name --envs test
 
 ---
 
-## 8. Praktisch: Schnellzugriff einrichten
+## 7. Praktisch: Schnellzugriff einrichten
 
 Damit man beim nächsten Mal nicht wieder manuell in den Ordner wechseln und die
 Arbeitsumgebung (Schritt 2) aktivieren muss, gibt es eine Desktop-Verknüpfung, die beides in
@@ -224,7 +197,7 @@ dann direkt z.B. `python run_pipeline.py` eintippen.
 
 Nach der Ersteinrichtung, für den täglichen Gebrauch:
 
-1. Doppelklick auf die Desktop-Verknüpfung "TradingJournal-Weaver Pipeline" (siehe Schritt 8)
+1. Doppelklick auf die Desktop-Verknüpfung "TradingJournal-Weaver Pipeline" (siehe Schritt 7)
 2. Darin eintippen: `python run_pipeline.py`
 
 ---
