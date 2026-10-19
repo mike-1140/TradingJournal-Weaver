@@ -51,32 +51,26 @@ im Abschnitt "Eine PHP-Einstellung anpassen". Danach diesen Schritt hier einfach
 
 ## 2. Konfigurationsdatei anlegen
 
-Jedes Projekt braucht eine kleine Datei namens `.env`, in der z.B. die Datenbank-Zugangsdaten stehen. Diese Datei liegt **nicht** im Internet (aus Sicherheitsgründen), sondern wird lokal aus einer Vorlage erstellt:
+Jedes Projekt braucht eine kleine Datei namens `.env`, in der z.B. die Datenbank-Zugangsdaten stehen. Diese Datei liegt **nicht** im Internet (aus Sicherheitsgründen), sondern wird lokal aus einer Vorlage erstellt.
+
+> [!IMPORTANT]
+> Das ist **eine eigene `.env`-Datei**, nicht dieselbe wie bei `TradingJournal-Weaver`. Beide
+> Programme haben jeweils ihre eigene `.env` im eigenen Ordner, mit unterschiedlichem Inhalt
+> und teils unterschiedlichen Namen für dieselbe Sache (Weaver: `DB_USER`/`DB_PASS`, hier:
+> `DB_USERNAME`/`DB_PASSWORD`). Also die Vorlage **im Ordner `TradingJournal`** kopieren und die
+> Datei aus dem Weaver nicht hierher kopieren.
+
+PowerShell, im Ordner `TradingJournal`:
 
 ```powershell
 copy .env.example .env
 php artisan key:generate
 ```
 
-Jetzt die Datei `.env` im Projektordner mit einem Text-Editor öffnen (z.B. Rechtsklick →
-**Öffnen mit** → **Editor**, oder in PyCharm/PhpStorm falls installiert). Darin steht ganz
-oben eine Zeile `DB_CONNECTION=sqlite` — diese Zeile und die paar Zeilen danach durch Folgendes **ersetzen** (die eigenen Datenbank-Zugangsdaten von XAMPP einsetzen, siehe Windows-Grundausstattung für Einsteiger, Abschnitt "Datenbank-Passwort" — bei einer frischen XAMPP-Installation reicht meistens Benutzername `root` und ein leeres Passwort):
-
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=ibkr_laravel
-DB_USERNAME=root
-DB_PASSWORD=
-
-TRADING_DB_HOST=127.0.0.1
-TRADING_DB_PORT=3306
-TRADING_DB_USERNAME=root
-TRADING_DB_PASSWORD=
-```
-
-Datei speichern. (Die Datenbanknamen selbst — `ibkr_money`, `ibkr_paper` usw. — müssen hier **nicht** eingetragen werden, die sind im Programm bereits fest hinterlegt.)
+Die Vorlage ist bereits für eine frische XAMPP-Installation eingestellt (Benutzer `root`, kein
+Passwort) — **es muss nichts geändert werden.** Nur wer für MySQL ein Passwort vergeben hat,
+öffnet die Datei `.env` im Text-Editor (Rechtsklick → **Öffnen mit** → **Editor**) und trägt es
+bei `DB_PASSWORD=` und `TRADING_DB_PASSWORD=` ein.
 
 ---
 

@@ -77,7 +77,9 @@ copy .env.example .env
 php artisan key:generate
 ```
 
-**Wichtig:** `.env.example` liefert als Laravel-Standardvorlage `DB_CONNECTION=sqlite` — für dieses Projekt zwingend auf MySQL umstellen. Ergänzen:
+`.env.example` ist bereits auf MySQL mit XAMPP-Standardwerten eingestellt (`root`, kein
+Passwort) — bei frischer XAMPP-Installation ist nichts zu ändern. Bei abweichenden
+Zugangsdaten (z.B. Server) diese Werte anpassen:
 
 ```env
 DB_CONNECTION=mysql
