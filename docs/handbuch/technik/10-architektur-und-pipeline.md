@@ -195,7 +195,7 @@ environments = ["money", "paper", "autom_money", "autom_paper"]
 [users.zweiter_user]
 environments = ["money"]
 ```
-Tabellen-Prefix kommt aus `users.toml` (zentrale, versionierte Registry, siehe § 9.1) — in
+Tabellen-Prefix kommt aus `users.toml` (zentrale, lokale Registry, siehe § 9.1) — in
 `pipeline.toml` nur bei Bedarf per `prefix = "..."` explizit überschreibbar.
 
 `account_snapshots` kommt ausschließlich aus dem Kontoauszug (CSV per Mail) über
@@ -914,7 +914,7 @@ python -m dev.migrate_running_balance money dein_user_      # einzelnes Target
 | Datei | Zweck | Versioniert? |
 |---|---|---|
 | `.env` | Secrets (DB-Passwort, API-Keys) | **Nein** (gitignore, siehe `.env.example`) |
-| `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `dein_user` → `dein_user_`) | **Ja** — teamweit gültig, nicht maschinenspezifisch |
+| `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `dein_user` → `dein_user_`) | **Nein** (gitignore, siehe `users.toml.example`) — enthält die echten Benutzernamen; seit 2026-10-19 nicht mehr versioniert |
 | `config.py` | DB-Konfiguration, lädt Account-Mapping aus `accounts.toml` (`get_account_config()`) | Ja |
 | `accounts.toml` | Account-Mapping (accountId-Suffix → User/Environment, ohne Prefix) | **Nein** (gitignore, siehe `accounts.toml.example`) — enthält reale Kontodaten |
 | `pipeline.toml` | Pipeline-Schritte, aktive User dieser Maschine | **Nein** (gitignore, siehe `pipeline.toml.example`) — maschinenspezifisch: jede Maschine verarbeitet nur die dort tatsächlich per `reset_IBKR_DB.py` initialisierten User/Environments |
@@ -987,8 +987,8 @@ pipeline.toml     → WAS läuft auf DIESER Maschine (welche User/Environments w
 
 **Praktische Konsequenz:** Ein neues IBKR-Konto anzulegen heißt **immer zwei Schritte**:
 `accounts.toml` (Routing: welcher User/welches Environment) **und**, falls es sich um einen
-komplett neuen User handelt, zusätzlich `users.toml` (Prefix) — sonst kennt `get_account_config()`
-zwar den User-Namen, findet aber kein Prefix dafür. `pipeline.toml` muss nur ergänzt werden,
+komplett neuen User handelt, zusätzlich `users.toml` (Prefix) — sonst bricht `get_account_config()`
+mit einer Meldung ab (fehlender User in `users.toml`), statt ohne Prefix weiterzuarbeiten. `pipeline.toml` muss nur ergänzt werden,
 wenn diese Maschine den neuen User/das neue Environment auch tatsächlich lokal verarbeiten soll.
 
 ### 9.5 Konkretes Beispiel
@@ -1004,7 +1004,7 @@ DEFAULT_USER=anna
 ```
 
 ```toml
-# users.toml (versioniert!) — Anna → Prefix
+# users.toml (lokal) — Anna → Prefix
 [anna]
 prefix = "anna_"
 ```
@@ -1042,8 +1042,8 @@ in der XML z.B. `U11114321`, maskiert oder voll — nur die letzten 4 Ziffern z�
 
 **Jetzt zieht Annas Bruder Tom mit ein**, eigenes Paper-Konto, dieselbe Maschine:
 
-- `users.toml` bekommt einen neuen Block `[tom]` mit `prefix = "tom_"` (versioniert, gilt
-  für alle Maschinen/alle Mitwirkenden).
+- `users.toml` bekommt einen neuen Block `[tom]` mit `prefix = "tom_"` (lokal — auf jeder
+  Maschine, die Toms Daten verarbeitet, ebenso ergänzen).
 - `accounts.toml` bekommt einen neuen Eintrag für Toms accountId-Suffix, z.B.
   `[2468] user = "tom" / environment = "paper"` (nur lokal, nicht geteilt).
 - `pipeline.toml` bekommt `[users.tom] environments = ["paper"]` — **aber erst, nachdem**
@@ -1062,7 +1062,7 @@ DEFAULT_USER=anna
 ```
 
 ```toml
-# users.toml (versioniert) — neuer Block [tom]
+# users.toml (lokal) — neuer Block [tom]
 [anna]
 prefix = "anna_"
 
@@ -1287,7 +1287,7 @@ Basis: Kombination aus trades_open + account_snapshots + TWS API
 TradingJournal-Weaver/
 ├── run_pipeline.py              ← Einstiegspunkt (orchestriert alle Phasen)
 ├── pipeline.toml                ← Pipeline-Konfiguration (aktive User/Environments, Steps) — maschinenspezifisch, gitignored
-├── users.toml                   ← Zentrale User↔Prefix-Registry — versioniert, teamweit
+├── users.toml                   ← Zentrale User↔Prefix-Registry — lokal, gitignored (Vorlage: users.toml.example)
 ├── README.md                    ← Projekt-Kurzbeschreibung
 ├── src/
 │   ├── get_flexquery_emails.py  ← Phase 0: IMAP-Abruf → incoming_mail/ + Trade_CSV/incoming

@@ -449,10 +449,10 @@ python -m src.import_ibkr_trades from_summary money dein_user_
 python -m src.process_ibkr_trades money dein_user_
 ```
 
-### Manuell erhaltene XML importieren (z.B. Karola)
+### Manuell erhaltene XML importieren (z.B. für einen zweiten Benutzer)
 ```powershell
 # Einfach ablegen — kein Umbenennen mehr noetig (kein Dateinamen-Filter im Normalbetrieb)
-Move-Item K_Echt.xml C:\Trade_XML\incoming_mail\
+Move-Item Bericht_zweiter_user.xml C:\Trade_XML\incoming_mail\
 ```
 ```bash
 # Import (Routing per accountId automatisch) + Processing + Summary

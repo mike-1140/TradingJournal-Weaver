@@ -82,10 +82,12 @@ Werte ausfüllen (siehe `.env.example` für alle Felder):
 
 **Sicherheit:** `.env` ist in `.gitignore` — niemals committen.
 
-**`users.toml`** (im Repo bereits vorhanden, versioniert) ist die zentrale, einzige Quelle
+**`users.toml`** (lokal, gitignored — aus `users.toml.example` kopieren: `copy users.toml.example users.toml`) ist die zentrale, einzige Quelle
 für die User↔Prefix-Zuordnung (`dein_user` → `dein_user_`, `zweiter_user` → `zweiter_user_`) — `DEFAULT_USER`
 oben, `accounts.toml` (Kontozuordnung) und `pipeline.toml` (Schritt 5) lösen den Prefix alle von
-dort auf. Nur bei einem komplett **neuen** User nötig, dort einen Eintrag zu ergänzen.
+dort auf. Jeder dort genannte User muss in `users.toml` stehen, sonst bricht der Import mit einer
+Meldung ab. Ebenso anlegen: `accounts.toml` aus `accounts.toml.example` (Kontozuordnung, letzte vier
+Ziffern der IBKR-Kontonummer → User + Environment).
 
 Die `DB_NAME_*`-Variablen (`ibkr_money`, `ibkr_paper`, `ibkr_test`, `ibkr_autom_money`,
 `ibkr_autom_paper`) müssen normalerweise nicht angepasst werden — sie legen die

@@ -105,11 +105,11 @@ IBKR sign convention: **BUY → netCash negative, SELL → netCash positive**
 ## Configuration
 
 - `.env` — DB credentials, `DEFAULT_USER` (e.g. `mike`, Prefix wird aus `users.toml` aufgelöst) oder direkt `TABLE_PREFIX` als Override, environment DB names, API keys (z.B. Mail-Zugang für `get_flexquery_emails.py`)
-- `users.toml` — zentrale, versionierte User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`)
+- `users.toml` — zentrale User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`); seit 2026-10-19 lokal/gitignored (Vorlage `users.toml.example`, echte Namen nicht im Repo). Fehlt ein in `accounts.toml`/`pipeline.toml` genannter User, wirft `config._registered_prefix()` einen `ValueError` statt leerem Prefix
 - `pipeline.toml` — maschinenspezifisch, gitignored; aktive User/Environments dieser Maschine (siehe `pipeline.toml.example`)
 - `accounts.toml` — maschinenspezifisch, gitignored; IBKR-Konto (letzte 4 Ziffern) → User + Environment (siehe `accounts.toml.example`)
 - `src/config.py` — `get_engine(env)`, `DB_MAP`, `load_account_map()`/`get_account_config()` (liest `accounts.toml`), `load_users()`, table name constants
-- `.gitignore` — `.env`, `pipeline.toml`, `accounts.toml` ausgeschlossen (keine Secrets/Maschinenspezifika im Repo!)
+- `.gitignore` — `.env`, `pipeline.toml`, `accounts.toml`, `users.toml` ausgeschlossen (keine Secrets/Maschinenspezifika im Repo!)
 
 Table names use an optional prefix (e.g. `mike_trades_raw`) for multi-user support.
 

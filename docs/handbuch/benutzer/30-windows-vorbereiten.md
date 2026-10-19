@@ -73,8 +73,9 @@ eine Rolle.
 
 ## 3. Git installieren
 
-1. Diese Seite öffnen: [git-scm.com/download/win](https://git-scm.com/download/win) — der
-   Download startet automatisch nach ein paar Sekunden.
+1. Diese Seite öffnen: [git-scm.com/install/windows](https://git-scm.com/install/windows) und
+   auf **„Click here to download“** klicken — das lädt den Installer für einen normalen
+   64-Bit-Windows-Rechner herunter. Der Download startet **nicht** von selbst.
 2. Die heruntergeladene Datei doppelklicken, um die Installation zu starten.
 3. Durch den Installationsassistenten klicken. Bei der Seite mit der Überschrift
    **"Adjusting your PATH environment"** die Option **"Git from the command line and also
@@ -169,6 +170,9 @@ braucht.
    **Rechtsklick** auf das XAMPP-Symbol → **"Als Administrator ausführen"**.
 2. Ganz links in der Zeile **MySQL** gibt es eine kleine Spalte **"Svc"** — dort das
    Kästchen anklicken.
+3. Meist erscheint jetzt ein Fenster der **Benutzerkontensteuerung** von Windows („Möchten Sie
+   zulassen, dass durch diese App Änderungen an Ihrem Gerät vorgenommen werden?“). Das ist
+   normal, weil MySQL dabei als Windows-Dienst eingerichtet wird — mit **Ja** bestätigen.
 
 Falls das nicht klappt: kein Problem, XAMPP funktioniert auch ohne diesen Schritt — dann
 einfach vor jeder Nutzung kurz das Control Panel öffnen und MySQL starten.
@@ -218,12 +222,26 @@ aktuelle LTS-Version erfüllt das); ältere Versionen können die Optik nicht ba
 Python führt die Skripte aus, die die Handelsdaten von Interactive Brokers abrufen und in
 die Datenbank einsortieren.
 
-1. Seite öffnen: [python.org/downloads](https://www.python.org/downloads/)
-2. Aktuellen Installer herunterladen und starten.
-3. **Ganz wichtig, leicht zu übersehen:** Ganz unten auf der ersten Installer-Seite gibt es
+Gebraucht wird **Python 3.14** — nicht die neueste Version, die python.org gerade ganz oben
+anbietet. Mit einer neueren Version (z. B. 3.15) lassen sich einige Zusatz-Pakete, die
+`TradingJournal-Weaver` braucht, noch nicht installieren.
+
+1. Seite öffnen: [python.org/downloads/windows](https://www.python.org/downloads/windows/)
+2. In der Liste den obersten Eintrag mit **Python 3.14** suchen (z. B. *Python 3.14.8 - Sept.
+   30, 2026*) und dort auf **„Windows installer (64-bit)“** klicken. Das ist der eigenständige
+   Installer (*standalone installer*).
+3. Die heruntergeladene Datei doppelklicken.
+
+> [!WARNING]
+> **Nicht** den *Python install manager* verwenden, der auf python.org ebenfalls angeboten wird,
+> und auch nicht den großen Knopf *Download Python 3.x* auf der Startseite der Downloads — beide
+> installieren die jeweils neueste Version. Diese Anleitung geht vom eigenständigen Installer
+> für Python 3.14 aus.
+
+4. **Ganz wichtig, leicht zu übersehen:** Ganz unten auf der ersten Installer-Seite gibt es
    eine Checkbox **"Add python.exe to PATH"** — die **muss angehakt sein**, bevor man auf
    "Install Now" klickt. Ohne diesen Haken funktioniert `python` später nicht im Terminal.
-4. Installation abschließen.
+5. Installation abschließen.
 
 **Testen:** Neues PowerShell-Fenster öffnen, `python --version` eintippen — sollte
 `Python 3.14.x` anzeigen. Mit dieser Version ist das Projekt getestet.

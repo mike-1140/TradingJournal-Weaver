@@ -169,7 +169,7 @@ Beispiele:
         """,
     )
     parser.add_argument("--users", nargs="+", metavar="USER",
-                        help="Nur diese User verarbeiten (z.B. mike karola)")
+                        help="Nur diese User verarbeiten (z.B. anna tom)")
     parser.add_argument("--envs", nargs="+", metavar="ENV",
                         help="Nur diese Environments (z.B. money paper)")
     parser.add_argument("--steps", nargs="+", metavar="STEP",

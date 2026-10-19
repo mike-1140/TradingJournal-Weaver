@@ -6,13 +6,13 @@ siehe Projekt-Memory `project_demo_hosting_plan.md`).
 
 **Wichtig:** Alle Schritte laufen gegen eine **neue, isolierte** lokale Datenbank
 `ibkr_demo` — die echte lokale `ibkr_test`/`ibkr_paper`/`ibkr_laravel` bleiben
-unangetastet. Es werden **keine versionierten Konfigdateien** (`users.toml`) berührt,
+unangetastet. Es werden **keine Konfigdateien** (`users.toml`) berührt,
 nur `.env`-artige lokale Overrides (Shell-Env-Var, `.env` selbst).
 
 **Warum `environment=test` statt `paper`:** Der normale, accountId-geroutete Import
 verlangt einen passenden Eintrag in `accounts.toml` UND `users.toml` (Tabellen-Prefix
 wird dort aufgelöst) — für einen Wegwerf-Demo-User müsste man dafür kurzzeitig die
-versionierte `users.toml` anfassen. TradingJournal-Weaver hat für genau diesen Fall bereits einen
+`users.toml` anfassen. TradingJournal-Weaver hat für genau diesen Fall bereits einen
 TEST-Modus (`import_ibkr_trades.py test <prefix>`), der ganz ohne accountId-Routing
 funktioniert — keine Konfigdatei-Änderung nötig. Die Demo läuft dadurch technisch
 unter Environment `TEST` statt `PAPER`; für eine öffentliche Demo ist das Label
@@ -116,7 +116,7 @@ cd ..\TradingJournal-Weaver
 ```
 
 Das legt `users`/`sessions`/`cache`/`psychology_*`/... frisch in `ibkr_demo` an, inkl.
-genau **einem** Demo-User (kein Kontakt zu echten `mike_`/`karola_`-Usern, da komplett
+genau **einem** Demo-User (kein Kontakt zu den echten Benutzern, da komplett
 andere DB).
 
 ## 5. Dump erzeugen

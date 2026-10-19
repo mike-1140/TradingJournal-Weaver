@@ -81,22 +81,92 @@ Jetzt die neue Datei `.env` im `TradingJournal-Weaver`-Ordner mit einem Text-Edi
 |---|---|
 | `DB_USER=` | `root` (XAMPP-Standard) |
 | `DB_PASS=` | leer lassen, falls kein XAMPP-Datenbank-Passwort vergeben wurde |
-| `DEFAULT_USER=` | der eigene Name, z.B. `dein_name` — dazu gleich mehr |
+| `DEFAULT_USER=` | der eigene Name, z.B. `anna` — dazu gleich mehr |
+| `IMAP_USERNAME=` | das Postfach, an das IBKR die Berichte schickt (Kapitel [IBKR einrichten](20-ibkr-einrichten.md), Abschnitt 4) |
+| `IMAP_PASSWORD=` | das Passwort dieses Postfachs |
+| `IMAP_SERVER=` | der Posteingangs-Server (IMAP) des Mailanbieters, z.B. `imap.gmx.com` |
+| `IBKR_FLEX_QUERIES=` | nur für den Abruf per Web-API: Prüfcode und Query-ID als Paar (Kapitel [IBKR einrichten](20-ibkr-einrichten.md), Abschnitt 5) — sonst leer lassen |
 
 **Was hat es mit `DEFAULT_USER` auf sich?** Falls mehrere Personen dasselbe Trading-Journal
 nutzen (z.B. eine Familie), bekommt jede Person ihre eigenen Datenbank-Tabellen mit einem
-eigenen "Präfix" (einer Art Namens-Kürzel vor jedem Tabellennamen, z.B. `dein_name_trades_raw`).
-Welches Präfix zu welchem Namen gehört, steht zentral in einer Datei namens `users.toml`
-(liegt schon im `TradingJournal-Weaver`-Ordner) — dort einfach den eigenen Namen eintragen, ohne sich um
-das genaue Präfix kümmern zu müssen. Falls der eigene Name dort noch nicht drinsteht: Datei
-`users.toml` öffnen und nach demselben Muster wie die vorhandenen Einträge ergänzen, z.B.:
-```toml
-[dein_name]
-prefix = "dein_name_"
+eigenen "Präfix" (einer Art Namens-Kürzel vor jedem Tabellennamen, z.B. `anna_trades_raw`).
+Welches Präfix zu welchem Namen gehört, steht zentral in der Datei `users.toml`. Auch sie wird
+aus einer Vorlage angelegt (`copy users.toml.example users.toml`) und dann um die eigenen Namen
+ergänzt — Beispiel unten. `DEFAULT_USER` ist der Hauptbenutzer dieses Rechners — sein
+Präfix gilt, wenn ein Befehl ohne ausdrückliche Benutzerangabe läuft. Der tägliche automatische
+Lauf verarbeitet dagegen alle Benutzer, die in `pipeline.toml` stehen (Schritt 5).
+
+**Welches IBKR-Konto zu wem gehört**, steht in einer dritten Datei, `accounts.toml`. Sie wird
+ebenfalls aus einer Vorlage angelegt:
+
+```powershell
+copy accounts.toml.example accounts.toml
 ```
 
-**Sicherheit:** Die Datei `.env` enthält Zugangsdaten und wird **niemals** mit hochgeladen
-(automatisch ausgeschlossen) — das ist so gewollt, nicht anfassen.
+Ohne passenden Eintrag dort überspringt der Import die Berichte eines Kontos (Meldung „Unbekannte
+accountId“). Als Schlüssel dienen die **letzten vier Ziffern der IBKR-Kontonummer**.
+
+### Beispiel: Anna und Tom
+
+Anna und Tom nutzen das Journal gemeinsam auf Annas Rechner. Anna hat ein Echtgeld-Konto
+(Kontonummer endet auf `1234`) und ein Paper-Konto (`5678`), Tom nur ein Paper-Konto (`9012`).
+
+**Text-Editor, Datei `users.toml`** — beide Namen mit ihrem Präfix:
+
+```toml
+[anna]
+prefix = "anna_"
+
+[tom]
+prefix = "tom_"
+```
+
+**Text-Editor, Datei `accounts.toml`** — jedes Konto einem Namen und einem Environment
+zuordnen:
+
+```toml
+[1234]
+user = "anna"
+environment = "money"
+
+[5678]
+user = "anna"
+environment = "paper"
+
+[9012]
+user = "tom"
+environment = "paper"
+```
+
+**Text-Editor, Datei `.env`** — die wichtigen Zeilen (alle anderen bleiben wie in der Vorlage):
+
+```ini
+DB_USER=root
+DB_PASS=
+
+DEFAULT_USER=anna
+
+IMAP_USERNAME=anna@example.com
+IMAP_PASSWORD=Passwort-von-Annas-Postfach
+IMAP_SERVER=imap.gmx.com
+
+IBKR_FLEX_QUERIES=PrüfcodeAnna:QueryIdAnnaMoney,PrüfcodeAnna:QueryIdAnnaPaper,PrüfcodeTom:QueryIdTomPaper
+```
+
+> [!NOTE]
+> `TradingJournal-Weaver` liest **ein** Postfach. IBKR schickt Toms Berichte aber an die
+> E-Mail-Adresse seines eigenen IBKR-Kontos — Tom richtet deshalb in seinem Mailprogramm eine
+> **Weiterleitung** der IBKR-Mails an Annas Postfach ein (der Absender
+> `donotreply@interactivebrokers.com` muss dabei erhalten bleiben). Über die Web-API ist das
+> nicht nötig: Dort stehen einfach alle Prüfcode/Query-ID-Paare hintereinander.
+
+Die Präfixe aus `users.toml` werden später auch für die Benutzerkonten der Weboberfläche
+gebraucht (Kapitel [TradingJournal installieren](50-tradingjournal-installieren.md)) — dort
+muss für Anna `anna_` und für Tom `tom_` stehen.
+
+**Sicherheit:** Die Dateien `.env` und `accounts.toml` enthalten Zugangsdaten bzw. Kontodaten und
+werden **niemals** mit hochgeladen (automatisch ausgeschlossen) — das ist so gewollt, nicht
+anfassen.
 
 ---
 
@@ -122,6 +192,14 @@ python -m tools.maintenance.reset_IBKR_DB paper dein_name_
 python -m tools.maintenance.reset_IBKR_DB test dein_name_
 ```
 
+**Beispiel Anna und Tom** — Anna braucht Tabellen für *money* und *paper*, Tom nur für *paper*:
+
+```powershell
+python -m tools.maintenance.reset_IBKR_DB money anna_
+python -m tools.maintenance.reset_IBKR_DB paper anna_
+python -m tools.maintenance.reset_IBKR_DB paper tom_
+```
+
 ---
 
 ## 5. Automatisierung einrichten
@@ -140,6 +218,16 @@ Namen (ohne Unterstrich) und die in Schritt 4 angelegten Environments eintragen:
 ```toml
 [users.dein_name]
 environments = ["money"]
+```
+
+**Beispiel Anna und Tom** — genau die Environments aus Schritt 4:
+
+```toml
+[users.anna]
+environments = ["money", "paper"]
+
+[users.tom]
+environments = ["paper"]
 ```
 
 **Wichtig:** Hier nur Environments eintragen, für die Schritt 4 auch wirklich schon gelaufen

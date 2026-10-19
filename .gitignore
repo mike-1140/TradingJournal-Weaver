@@ -2,6 +2,7 @@
 .env
 pipeline.toml
 accounts.toml
+users.toml
 
 # === Python ===
 __pycache__/

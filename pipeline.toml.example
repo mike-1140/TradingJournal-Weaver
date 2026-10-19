@@ -13,7 +13,7 @@ steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summ
 # --- User-Konfiguration ---
 # Fuer jeden User, der auf DIESER Maschine verarbeitet werden soll: environments = Liste
 # der Environments, fuer die reset_IBKR_DB.py hier bereits gelaufen ist. Der Tabellen-Prefix
-# kommt automatisch aus users.toml (zentrale, versionierte Registry) — nur bei Bedarf hier
+# kommt automatisch aus users.toml (zentrale, lokale Registry) — nur bei Bedarf hier
 # per "prefix = ..." explizit ueberschreiben (z.B. User ohne users.toml-Eintrag).
 # Nur User eintragen, die auf dieser Maschine auch tatsaechlich initialisiert sind — sonst
 # schlaegt der automatische Pipeline-Lauf mit "Tabelle nicht gefunden" fehl.

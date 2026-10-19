@@ -47,7 +47,7 @@ Platzhalter: `<server-vpn-ip>` (die private VPN-Adresse des Servers), `<db-passw
 
 ## Schritt 1 — Git for Windows
 
-Download: https://git-scm.com/download/win
+Download: https://git-scm.com/install/windows („Click here to download“)
 
 - [ ] **[Installer-GUI]** Installieren mit Option **"Git from the command line and also
   from 3rd-party software"**, sonst Defaults

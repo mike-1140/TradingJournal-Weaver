@@ -1,0 +1,17 @@
+# users.toml.example — Vorlage fuer die lokale Benutzer-Registry
+# Kopieren als "users.toml" und die eigenen Benutzer eintragen.
+# "users.toml" ist wie accounts.toml und pipeline.toml lokal und NICHT versioniert.
+#
+# Einzige Quelle fuer den Zusammenhang Benutzer <-> Tabellen-Prefix. accounts.toml
+# ("user"), pipeline.toml ([users.<name>]) und optional .env (DEFAULT_USER) loesen den
+# Prefix von hier auf. Jeder dort genannte Benutzer muss hier stehen — sonst bricht der
+# Import mit einer Meldung ab.
+#
+# Das Prefix muss mit dem Prefix des Benutzerkontos in der Weboberflaeche uebereinstimmen.
+# Neuen Benutzer hinzufuegen: einfach einen weiteren Block ergaenzen.
+
+[anna]
+prefix = "anna_"
+
+[tom]
+prefix = "tom_"

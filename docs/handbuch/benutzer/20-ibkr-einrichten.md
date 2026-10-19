@@ -163,7 +163,8 @@ Mit **Weiter** und **Speichern** abschließen. Danach schickt IBKR den Bericht t
 E-Mail.
 
 **Wann die Mails kommen** — Die Berichte zu einem Handelstag kommen **am folgenden Tag am
-Nachmittag** (mitteleuropäische Zeit, erfahrungsgemäß zwischen etwa 14 und 16 Uhr). Am
+Nachmittag** (mitteleuropäische Zeit, meist zwischen etwa 14 und 16 Uhr, einzelne Mails auch
+später). Am
 **Samstag werden keine Mails verschickt**: Der Bericht für den Handelstag Freitag kommt erst am
 **Montag**. Wer morgens mit den Daten vom Vortag arbeiten möchte, nutzt zusätzlich den Abruf
 per Web-API (Abschnitt 5): Dort stehen sie deutlich früher bereit.
@@ -172,6 +173,16 @@ per Web-API (Abschnitt 5): Dort stehen sie deutlich früher bereit.
 im US-Format (Monat/Tag/Jahr), nicht der Versandtag. Der Name der Flex Query steht **nicht** im
 Betreff, sondern nur im Dateinamen des Anhangs. Die Mails zum Kontoauszug (Abschnitt 6) heißen
 *Persönlicher Kontoauszug für …* bzw. *Customized Activity Statement for …*.
+
+![Posteingang: Die Berichte zum 14. und 15.10. kommen jeweils am Folgetag am Nachmittag](img/20-ibkr-einrichten/20-posteingang.png)
+
+> [!WARNING]
+> Der Abruf in `TradingJournal-Weaver` **löscht die verarbeiteten IBKR-Mails endgültig aus dem
+> Posteingang** — die Anhänge liegen danach in `C:\Trade_XML\…` bzw. `C:\Trade_CSV\…`. Das
+> betrifft alle Mails von `donotreply@interactivebrokers.com`, deren Betreff *Activity Flex*,
+> *Trade Confirmation Flex*, *Activity Statement* oder *Kontoauszug* enthält — auch solche ohne
+> verwertbaren Anhang. Wer diese Mails zusätzlich aufbewahren möchte, richtet im Mailprogramm
+> eine Kopie bzw. Weiterleitung in einen anderen Ordner ein.
 
 > [!WARNING]
 > IBKR schickt die Berichte **immer an die E-Mail-Adresse, die beim Anlegen des Kontos
@@ -228,8 +239,12 @@ Mehrere Konten bzw. Queries werden durch Kommas getrennt (`Prüfcode1:QueryID1,P
 ## 6. Kontoauszug (CSV) für Kontostand und Rendite
 
 Die Tageswerte des Kontos — Nettovermögen, Cash, Tagesrendite — liefert IBKR **nicht** über Flex
-Queries, sondern nur im Kontoauszug, und den **nur per E-Mail**. Dafür wird ein
-benutzerdefinierter Kontoauszug angelegt.
+Queries, sondern nur im Kontoauszug, und den **nur per E-Mail**.
+
+> [!IMPORTANT]
+> Dafür muss ein **eigener, benutzerdefinierter Kontoauszug** angelegt werden. Die
+> Standard-Kontoauszüge von IBKR lassen sich nicht täglich per E-Mail zustellen — nur ein
+> selbst angelegter Kontoauszug kommt jeden Tag als CSV ins Postfach.
 
 Im Menü **Performance & Berichte** den Reiter **Kontoauszüge** öffnen. Unten im Abschnitt
 **Benutzerdefinierte Kontoauszüge** einen neuen Kontoauszug anlegen, Kontoauszugstyp
@@ -283,7 +298,11 @@ bei der Flex Query in Abschnitt 4.
 
 Die Mail kommt an dieselbe Konto-Adresse wie die Flex Query (Betreff *Activity Statement* bzw.
 *Kontoauszug*). Die Standard-Kontoauszüge oben auf der Seite (täglich, monatlich) sind für das
-Journal nicht nötig.
+Journal nicht nötig. Der **monatliche Kontoauszug lässt sich in der Zustellung allerdings nicht
+abwählen** — er kommt also zusätzlich einmal im Monat per Mail, auch wenn er nicht gebraucht
+wird. Enthält sein Betreff *Kontoauszug* bzw. *Activity Statement*, löscht der Abruf auch diese
+Mail aus dem Posteingang (siehe Hinweis in Abschnitt 4) — wer den Monatsauszug behalten möchte,
+sichert ihn vorher oder lädt ihn später im IBKR-Kundenportal herunter.
 
 ## 7. Zusammenfassung: was wohin gehört
 

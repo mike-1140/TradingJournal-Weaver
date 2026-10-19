@@ -14,7 +14,7 @@ funktionieren. Beschreibt lokale Entwicklungsrechner.
 
 | Software | Wofür | Woher |
 |---|---|---|
-| Git for Windows | Repos klonen/verwalten | [git-scm.com/download/win](https://git-scm.com/download/win) |
+| Git for Windows | Repos klonen/verwalten | [git-scm.com/install/windows](https://git-scm.com/install/windows) |
 | XAMPP | Apache, PHP, MySQL (lokale DB) | [apachefriends.org](https://www.apachefriends.org/) |
 | Composer | PHP-Abhängigkeiten (TradingJournal) | [getcomposer.org](https://getcomposer.org/download/) |
 | Node.js + npm | Frontend-Assets bauen (Vite) | [nodejs.org](https://nodejs.org/) (LTS) |
@@ -129,7 +129,8 @@ jedes Mal vor der Arbeit erst das Control Panel öffnen und beide Module anklick
 1. XAMPP Control Panel **als Administrator** starten (Rechtsklick → "Als Administrator
    ausführen") — ohne Admin-Rechte lässt sich kein Dienst registrieren.
 2. In der Zeile **Apache** die Checkbox ganz links in der Spalte **"Svc"** anklicken →
-   registriert Apache als Windows-Dienst. Gleiches für die Zeile **MySQL**.
+   registriert Apache als Windows-Dienst. Gleiches für die Zeile **MySQL**. Die dabei meist
+   erscheinende UAC-Abfrage (Benutzerkontensteuerung) mit **Ja** bestätigen.
 3. Beide Zeilen zeigen danach "Running" auch nach Neustart, ohne dass sie manuell erneut
    gestartet werden müssen. Kontrolle: `services.msc` öffnen → **Apache2.4** und **MySQL**
    sind gelistet, Starttyp auf **Automatisch** setzen (Rechtsklick → Eigenschaften), falls
@@ -179,7 +180,11 @@ nicht weiter behandelt.
 
 ## 5. Python 3.14
 
-- Installer von [python.org](https://www.python.org/downloads/).
+- **Python 3.14**, nicht die neueste Version: `requirements.txt` pinnt Pakete (u. a.
+  `pandas==3.0.0`), für die es unter Python 3.15 keine fertigen Wheels gibt — `pip install`
+  scheitert dann. Eigenständigen Installer nehmen: [python.org/downloads/windows](https://www.python.org/downloads/windows/)
+  → oberster *Python 3.14.x*-Eintrag → *Windows installer (64-bit)*; nicht den *Python install
+  manager* (installiert die neueste Version).
 - **Wichtig:** Beim Installer die Checkbox **"Add python.exe to PATH"** aktivieren — sonst
   funktionieren `python`/`pip` nicht direkt im Terminal.
 - Prüfen: `python --version` und `pip --version`

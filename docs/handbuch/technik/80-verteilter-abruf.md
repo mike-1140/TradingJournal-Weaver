@@ -52,7 +52,7 @@ Download: https://www.python.org/downloads/ — **"Add python.exe to PATH"** +
 
 ### 2. Git for Windows
 
-Download: https://git-scm.com/download/win, Standardoptionen.
+Download: https://git-scm.com/install/windows („Click here to download“), Standardoptionen.
 
 ### 3. Nur `TradingJournal-Weaver` klonen
 

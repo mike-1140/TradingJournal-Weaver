@@ -15,8 +15,9 @@ load_dotenv(ROOT_DIR / ".env")
 
 
 # === Zentrale User-Registry (users.toml) ===
-# Einzige Quelle fuer den Zusammenhang User <-> Tabellen-Prefix. Im Gegensatz zu
-# pipeline.toml gilt users.toml teamweit und ist versioniert (kein .gitignore).
+# Einzige Quelle fuer den Zusammenhang User <-> Tabellen-Prefix. Wie accounts.toml und
+# pipeline.toml lokal und nicht versioniert (enthaelt die echten Benutzernamen) — Vorlage:
+# users.toml.example.
 
 @lru_cache(maxsize=1)
 def load_users() -> dict[str, str]:
@@ -27,6 +28,18 @@ def load_users() -> dict[str, str]:
     with open(toml_path, "rb") as f:
         cfg = tomllib.load(f)
     return {name: data["prefix"] for name, data in cfg.items()}
+
+
+def _registered_prefix(user_name: str, source: str) -> str:
+    """Prefix eines Users aus users.toml. Fehlt der User, Abbruch statt leerem Prefix —
+    sonst landen die Daten unbemerkt in Tabellen ohne Prefix (z.B. trades_raw)."""
+    users = load_users()
+    if user_name not in users:
+        raise ValueError(
+            f"Benutzer '{user_name}' aus {source} fehlt in users.toml — dort eintragen "
+            f"(Vorlage: users.toml.example, z.B. [{user_name}] prefix = \"{user_name}_\")."
+        )
+    return users[user_name]
 
 
 # === DB Basis-Konfiguration ===
@@ -121,7 +134,7 @@ def get_account_config(raw_account_id: str) -> dict | None:
         return None
     return {
         "user": entry["user"],
-        "table_prefix": load_users().get(entry["user"], ""),
+        "table_prefix": _registered_prefix(entry["user"], "accounts.toml"),
         "environment": entry["environment"],
     }
 
@@ -146,16 +159,15 @@ def load_active_targets() -> list[dict]:
     with open(toml_path, "rb") as f:
         cfg = tomllib.load(f)
 
-    users = load_users()
     targets = []
     for user_name, user_cfg in cfg.get("users", {}).items():
-        prefix = user_cfg.get("prefix") or users.get(user_name, TABLE_PREFIX)
+        prefix = user_cfg.get("prefix") or _registered_prefix(user_name, "pipeline.toml")
         for env in user_cfg.get("environments", []):
             targets.append({"environment": env, "prefix": prefix, "user": user_name})
 
     for test_cfg in cfg.get("test", []):
         test_user = test_cfg.get("user", "test")
-        prefix = test_cfg.get("prefix") or users.get(test_user, TABLE_PREFIX)
+        prefix = test_cfg.get("prefix") or _registered_prefix(test_user, "pipeline.toml [[test]]")
         targets.append({
             "environment": "test",
             "prefix": prefix,

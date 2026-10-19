@@ -56,6 +56,7 @@ pip install -r requirements.txt
 cp .env.example .env
 cp pipeline.toml.example pipeline.toml
 cp accounts.toml.example accounts.toml
+cp users.toml.example users.toml
 ```
 
 ### .env konfigurieren
@@ -72,6 +73,12 @@ python -m tools.maintenance.reset_IBKR_DB money dein_user_
 
 Destruktiv — legt das Schema aus `sql/` neu an. Pro benötigtem Environment einmal
 ausführen (`money`/`paper`/`test`/`autom_money`/`autom_paper`).
+
+### users.toml konfigurieren
+
+Jeden Benutzer mit seinem Tabellen-Prefix eintragen (z. B. `[dein_user]` → `prefix = "dein_user_"`).
+Jeder in `pipeline.toml`/`accounts.toml` genannte Benutzer muss hier stehen, sonst bricht der
+Import ab. Lokal, nicht versioniert.
 
 ### pipeline.toml konfigurieren
 
