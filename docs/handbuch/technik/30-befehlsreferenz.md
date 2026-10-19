@@ -349,17 +349,12 @@ python -m src.process_ibkr_trades money zweiter_user_
 
 ## xml_append_summary.py — Einzel-XMLs zu summary.xml zusammenfassen
 
-Liest neue `flex.*.xml`-Dateien aus `<env>/<user>/processed/` und aktualisiert
-`summary_<prefix><env>.xml`. Keine Duplikate (fromDate eindeutig), aufsteigende
-Reihenfolge, Performance-Cache.
-
-**⚠️ Bekannte Lücke:** Der `flex.`-Präfix-Filter (`FLEX_FILE_PREFIX` in
-`xml_append_summary.py`) erfasst nur Mail-Dateien. Dateien aus `incoming_api\`
-(anderes Namensschema, z.B. `U12109360_..._api_8_0870.xml`) landen zwar korrekt in
-`trades_raw` und in `processed/`, werden aber vom Summary-Builder ignoriert. Betrifft
-nur den Sonderfall, dass an einem Tag ausschließlich der API-Kanal Daten liefert (Mail
-fiel aus) — die Trades sind in der DB vorhanden, fehlen aber bei einem künftigen
-`from_summary`-Rebuild. Noch nicht behoben.
+Liest neue `*.xml`-Dateien aus `<env>/<user>/processed/` (Mail- und API-Dateien
+gleichermaßen, kein Dateinamen-Filter) und aktualisiert `summary_<prefix><env>.xml`.
+Keine Duplikate (fromDate eindeutig), leere FlexStatements werden übersprungen,
+aufsteigende Reihenfolge, Performance-Cache (`summary_<prefix><env>_cache.json`: bereits
+verarbeitete Dateinamen). Enthält nur FlexQuery-Daten, keine Kontoauszüge (CSV) —
+`account_snapshots` lässt sich daraus nicht wiederherstellen.
 
 ```bash
 # Auto-Modus: alle aktiven Targets aus pipeline.toml (kein Argument nötig)

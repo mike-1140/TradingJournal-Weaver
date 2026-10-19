@@ -44,7 +44,7 @@ Die Trennung in **Import** (XML → `trades_raw`) und **Processing** (Matching +
 | **Wiederholbarkeit** | Import kann mehrfach ausgeführt werden (Checksums verhindern Doppelimport) |
 | **Debugging** | `trades_raw` zeigt exakt was IBKR geliefert hat, unverändert |
 | **Trennung von Verantwortlichkeiten** | Parser-Logik vs. Business-Logik klar getrennt |
-| **Datenbank-Reset** | `reset_IBKR_DB.py` setzt **alle** Tabellen zurück (inkl. `trades_raw`) — Summary-Files ermöglichen den vollständigen Neuaufbau ohne Originaldateien |
+| **Datenbank-Reset** | `reset_IBKR_DB.py` setzt **alle** Tabellen zurück (inkl. `trades_raw`) — Summary-Files ermöglichen den vollständigen Neuaufbau der Trades ohne Originaldateien (Kontoauszüge/`account_snapshots` sind nicht enthalten) |
 
 ---
 
@@ -462,7 +462,7 @@ for trade in trades:
 
 **Schlüsselprinzip:** Trades werden in **Zeitreihenfolge** verarbeitet. FIFO ist nur korrekt, wenn ältere Positionen zuerst geschlossen werden.
 
-### 6.2 FIFO-Matching: Die 6 Fälle
+### 6.2 FIFO-Matching: Die Fälle
 
 IBKR-Vorzeichenkonvention:
 - **BUY:** `netCash` negativ (Geld fließt raus)
@@ -472,15 +472,21 @@ IBKR-Vorzeichenkonvention:
 Aktueller Bestand im Tracker: current_qty
 Neuer Trade:                   new_qty (positiv = Long, negativ = Short)
 
-FIFO-Queue in trades_open (LIFO per Symbol, chronologisch)
+FIFO-Queue: offene Tranchen in trades_open (processed=0) je Symbol/conid,
+            ältester Eintrag zuerst (ORDER BY dateTime ASC)
 ```
+
+Geschlossene Tranchen werden in `trades_open` nicht gelöscht, sondern auf `processed=1` gesetzt
+(History). Wirklich offen ist nur, was `processed=0` hat.
 
 #### Fall 0: CASH / FX-Trade
 ```
 assetCategory = "CASH"
 → Keine Kampagne, kein FIFO
-→ Aktion: FX_EXCHANGE im Ledger
-→ INSERT in trades_fx (separat)
+→ Aktion: FX_EXCHANGE_FROM_<Basis> / FX_EXCHANGE_TO_<Quote> im Ledger
+  (nur wenn der Tausch einer Kampagne zugeordnet ist)
+→ trades_raw markieren: processed=1
+  (trades_fx wird bereits beim Import befüllt, nicht hier)
 ```
 
 #### Fall 1: Gleiche Richtung (Positionsaufbau)
@@ -514,7 +520,9 @@ Beispiel: Bestand = 100 AAPL (1 Tranche), neuer Trade = SELL 60 AAPL
           → 60 AAPL geschlossen, 40 AAPL bleiben offen
 
 Aktion: INSERT trades_close (60 Stück, status=Closed)
-        trades_open aktualisieren: 40 Stück bleiben (status=SPLIT_REST)
+        alte Tranche in trades_open markieren: processed=1
+        INSERT trades_open: neue Zeile mit den 40 Reststück (status=SPLIT_REST),
+          netCash/proceeds/ibCommission anteilig (40/100)
         Kampagne: TRADE_CLOSE_PARTIAL im Ledger
 ```
 
@@ -529,16 +537,30 @@ commission_open_anteil = open_trade.ibCommission * ratio
 # → ROI und P&L sind korrekt trotz Teilabschluss (Details: § 6.4)
 ```
 
-#### Fall 2b: Umkehrung (Reversal)
+#### Fall 2b: Neuer Trade größer als die Tranche
 ```
 Bedingung: abs(new_qty) > abs(open_tranche.qty), entgegengesetzt
 
-Beispiel: Bestand = 100 AAPL (mehrere Tranchen), neuer Trade = SELL 250 AAPL
-          → Alle Tranchen schließen (FIFO), 150 AAPL werden Short
+Beispiel: Tranchen A = 100 AAPL, B = 50 AAPL, neuer Trade = SELL 120 AAPL
+          → A komplett geschlossen, die übrigen 20 laufen weiter gegen B (dort Fall 2a)
 
-Aktion: Schleife über alle open_tranches bis remaining_qty = 0
-        Remainder → INSERT als REV_OPEN
-        Kampagne: neue Kampagne für Short-Position
+Aktion: INSERT trades_close (Tranche komplett, status=Closed)
+        Tranche in trades_open markieren: processed=1
+        Restmenge des neuen Trades (anteilig netCash/proceeds/ibCommission)
+          → nächste Tranche der Schleife
+        Kampagne: TRADE_CLOSE_FULL im Ledger je Tranche
+```
+
+#### Umkehrung (Reversal): Restmenge nach allen Tranchen
+```
+Bedingung: nach der Schleife über alle Tranchen ist remaining_qty != 0
+
+Beispiel: Bestand = 100 AAPL (mehrere Tranchen), neuer Trade = SELL 250 AAPL
+          → Alle Tranchen schließen (FIFO, Fälle 2b/2c), 150 AAPL werden Short
+
+Aktion: Restmenge → INSERT trades_open (status=REV_OPEN)
+        Kampagne: TRADE_REVERSAL_OPEN im Ledger, gleiche Kampagne
+          (die Position war nie flat, daher keine neue Kampagne)
 ```
 
 #### Fall SPLIT: Corporate Action (Aktiensplit)

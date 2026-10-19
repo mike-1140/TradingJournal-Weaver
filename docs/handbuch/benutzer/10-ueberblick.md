@@ -75,7 +75,7 @@ aufgebaut ist und welche Felder der Import daraus liest, beschreibt das technisc
 ## 3. Einlesen: Abholen und Import
 
 Das Einlesen erledigt ein einziger Befehl in `TradingJournal-Weaver`, der alle Schritte nacheinander ausführt
-und typischerweise einmal täglich automatisch läuft (Windows-Aufgabenplanung oder Cronjob):
+und typischerweise einmal täglich automatisch läuft (Windows-Aufgabenplanung):
 
 ```
 python run_pipeline.py
@@ -83,36 +83,28 @@ python run_pipeline.py
 
 **Schritt 1 — Abholen**
 
-- `fetch_emails` meldet sich per IMAP am eingetragenen Postfach an, sucht ausschließlich Mails
-  vom IBKR-Absender `donotreply@interactivebrokers.com` und speichert die Anhänge:
-  XML-Berichte nach `C:\Trade_XML\incoming_mail\`, Kontoauszüge (CSV) nach `C:\Trade_CSV\incoming\`.
-- `fetch_api` ruft — falls konfiguriert — dieselben Trades zusätzlich über die IBKR-Web-API ab und
-  legt sie nach `C:\Trade_XML\incoming_api\`.
+- `fetch_emails` meldet sich per IMAP am eingetragenen Postfach an, sucht ausschließlich Mails von IBKR. Die Dateianhänge (XML) werden am Rechner lokal im Verzeichnis `C:\Trade_XML\incoming_mail\`, die Kontoauszüge (CSV) im Verzeichnis `C:\Trade_CSV\incoming\` gespeichert.
+- `fetch_api` ruft — falls konfiguriert — dieselben Trades zusätzlich über die IBKR-Web-API ab und speichert sie im Verzeichnis `C:\Trade_XML\incoming_api\`.
 - Dateien können auch von Hand in diese Ordner kopiert werden; der weitere Ablauf ist derselbe.
 
 **Schritt 2 — Import**
 
-Der Import liest jede XML-Datei und überträgt die Trades unverändert in die Tabelle `trades_raw`.
-Dabei passiert Folgendes:
+Der Import liest jede XML-Datei und überträgt die Trades unverändert in die Datenbank (Tabellenname: `trades_raw`). Dort werden sie zu diesem Zeitpunkt als „noch nicht verarbeitet“ markiert.
+Während des Einlesens passiert Folgendes:
 
-1. **Konto zuordnen** — Anhand der letzten vier Ziffern der IBKR-Kontonummer wird in der Datei
-   `accounts.toml` nachgesehen, zu welchem Benutzer und Environment die Daten gehören. Unbekannte
+1. **Konto zuordnen** — Anhand der letzten vier Ziffern der IBKR-Kontonummer (steht in den Daten) werden die Daten einem Benutzer und Environment zugeordnet. Unbekannte
    Konten werden mit einer Warnung übersprungen, nie „irgendwo“ einsortiert.
 2. **Teilausführungen bündeln** — Wurde eine Order in mehreren Teilen ausgeführt, werden die
    Fills derselben Order (`ibOrderID`) zusammengefasst.
-3. **Options-Strategien erkennen** — IBKR liefert jedes Bein eines Spreads als einzelnen Trade.
-   Das System erkennt zusammengehörige Beine (gleiche Order-ID oder innerhalb von 3 Sekunden) und
-   benennt die Strategie: Bull Put / Bear Call Spread, Iron Condor, Straddle, Strangle, Calendar
-   Spread, Butterfly.
+3. **Options-Strategien erkennen** — In der TWS ist ein Spread ein eigenes, synthetisches Finanzinstrument (Combo-Order). In den Flex Queries liefert IBKR jedoch jede Option als eigenen Trade. Das System setzt das synthetische Instrument heuristisch wieder zusammen: Beine mit gleicher Order-ID oder innerhalb von 3 Sekunden werden gruppiert und als Strategie benannt, etwa Bull Put / Bear Call Spread, Iron Condor, Straddle, Strangle, Calendar Spread oder Butterfly.
 4. **Options-Ereignisse zuordnen** — Verfall, Ausübung, Zuteilung und Barausgleich (z. B. bei SPX)
    werden der passenden automatischen IBKR-Buchung zugeordnet.
 5. **Währungstausch abtrennen** — Reine Devisen-Trades (z. B. EUR.USD) landen zusätzlich in der
-   eigenen Tabelle `trades_fx`.
-6. **Duplikate filtern** — Jeder Trade erhält eine Prüfsumme. Kommt derselbe Trade erneut an
+   eigenen Datenbanktabelle `trades_fx`.
+6. **Duplikate filtern** — Jeder Trade erhält eine Prüfsumme. Ist die Prüfsumme in der Datenbank noch nicht vorhanden, wird der Trade gespeichert. Kommt derselbe Trade erneut an
    (über Mail *und* Web-API, oder weil eine Datei doppelt eingelesen wird), wird er übersprungen.
 
-Verarbeitete Dateien werden in einen `processed`-Ordner verschoben. Parallel liest der Schritt
-`snapshot_csv` die Kontoauszüge (CSV) und legt je Tag einen Eintrag in `account_snapshots` an.
+Die Kontoauszüge (CSV) werden verarbeitet und es wird ein Snapshot (aktueller Wert des Depots) angelegt.
 
 > [!TIP]
 > `trades_raw` enthält die Trades genau so, wie IBKR sie geliefert hat. Bei Unklarheiten ist
@@ -121,22 +113,49 @@ Verarbeitete Dateien werden in einen `processed`-Ordner verschoben. Parallel lie
 
 ## 4. Verarbeiten: FIFO-Matching und Kampagnen
 
-Der Schritt `process` arbeitet alle noch nicht verarbeiteten Einträge aus `trades_raw` **in
-zeitlicher Reihenfolge** ab und entscheidet für jeden Trade, was er bedeutet.
+Der nächste Schritt arbeitet alle noch nicht verarbeiteten Trades aus der Datenbanktabelle
+`trades_raw` **in zeitlicher Reihenfolge** ab und entscheidet für jeden Trade, was er bedeutet.
+Dabei passieren zwei Dinge gleichzeitig: Das **FIFO-Matching** ordnet jeden Trade den offenen
+Positionen zu und berechnet Gewinn und Verlust (4.1), und jede Veränderung wird als Buchung in
+der **Kampagne** des Symbols festgehalten (4.2).
 
-**FIFO-Matching** — Wie in den IBKR-Steuerberichten wird nach *First In, First Out* gerechnet: Ein
+Jeder Trade wird in einer eigenen Datenbank-Transaktion verarbeitet: Entweder sind alle
+zugehörigen Einträge geschrieben oder keiner — auch bei einem Absturz entstehen keine halben
+Zustände. Alle Geldbeträge werden als exakte Dezimalzahlen gerechnet, nicht als
+Gleitkommazahlen, damit sich keine Rundungsfehler aufsummieren.
+
+### 4.1 FIFO-Matching
+
+Wie in den IBKR-Steuerberichten wird nach *First In, First Out* gerechnet: Ein
 Verkauf schließt immer zuerst die älteste offene Tranche. Dadurch stimmen Gewinn und Verlust mit
-den offiziellen IBKR-Auswertungen überein.
+den offiziellen IBKR-Auswertungen überein. Eine **Tranche** ist dabei ein einzelner Kauf (bzw.
+bei Short-Positionen ein einzelner Verkauf) mit eigenem Einstandspreis und Datum.
 
-| Situation             | Beispiel                   | Ergebnis                                                      |
-| --------------------- | -------------------------- | ------------------------------------------------------------- |
-| Position aufbauen     | Bestand 100 AAPL, Kauf 50  | neue offene Tranche in `trades_open`                          |
-| Teilweise schließen   | Bestand 100, Verkauf 60    | 60 Stück → `trades_close`, 40 bleiben offen                   |
-| Vollständig schließen | Bestand 100, Verkauf 100   | Tranche → `trades_close`                                      |
-| Position umkehren     | Bestand 100, Verkauf 250   | 100 geschlossen, 150 als neue Short-Position                  |
-| Aktiensplit           | Reverse Split 1:25         | Menge und Einstandspreis aller offenen Tranchen angepasst     |
-| Verfall / Zuteilung   | Short Put verfällt wertlos | Tranche → `trades_close` mit Status *Expired* bzw. *Assigned* |
-| Devisentausch         | EUR.USD                    | kein FIFO, eigene Übersicht                                   |
+Beispiel mit vier Trades in AAPL (Gewinne brutto, ohne Kommission):
+
+| Datum | Trade                | Was passiert                                                                          | Offen danach            |
+| ----- | -------------------- | ------------------------------------------------------------------------------------- | ----------------------- |
+| 03.03 | Kauf 100 zu 150 $    | neue Tranche A                                                                        | A: 100 zu 150 $         |
+| 10.03 | Kauf 50 zu 160 $     | neue Tranche B, Tranche A bleibt unverändert                                          | A: 100, B: 50 zu 160 $  |
+| 20.03 | Verkauf 120 zu 170 $ | schließt zuerst A komplett (100 Stück, +2.000 $), dann 20 Stück von B (+200 $)        | B: 30 zu 160 $          |
+| 25.03 | Verkauf 80 zu 165 $  | schließt den Rest von B (30 Stück, +150 $), die übrigen 50 Stück eröffnen eine Short-Position | Short 50 zu 165 $ |
+
+Jeder geschlossene Teil wird ein eigener **abgeschlossener Trade** mit eigenem Einstandspreis,
+eigener Haltedauer und eigenem P&L. Der Verkauf vom 20.03. erscheint unter *Geschlossene
+Positionen* deshalb als zwei Zeilen (100 und 20 Stück). Offene Tranchen stehen in der
+Datenbanktabelle `trades_open`, abgeschlossene Trades in `trades_close`.
+
+Daneben gibt es einige Sonderfälle:
+
+- **Aktiensplit** — Menge und Einstandspreis aller offenen Tranchen werden angepasst, es entsteht
+  kein abgeschlossener Trade.
+- **Verfall, Ausübung, Zuteilung** — Die Option wird als abgeschlossener Trade mit der
+  passenden Abschlussart gespeichert (*Expired*, *Assigned*, *CashSettled*). Bei einer Zuteilung
+  kommen die gelieferten Aktien als neue Tranche hinzu.
+- **Devisentausch** (z. B. EUR.USD) — kein FIFO, eigene Übersicht.
+
+Wie die Tabellen dabei im Einzelnen geschrieben werden, beschreibt das technische Handbuch
+([Architektur und Pipeline](../technik/10-architektur-und-pipeline.md), Abschnitt „FIFO-Matching: Die Fälle“).
 
 Für jeden abgeschlossenen Trade werden **P&L**, **ROI** (bezogen auf das eingesetzte Kapital) und
 **Haltedauer** berechnet, jeweils in Handelswährung und umgerechnet in Euro.
@@ -146,9 +165,19 @@ Für jeden abgeschlossenen Trade werden **P&L**, **ROI** (bezogen auf das einges
 > separat gespeichert; das Journal zeigt deshalb überall Brutto- und Netto-P&L
 > (Netto = Brutto + Kommission, da IBKR Kommissionen negativ ausweist).
 
-**Kampagnen** — Alle Trades eines Symbols, die zeitlich zusammenhängen, werden zu einer *Kampagne*
-gebündelt. So erscheint z. B. eine Wheel-Strategie (Put verkauft → Zuteilung → Covered Call →
-neuer Put) als **eine** zusammenhängende Position statt als viele Einzeltrades.
+### 4.2 Kampagnen und Ledger
+
+FIFO beantwortet die Frage „Was hat dieser einzelne Trade gebracht?“. Viele Strategien bestehen
+aber aus einer Kette von Trades, die nur zusammen Sinn ergeben. Deshalb werden alle Trades eines
+Symbols, die zeitlich zusammenhängen, zu einer **Kampagne** gebündelt — Aktien und Optionen auf
+dasselbe Underlying gehören dabei zur selben Kampagne. So erscheint z. B. eine Wheel-Strategie
+(Put verkauft → Zuteilung → Covered Call → neuer Put) als **eine** zusammenhängende Position
+statt als viele Einzeltrades.
+
+**Lebenslauf einer Kampagne** — Der erste Trade in einem Symbol eröffnet eine Kampagne
+(*ACTIVE*). Ist nichts mehr offen, wartet sie 10 Tage (*PENDING*): Kommt in dieser Zeit ein neuer
+Trade, läuft dieselbe Kampagne weiter; sonst wird sie abgeschlossen (*CLOSED*), und der nächste
+Trade in dem Symbol beginnt eine neue.
 
 ```mermaid
 stateDiagram-v2
@@ -160,20 +189,66 @@ stateDiagram-v2
     CLOSED --> [*]
 ```
 
-Jede Veränderung einer Kampagne wird als Buchung im **Kampagnen-Ledger** festgehalten (z. B.
-„Put verkauft“, „Option verfallen“, „Aktien verkauft“) — mit dem P&L dieser Buchung und dem bis
-dahin aufgelaufenen Gesamt-P&L. Daraus entsteht später der P&L-Verlauf jeder Kampagne.
+**Das Ledger: die Buchhaltung jeder Kampagne** — Für jede Kampagne wird ein *Ledger* geführt,
+ein Kassenbuch im Sinne der Buchhaltung. Jede Veränderung erzeugt darin eine eigene Buchung:
+Eröffnen, (teilweises) Schließen, Verfall, Ausübung oder Zuteilung einer Option, Barausgleich,
+Aktiensplit. Eine FIFO-Teilung wie am 20.03. im Beispiel oben ergibt zwei Buchungen, eine je
+Tranche. Jede Buchung enthält:
 
-Jeder Trade wird in einer eigenen Datenbank-Transaktion verarbeitet: Entweder sind alle
-zugehörigen Einträge geschrieben oder keiner — auch bei einem Absturz entstehen keine halben
-Zustände. Alle Geldbeträge werden als exakte Dezimalzahlen gerechnet, nicht als
-Gleitkommazahlen, damit sich keine Rundungsfehler aufsummieren.
+- die **Art** der Buchung (z. B. `OPT_PUT_SELL` = Put verkauft, `OPTION_EXPIRATION` = Option
+  verfallen) und die **Mengenänderung**,
+- den **Cashflow** (Geldbewegung auf dem Konto), die **Kommission** und — bei Schließungen — den
+  **realisierten P&L**,
+- **laufende Summen**: aufgelaufener P&L, Kommissionen und Erlöse (Proceeds) der Kampagne bis zu
+  dieser Buchung,
+- Währung, Wechselkurs und die Beträge in Euro,
+- einen Verweis auf den Ursprungs-Trade. Zusammengehörige Buchungen, etwa die zugeteilte Option
+  und die dadurch gelieferten Aktien, sind miteinander verknüpft.
 
-Zum Schluss fasst der Schritt `summary` die verarbeiteten Berichte in einer Sammeldatei zusammen.
-Aus ihr lässt sich ein Environment jederzeit komplett neu aufbauen, auch ohne die
-ursprünglichen Mails.
+Beispiel einer Wheel-Kampagne (vereinfacht, ohne Kommissionen):
 
-## 5. Welche Daten entstehen
+| Buchung                        | Art                 | Menge     | Cashflow   | P&L     | P&L kumuliert |
+| ------------------------------ | ------------------- | --------- | ---------- | ------- | ------------- |
+| Put XYZ 50 verkauft            | `OPT_PUT_SELL`      | −1 Option | +150 $     | —       | 0 $           |
+| Put zugeteilt                  | `OPTION_EXERCISE`   | +1 Option | —          | +150 $  | 150 $         |
+| 100 Aktien zu 50 $ eingebucht  | `STK_BUY`           | +100 Stk. | −5.000 $   | —       | 150 $         |
+| Call XYZ 55 verkauft           | `OPT_CALL_SELL`     | −1 Option | +80 $      | —       | 150 $         |
+| Call verfallen                 | `OPTION_EXPIRATION` | +1 Option | —          | +80 $   | 230 $         |
+
+Buchungen werden im laufenden Betrieb nur angehängt, nie nachträglich verändert. Aus dem
+Ledger entstehen im Journal der **P&L-Verlauf**, die **Tages-Übersicht** und die
+**Transaktions-Historie** jeder Kampagne, außerdem die Auswertungen unter *Stats* und
+*Aktivität*. Auch der Bestand einer Kampagne (Spalte *Bestand* in der Transaktions-Historie)
+ergibt sich aus der Summe aller Mengenänderungen.
+
+## 5. Sichern: die Sammeldatei (Summary)
+
+**Wann?** Als letzter Schritt jedes Pipeline-Laufs, also direkt nach der Verarbeitung und
+damit normalerweise einmal täglich — für jeden Benutzer und jedes Environment außer `TEST`.
+
+**Was passiert?** Nach dem Import liegen die eingelesenen XML-Berichte (aus Mail und Web-API)
+im Ordner `C:\Trade_XML\<environment>\<benutzer>\processed\`. Der Schritt `summary` nimmt
+die dort neu hinzugekommenen Berichte und hängt ihre Tagesberichte an eine **Sammeldatei** an:
+
+```
+C:\Trade_XML\<environment>\summary_<präfix><environment>.xml
+```
+
+Jeder Berichtstag wird nur einmal aufgenommen, leere Berichte (Tage ohne Trades) werden
+übersprungen, und die Datei bleibt nach Datum sortiert. So wächst über die Zeit eine
+vollständige Historie aller Trades in einer einzigen Datei.
+
+**Wozu?** Muss die Datenbank einmal neu aufgebaut werden — etwa nach einem Fehler oder wenn
+eine neue Version anders rechnet —, werden aus der Sammeldatei alle Trades erneut eingelesen
+und verarbeitet, ohne dass die ursprünglichen Mails noch vorhanden sein müssen. Wie das geht,
+beschreibt das technische Handbuch ([Befehlsreferenz](../technik/30-befehlsreferenz.md)).
+
+> [!IMPORTANT]
+> Die Sammeldatei enthält nur die **Trades** aus den Flex Queries, keine Kontoauszüge (CSV).
+> Sie ist die wichtigste Datei für eine Datensicherung: Wer sie aufbewahrt, kann seine
+> Trade-Historie jederzeit wiederherstellen.
+
+## 6. Welche Daten entstehen
 
 Jeder Benutzer hat in jedem Environment einen eigenen Satz Tabellen (erkennbar am Präfix,
 z. B. `anna_trades_close`). Die Environments liegen in getrennten Datenbanken.
@@ -197,7 +272,7 @@ von IBKR, sondern aus den eigenen Eingaben in der App:
 | `trade_planner`, `trade_planner_legs` | Trade Log: geplante und reflektierte Entscheidungen               |
 | `psychology_*`                        | Psychologie-Modul: Regelwerke, Journal-Einträge, Regel-Auswertung |
 
-## 6. Darstellung im TradingJournal
+## 7. Darstellung im TradingJournal
 
 Das TradingJournal liest die Tabellen des angemeldeten Benutzers im gewählten Environment. Der
 **Environment-Schalter** oben in der Navigation wählt also die Datenbank; der Benutzer-Login

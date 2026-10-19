@@ -1,8 +1,16 @@
 # Handbücher
 
-Die Dokumentation von TradingJournal und TradingJournal-Weaver ist in zwei Handbücher gegliedert. Jede Datei
-ist ein Kapitel; die Nummer im Dateinamen gibt die Reihenfolge vor. Beide Handbücher gibt es
-auch als gesetztes PDF (siehe Releases des TradingJournal-Repos).
+Die Dokumentation von TradingJournal und TradingJournal-Weaver ist in zwei Handbücher gegliedert,
+dazu kommt eine kurze Vorstellung. Jede Datei ist ein Kapitel; die Nummer im Dateinamen gibt die
+Reihenfolge vor. Alle drei gibt es auch als gesetztes PDF (siehe Releases des TradingJournal-Repos).
+
+## Vorstellung
+
+Der schnelle Überblick: warum es das TradingJournal gibt, was es kann und was nicht.
+
+| Kapitel | Inhalt |
+|---|---|
+| [Vorstellung](vorstellung/10-vorstellung.md) | Motivation, Eckpunkte, Workflow, Pro & Contra, Entstehung |
 
 ## Benutzerhandbuch
 
@@ -12,6 +20,7 @@ Programmierkenntnisse.
 | Kapitel | Inhalt |
 |---|---|
 | [10 · Überblick](benutzer/10-ueberblick.md) | Vom Trade bis zur Auswertung: wie die Daten fließen |
+| [15 · Rundgang durch die App](benutzer/15-rundgang.md) | Alle Bereiche der App mit Screenshots: was wo zu finden ist |
 | [20 · IBKR einrichten](benutzer/20-ibkr-einrichten.md) | Flex Queries, E-Mail-Zustellung, Prüfcode, Kontoauszug — mit Screenshots |
 | [30 · Windows vorbereiten](benutzer/30-windows-vorbereiten.md) | Benötigte Programme installieren |
 | [40 · TradingJournal-Weaver installieren](benutzer/40-weaver-installieren.md) | Datenimport einrichten |
@@ -19,6 +28,7 @@ Programmierkenntnisse.
 | [60 · Erster Start](benutzer/60-erster-start.md) | Einloggen, Environments, Dashboard anpassen |
 | [70 · Alltag](benutzer/70-alltag.md) | Täglicher Import, Kampagnen, Trade Log, Psychologie |
 | [80 · Updates](benutzer/80-updates.md) | Neue Versionen einspielen |
+| [90 · Fehlerbehebung](benutzer/90-fehlerbehebung.md) | Häufige Probleme bei Installation, Abruf, Import und Anzeige — mit Lösung |
 
 ## Technisches Handbuch
 

@@ -1,0 +1,40 @@
+name: Fehler melden
+description: Etwas funktioniert nicht wie im Handbuch beschrieben
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Melden! Bitte **keine** echten Kontonummern, Flex-Query-Dateien, Prüfcodes (Token)
+        oder unmaskierten Screenshots anhängen — die Fehlermeldung aus dem Protokoll reicht fast immer.
+        Viele Probleme sind im Handbuch-Kapitel „Fehlerbehebung“ schon beschrieben.
+  - type: textarea
+    id: was
+    attributes:
+      label: Was ist passiert?
+      description: Was hast du getan, was hast du erwartet, was ist stattdessen passiert?
+    validations:
+      required: true
+  - type: textarea
+    id: meldung
+    attributes:
+      label: Fehlermeldung / Protokoll
+      description: |
+        Ausschnitt aus `TradingJournal-Weaver\log\app.log` bzw. `TradingJournal\storage\logs\laravel.log`
+        (Kontonummern vorher unkenntlich machen).
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`git describe --tags` im Projektordner, oder die Build-Nummer unten in der Seitenleiste"
+  - type: dropdown
+    id: bereich
+    attributes:
+      label: Bereich
+      options:
+        - Installation
+        - Daten abholen (Mail / Web-API)
+        - Import / Verarbeitung
+        - Anzeige im Journal
+        - Sonstiges

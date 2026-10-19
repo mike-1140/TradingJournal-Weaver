@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Handbuch und Fehlerbehebung
+    url: https://github.com/mike-1140/TradingJournal-Weaver/tree/master/docs/handbuch
+    about: Viele Fragen zur Installation sind dort schon beantwortet.

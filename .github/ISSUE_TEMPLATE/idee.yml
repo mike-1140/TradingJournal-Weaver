@@ -1,0 +1,20 @@
+name: Idee / Wunsch
+description: Vorschlag für eine neue Funktion oder Verbesserung
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Das TradingJournal ist ein Hobbyprojekt: lokal, für Interactive Brokers, unter Windows.
+        Ideen sind willkommen — ob und wann sie umgesetzt werden, kann ich nicht versprechen.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem soll gelöst werden?
+      description: Beschreibe die Situation im Trading-Alltag, nicht nur die Lösung.
+    validations:
+      required: true
+  - type: textarea
+    id: vorschlag
+    attributes:
+      label: Wie könnte es aussehen?

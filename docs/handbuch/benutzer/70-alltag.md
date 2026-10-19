@@ -28,7 +28,7 @@ fetch_emails → fetch_api → snapshot_csv → import → process → summary
 | `snapshot_csv` | NAV-Tagesschnappschüsse (`account_snapshots`) aus den Activity-CSVs — einziger aktiver Weg, TWRR exakt zu bestimmen                                                            |
 | `import`       | Beide XML-Quellordner → `trades_raw`, Routing per `accountId` → User/Environment (`accounts.toml`), Checksum-Dedup verhindert Doppel-Import über beide Kanäle                 |
 | `process`      | FIFO-Matching: `trades_raw` → `trades_open`/`trades_close`/`trading_campaigns`/`campaign_ledger`                                                                               |
-| `summary`      | Verarbeitete Mail-XMLs in `summary_<prefix><env>.xml` zusammenfassen (Basis für spätere `--from-summary`-Rebuilds)                                                             |
+| `summary`      | Verarbeitete XML-Berichte (Mail und API) in `summary_<prefix><env>.xml` zusammenfassen (Basis für spätere `--from-summary`-Rebuilds)                                           |
 
 `pipeline.toml` definiert, **welche** User × Environments verarbeitet werden — die Datei
 ist maschinenspezifisch (wie `.env`, nicht versioniert, siehe `pipeline.toml.example`):
@@ -40,7 +40,7 @@ jede Maschine trägt nur die User/Environments ein, die dort tatsächlich per
 | anna | money, paper, autom_money, autom_paper  |
 | tom  | money                                   |
 
-Für den automatisierten Lauf (z. B. täglich per Windows Task Scheduler oder Cronjob) siehe
+Für den automatisierten Lauf (z. B. täglich per Windows-Aufgabenplanung) siehe
 [Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md).
 
 ## 2. Kampagnen-Lebenszyklus aus Nutzersicht
