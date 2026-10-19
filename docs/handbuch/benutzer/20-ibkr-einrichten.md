@@ -45,6 +45,14 @@ Der Reiter **Kontoauszüge** links daneben wird in Abschnitt 6 gebraucht.
 Über das **+** bei *Kontoumsatz-Flex-Query* eine neue Query anlegen (auf Englisch heißt sie
 *Activity Flex Query*). Der Name ist frei wählbar, z. B. `money_report`.
 
+> [!TIP]
+> Am besten das **Konto bzw. Environment in den Namen** aufnehmen, z. B. `money_report`,
+> `paper_report`, `autom_money_report`. Der Name erscheint im Dateinamen des Mail-Anhangs
+> (`flex.<Query-ID>.money_report.<Datum>.<Datum>.xml`) und im Bericht selbst. So ist auf einen
+> Blick erkennbar, von welchem Konto ein Bericht stammt — die Kontonummer steht zwar auch
+> darin, aber die hat kaum jemand im Kopf. Für den Import spielt der Name keine Rolle: Die
+> Zuordnung läuft immer über die Kontonummer (`accounts.toml`).
+
 **Abschnitte** — genau diese drei auswählen (aktivierte Abschnitte erscheinen blau mit Haken):
 
 - **Trades**
@@ -84,13 +92,21 @@ der Import braucht.
 |---|---|
 | Format | **XML** |
 | Zeitraum | **Letzte n Kalendertage** |
-| Anzahl der Tage | **8** |
+| Anzahl der Tage | **8** (oder mehr, siehe unten) |
 
 ![Zustellungskonfiguration](img/20-ibkr-einrichten/09-zustellungskonfiguration.jpg)
 
 Der Zeitraum von acht Tagen ist bewusst überlappend: Fällt ein Bericht aus (Feiertag,
 Mail-Problem, Rechner aus), holt der nächste die fehlenden Tage nach. Doppelt gelieferte Trades
 erkennt der Import und überspringt sie.
+
+Wer auf der sicheren Seite sein will — etwa bei längerer Abwesenheit —, kann den Zeitraum auch
+größer wählen, z. B. **30 Tage**. Dann überbrückt jeder Bericht entsprechend längere Ausfälle.
+Der Preis: Jeder Bericht enthält mehr Tage und Trades, es werden mehr Daten erzeugt und
+übertragen, und die Ablageordner der eingelesenen Berichte (`processed`, `deleted`) wachsen
+schneller, weil jede Datei größer ist. Die Sammeldatei (Summary) wächst dagegen nicht stärker:
+IBKR liefert je Handelstag einen eigenen Teilbericht, und die Sammeldatei übernimmt jeden Tag nur
+einmal.
 
 **Allgemeine Konfiguration:**
 
@@ -144,7 +160,18 @@ auf das Zahnrad.
 ![Zustellung der Flex Query bearbeiten](img/20-ibkr-einrichten/13-zustellung-bearbeiten.jpg)
 
 Mit **Weiter** und **Speichern** abschließen. Danach schickt IBKR den Bericht täglich per
-E-Mail (Betreff beginnt mit *Activity Flex for …*).
+E-Mail.
+
+**Wann die Mails kommen** — Die Berichte zu einem Handelstag kommen **am folgenden Tag am
+Nachmittag** (mitteleuropäische Zeit, erfahrungsgemäß zwischen etwa 14 und 16 Uhr). Am
+**Samstag werden keine Mails verschickt**: Der Bericht für den Handelstag Freitag kommt erst am
+**Montag**. Wer morgens mit den Daten vom Vortag arbeiten möchte, nutzt zusätzlich den Abruf
+per Web-API (Abschnitt 5): Dort stehen sie deutlich früher bereit.
+
+**So sieht die Mail aus** — Betreff *Activity Flex for 10/14/2026*: Das Datum ist der Handelstag
+im US-Format (Monat/Tag/Jahr), nicht der Versandtag. Der Name der Flex Query steht **nicht** im
+Betreff, sondern nur im Dateinamen des Anhangs. Die Mails zum Kontoauszug (Abschnitt 6) heißen
+*Persönlicher Kontoauszug für …* bzw. *Customized Activity Statement for …*.
 
 > [!WARNING]
 > IBKR schickt die Berichte **immer an die E-Mail-Adresse, die beim Anlegen des Kontos
@@ -156,7 +183,10 @@ E-Mail (Betreff beginnt mit *Activity Flex for …*).
 ## 5. Abruf per Web-API (optional)
 
 Der Abruf per Web-API ist ein zweiter, unabhängiger Weg zu denselben Daten — nützlich, falls an
-einem Tag keine Mail ankommt. Dafür braucht es zwei Dinge: eine eigene Flex Query und einen
+einem Tag keine Mail ankommt. Und er ist **schneller**: IBKR erstellt den Bericht erst bei der
+Anfrage, die Daten des Vortags stehen deshalb in der Regel schon **am Morgen** bereit — auch am
+Samstag für den Handelstag Freitag, an dem keine Mail kommt. Ist der Bericht bei IBKR gerade noch
+in Arbeit, wartet der Abruf kurz und versucht es automatisch erneut. Dafür braucht es zwei Dinge: eine eigene Flex Query und einen
 Prüfcode.
 
 **Eigene Query:** eine zweite Flex Query anlegen, **mit genau denselben Einstellungen** wie in
@@ -266,7 +296,7 @@ Journal nicht nötig.
 **Checkliste je Konto:**
 
 1. Flex Query mit *Trades*, *Optionsausübungen, -zuteilungen und -fälligkeiten*, *Kapitalmaßnahmen* — jeweils *Alle auswählen*
-2. XML, letzte 8 Kalendertage, `dd/MM/yyyy` · `HHmmss` · `;`, Pseudonym *Nein*
+2. XML, letzte 8 Kalendertage (oder mehr), `dd/MM/yyyy` · `HHmmss` · `;`, Pseudonym *Nein*
 3. Flex Query für die tägliche E-Mail-Zustellung angehakt
 4. *(optional)* zweite, gleich eingestellte Query + Prüfcode für die Web-API, Ablaufdatum notiert
 5. Benutzerdefinierter Kontoauszug: fünf Pflicht-Abschnitte, CSV, täglich, English, Pseudonym *Nein*

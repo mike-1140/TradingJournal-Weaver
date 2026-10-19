@@ -22,7 +22,7 @@ kann zeitweise nicht erreichbar sein.
 
 ## Die Eckpunkte
 
-- **Komplett lokal, volle Datenhoheit.** Ich nutze keinen Cloud-Dienst und keinen Drittanbieter-Server. Die App läuft auf meiner eigenen Maschine (lokaler PC, oder mein eigener Server - ähnlich dem Strato-Server vom automatisierten Handel), meine Kontodaten bleiben dort.
+- **Komplett lokal, volle Datenhoheit.** Ich nutze keinen Cloud-Dienst und keinen Drittanbieter-Server. Die App läuft auf meiner eigenen Maschine (lokaler PC oder ein eigener Server, falls vorhanden), meine Kontodaten bleiben dort.
 - **Quellcode offen, Nutzung kostenlos — aber nicht kommerziell.** Ich habe beide Repositories öffentlich gemacht: [TradingJournal](https://github.com/mike-1140/TradingJournal) (die Weboberfläche) und [TradingJournal-Weaver](https://github.com/mike-1140/TradingJournal-Weaver) (Import und Datenverarbeitung). Jeder darf das Journal für die eigenen Konten nutzen (auch Echtgeld), den Code lesen, anpassen und kostenlos weitergeben. Verkaufen, als bezahlten Dienst anbieten oder in ein kommerzielles Produkt einbauen ist nicht erlaubt (PolyForm-Noncommercial-Lizenz, Details im README).
 - **Zugeschnitten auf Interactive Brokers.** Ich importiere über IBKR FlexQuery — andere Broker unterstütze ich aktuell nicht.
 - **Kein Echtzeit-Tool.** Mein Import läuft mit ein bis zwei Tagen Nachlauf zum echten Handelstag. Für mich ist das Journal deshalb eher Dokumentation und Analyse im Rückblick als ein aktives Trading-Tool für den laufenden Tag.

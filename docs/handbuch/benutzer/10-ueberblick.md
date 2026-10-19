@@ -13,18 +13,37 @@ Beteiligt sind zwei Programme, die sich eine MySQL-Datenbank teilen:
 
 ```mermaid
 flowchart TB
-    A["1 · Trading<br/>Orders in TWS, IBKR-App oder per Automatisierung"]
-    B["2 · IBKR-Berichte<br/>FlexQuery (XML) + Kontoauszug (CSV)"]
-    C["3 · Einlesen<br/>Abholen, Konto zuordnen, Strategien erkennen, Duplikate filtern"]
-    D["4 · Verarbeiten<br/>FIFO-Matching, Kampagnen, P#amp;L"]
-    E[("5 · Datenbank<br/>Tabellen je Benutzer und Environment")]
-    F["6 · Darstellung<br/>TradingJournal im Browser"]
+    subgraph IB["Interactive Brokers"]
+        A["1 · Trading<br/>Orders in TWS, IBKR-App oder per Automatisierung"]
+        B["2 · IBKR-Berichte<br/>FlexQuery (XML) + Kontoauszug (CSV)"]
+    end
+    subgraph WV["TradingJournal-Weaver"]
+        C["3 · Einlesen<br/>Abholen, Konto zuordnen, Strategien erkennen, Duplikate filtern"]
+        D["4 · Verarbeiten<br/>FIFO-Matching, Kampagnen, P#amp;L"]
+        S["5 · Sichern<br/>Sammeldatei (Summary)"]
+    end
+    subgraph DB["MySQL-Datenbank"]
+        E[("6 · Daten<br/>Tabellen je Benutzer und Environment")]
+    end
+    subgraph TJ["TradingJournal (Web-App)"]
+        F["7 · Darstellung<br/>Auswertung im Browser"]
+    end
     A -->|IBKR erstellt täglich Berichte| B
     B -->|E-Mail oder Web-API| C
     C -->|trades_raw| D
+    C -.->|eingelesene XML-Berichte| S
     D --> E
     E --> F
+    style IB fill:#f1f3f5,stroke:#6c757d
+    style WV fill:#e7f1ff,stroke:#0d6efd
+    style DB fill:#f3edfb,stroke:#6f42c1
+    style TJ fill:#e8f5ee,stroke:#198754
 ```
+
+Die Farben zeigen, wer zuständig ist: **Interactive Brokers** (grau) erzeugt die Daten,
+**TradingJournal-Weaver** (blau, Python) holt, liest und verarbeitet sie, die **MySQL-Datenbank**
+(violett) speichert sie, und das **TradingJournal** (grün, Web-App) stellt sie dar. Die Nummern
+entsprechen den Abschnitten dieses Kapitels.
 
 > [!NOTE]
 > Das Journal ist **kein Echtzeit-Tool**. IBKR erstellt die Berichte erst nach Handelsschluss;
@@ -250,8 +269,46 @@ beschreibt das technische Handbuch ([Befehlsreferenz](../technik/30-befehlsrefer
 
 ## 6. Welche Daten entstehen
 
-Jeder Benutzer hat in jedem Environment einen eigenen Satz Tabellen (erkennbar am Präfix,
-z. B. `anna_trades_close`). Die Environments liegen in getrennten Datenbanken.
+Die Daten sind auf zwei Ebenen getrennt: **Jedes Environment hat eine eigene Datenbank**, und
+**jeder Benutzer hat darin seine eigenen Tabellen**, erkennbar am Präfix vor dem Tabellennamen.
+Ein Beispiel mit zwei Benutzern: Anna handelt mit Echtgeld und auf einem Paper-Konto, Tom nur
+auf Paper.
+
+```
+MySQL-Server
+│
+├── ibkr_laravel                 Web-App: Benutzerkonten (gemeinsam für alle)
+│   └── users                      Anna → Präfix anna_,  Tom → Präfix tom_
+│
+├── ibkr_money                   Environment MONEY
+│   ├── anna_trades_raw
+│   ├── anna_trades_close
+│   ├── anna_campaign_ledger
+│   └── … alle weiteren Tabellen mit anna_
+│
+├── ibkr_paper                   Environment PAPER
+│   ├── anna_trades_raw
+│   ├── anna_…
+│   ├── tom_trades_raw
+│   └── tom_…
+│
+├── ibkr_test                    Environment TEST
+├── ibkr_autom_money             Environment AUTOM_MONEY
+└── ibkr_autom_paper             Environment AUTOM_PAPER
+```
+
+- Tabellen entstehen nur dort, wo sie eingerichtet werden: Tom hat in `ibkr_money` keine
+  Tabellen, weil er kein Echtgeld-Konto verbindet (eingerichtet im Kapitel
+  [TradingJournal-Weaver installieren](40-weaver-installieren.md), Schritt „Datenbank-Tabellen
+  anlegen“).
+- Das Präfix muss an zwei Stellen gleich sein: in `users.toml` von TradingJournal-Weaver
+  (dorthin schreibt der Import) und beim Benutzerkonto der Web-App (von dort liest das Journal).
+- Beim Anmelden bestimmt das Benutzerkonto das Präfix, der **Environment-Schalter** wählt die
+  Datenbank. Anna sieht in *PAPER* also `ibkr_paper` mit den Tabellen `anna_…`, nicht die von
+  Tom. Einzige Ausnahme: Ein Administrator kann bewusst auf einen anderen
+  Benutzer wechseln — aber nur, wenn die Web-App im lokalen Modus läuft (`APP_ENV=local`).
+
+Je Benutzer und Environment gibt es folgende Tabellen:
 
 | Tabelle             | Inhalt                                                          | Entsteht in              |
 | ------------------- | --------------------------------------------------------------- | ------------------------ |
@@ -264,8 +321,11 @@ z. B. `anna_trades_close`). Die Environments liegen in getrennten Datenbanken.
 | `trading_campaigns` | Kampagnen je Symbol mit Status ACTIVE / PENDING / CLOSED        | Verarbeitung             |
 | `campaign_ledger`   | Jede Buchung einer Kampagne mit laufendem P&L                   | Verarbeitung             |
 
-Zusätzlich gibt es Tabellen, die **nur das TradingJournal** selbst beschreibt — sie stammen nicht
-von IBKR, sondern aus den eigenen Eingaben in der App:
+Die Tabellen oben schreibt ausschließlich TradingJournal-Weaver; die Web-App liest sie nur. Die
+folgenden Tabellen gehören genauso jedem Benutzer und Environment einzeln (z. B.
+`anna_trade_planner` in `ibkr_paper`). Der Unterschied: Ihr Inhalt stammt nicht von IBKR,
+sondern aus den eigenen Eingaben — es sind die **einzigen Tabellen, die du selbst in der Web-App
+anlegst, änderst und löschst**:
 
 | Tabelle                               | Inhalt                                                            |
 | ------------------------------------- | ----------------------------------------------------------------- |
