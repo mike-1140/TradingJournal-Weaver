@@ -29,7 +29,7 @@ incoming_mail/incoming_api-Trennung, CLI-Override für import_ibkr_trades.py)
 
 Das System liest automatisch **IBKR FlexQuery-Reports** (XML) und **Activity Statements** (CSV) ein und überführt die Rohdaten in ein strukturiertes Trading-Journal mit:
 
-- **FIFO-Lot-Matching** für alle Assets (Aktien, Optionen, FX)
+- **FIFO-Lot-Matching** für Aktien und Optionen (Devisentausch wird separat erfasst, ohne FIFO)
 - **Kampagnen-Tracking** (gebündelte Trades je Symbol/Zeitraum)
 - **Options-Strategie-Erkennung** (Spreads, Iron Condors, Straddles, …)
 - **Vollständigem Audit-Trail** (jede Aktion im `campaign_ledger`)
@@ -67,7 +67,8 @@ IBKR generiert **täglich** einen FlexQuery-Report als XML. Die Datei enthält a
         <OptionEAE tradeID="..." transactionType="Expiration" ... />
       </OptionEAE>
       <CorporateActions>
-        <CorporateAction type="RS" symbol="APDN" ... />  <!-- Reverse Split -->
+        <CorporateAction type="RS" symbol="APDN.OLD" quantity="-1500" ... />  <!-- Reverse Split 1:50, alter Teil -->
+        <CorporateAction type="RS" symbol="APDN" quantity="30" ... />        <!-- neuer Teil, gleiche actionID -->
       </CorporateActions>
     </FlexStatement>
   </FlexStatements>
@@ -98,10 +99,10 @@ XML-Files kommen nach `C:\Trade_XML\incoming_mail\` (Mail) bzw. `C:\Trade_XML\in
 
 IBKR erzeugt bei **automatischen Schließungsereignissen** (Verfall, Ausübung, Assignment) zwei Arten von Einträgen im XML:
 
-- **OptionEAE** (im `<OptionEAE>`-Block): Enthält das *Ereignis* mit Typ und Details (Expiration, Exercise, Assignment, CashSettlement). Aus diesem Block werden die Informationen gewonnen, um BookTrades korrekt zu klassifizieren.
-- **BookTrade** (im `<Trades>`-Block, Flag `isBookTrade=1`): Der dazugehörige automatische *Trade-Eintrag*, den IBKR für die Buchung erzeugt. Allein stehend hat er noch keinen Status.
+- **OptionEAE** (im `<OptionEAE>`-Block): Enthält das *Ereignis* mit Typ und Details (`Expiration`, `Exercise`, `Assignment`, `Cash Settlement`). Aus diesem Block werden die Informationen gewonnen, um BookTrades korrekt zu klassifizieren.
+- **BookTrade** (im `<Trades>`-Block, `transactionType="BookTrade"`): Der dazugehörige automatische *Trade-Eintrag*, den IBKR für die Buchung erzeugt. Allein stehend hat er noch keinen Status.
 
-`book_trades.py` liest die OptionEAE-Daten und überträgt den jeweiligen Ereignistyp auf den passenden BookTrade — verbunden via `tradeID` oder `conid+date`.
+`book_trades.py` liest die OptionEAE-Daten und überträgt den jeweiligen Ereignistyp auf den passenden BookTrade — verbunden via `tradeID` oder `conid+date` — und verknüpft bei einer Zuteilung die Option per `linkID` mit dem Aktien-Trade (Details § 5.5).
 
 ---
 
@@ -340,13 +341,36 @@ process_flex_file(xml_path, db, repo, logger, environment)
 Liest alle `<Trade>`-Elemente und mappt IBKR-Attribute auf interne Spaltennamen.
 
 **Sonderfall CASH-Trades (FX):**
+
+IBKR meldet einen Währungstausch (`assetCategory="CASH"`, Symbol `<Basis>.<Quote>`, z. B.
+`EUR.USD`) als **einen** `<Trade>`. Daraus entstehen drei Zeilen — eine in `trades_fx`, zwei in
+`trades_raw`:
+
 ```
-IBKR meldet einen EUR.USD-Trade als EINZELNEN Eintrag.
-Das System erzeugt ZWEI Datenbankzeilen:
-  ├── Zeile 1: EUR (Basiswährung) — positive Menge
-  └── Zeile 2: USD (Quoting-Währung) — negative Menge (Gegenseite)
+trades_fx (1 Zeile je Tausch — Grundlage der Ansicht „FX-Trades“):
+  baseCurrency/quoteCurrency  aus dem Symbol (EUR / USD)
+  baseAmount                  = quantity  (Betrag in Basiswährung, Vorzeichen von IBKR)
+  quoteAmount                 = proceeds  (Betrag in Gegenwährung)
+  fxRate                      = tradePrice
+  commission                  = ibCommission
+
+trades_raw (2 Zeilen, gemeinsame linkID — „von“ und „nach“):
+  Zeile „von“:  quantity = 1, currency = Basis, tradePrice = Kurs,   netCash = Basisbetrag,
+                ibCommission = Kommission
+  Zeile „nach“: quantity = 2, currency = Quote, tradePrice = 1/Kurs, netCash = Gegenbetrag,
+                ibCommission = 0
 ```
-Dieses Design ermöglicht, FX-Trades wie normale Positionen per FIFO zu tracken.
+
+`quantity` ist hier **keine Menge**, sondern nur die Kennung 1 = „von“, 2 = „nach“. Beispiel
+aus echten Daten: EUR → USD zum Kurs 1,1686 ergibt in `trades_raw` die Zeilen
+`(quantity 1, EUR, 1,1686, netCash −498,30)` und `(quantity 2, USD, 0,8557, netCash +582,31)`,
+in `trades_fx` eine Zeile `EUR/USD, −498,30 / +582,31, Kurs 1,1686`. Ein FIFO-Matching findet
+für FX **nicht** statt (siehe § 6.2, Fall 0). Die Umrechnung von Trades in Euro hängt nicht an
+diesen Zeilen, sondern am `fxRateToBase`, das IBKR bei jedem Trade mitliefert.
+
+**Kein Forex-Trading:** Erfasst wird nur der Umtausch als solcher (z. B. EUR → USD für den
+Aktienhandel). Devisenhandel als Strategie — Währungspositionen mit Gewinn/Verlust aus
+Kursbewegungen — ist nicht umgesetzt: keine Tranchen, kein P&L, keine Kampagnen für `CASH`.
 
 **OptionEAE-Extraktion (`extract_optioneae_for_db`):**
 
@@ -355,7 +379,7 @@ Dieses Design ermöglicht, FX-Trades wie normale Positionen per FIFO zu tracken.
 | `Expiration` | Option verfallen (wertlos) |
 | `Exercise` | Option ausgeübt (durch Holder) |
 | `Assignment` | Option zugewiesen (durch Writer) |
-| `CashSettlement` | Barzahlung statt Delivery (z.B. SPX, XSP) |
+| `Cash Settlement` | Barzahlung statt Delivery (z.B. SPX, XSP) |
 
 **CorporateActions (`extract_corporateaction_for_db`):**
 
@@ -371,61 +395,140 @@ Dieses Design ermöglicht, FX-Trades wie normale Positionen per FIFO zu tracken.
 
 IBKR liefert in den FlexQuery-Daten **keine Information über synthetische Produkte** wie Spreads oder andere Multi-Leg-Konstrukte — jedes Leg erscheint als eigenständiger, isolierter Trade ohne Verweis auf eine übergeordnete Strategie. Das System muss daher **heuristisch** erkennen, welche Einzeltrades zusammengehören.
 
-Zwei Heuristiken werden kombiniert:
+`detect_strategies()` läuft beim Import je FlexStatement (also je Handelstag), nachdem
+Teilausführungen zusammengefasst sind, und betrachtet nur echte Börsen-Trades
+(`transactionType="ExchTrade"`; BookTrades aus Verfall/Zuteilung nie). Zwei Gruppierungen
+werden nacheinander angewendet:
 
-#### Methode 1: ibOrderID-Matching (primär)
+#### Methode 1: ibOrderID-Gruppierung (primär)
 ```
-IBKR weist zusammenhängenden Combo-Orders dieselbe ibOrderID zu.
-→ Alle Legs mit gleicher ibOrderID = eine Strategie
-```
-
-#### Methode 2: 3-Sekunden-Zeitfenster (Fallback)
-```
-Für manuell gestaffelten Einstieg:
-→ Alle Options-Trades desselben Kontos im 3s-Fenster
-   mit passender Leg-Konfiguration = eine Strategie
+IBKR vergibt allen Legs einer Combo-Order dieselbe ibOrderID.
+→ Options-Trades mit gleicher ibOrderID (mind. 2) = Kandidat
 ```
 
-**Erkannte Strategien:**
+#### Methode 2: 3-Sekunden-Raster (Fallback)
+```
+Für einzeln eingegebene Legs ohne gemeinsame ibOrderID:
+→ übrige Options-Trades desselben Underlyings, deren dateTime in dasselbe
+  feste 3-Sekunden-Raster fällt (dateTime abgerundet auf 3 s) = Kandidat
+```
+Das Raster ist fest, kein gleitendes Fenster: Legs um 10:00:02 und 10:00:04 liegen in
+verschiedenen Rastern (10:00:00 und 10:00:03) und werden **nicht** zusammengefasst.
 
-| Name | Legs | Beschreibung |
+**Klassifizierung:** Je Kandidat werden die Legs nach Strike/Typ/Verfall zusammengefasst
+(Mengen summiert) und nach Anzahl der Legs eingeordnet. Nur wenn ein Name passt, bekommen alle
+Legs dieselbe `opt_strategyID` (UUID), `opt_strategyName` und `opt_strategy=1`; sonst bleiben
+sie Einzeloptionen.
+
+| Name | Legs | Bedingung im Code |
 |---|---|---|
-| Bull Put Spread | 2 | Long Put (tiefer Strike) + Short Put (höherer Strike) |
-| Bear Call Spread | 2 | Short Call (tiefer) + Long Call (höherer) |
-| Iron Condor | 4 | Bull Put + Bear Call kombiniert |
-| Straddle | 2 | Long/Short Call + Long/Short Put (gleicher Strike) |
-| Strangle | 2 | Wie Straddle, aber unterschiedliche Strikes |
-| Calendar Spread | 2 | Gleicher Strike, unterschiedliche Expiries |
-| Butterfly | 3 | 3 Strikes, mittlerer Strike doppelt gewichtet |
+| Bull Put Spread | 2 | Puts, gleicher Verfall, gleiche Menge, entgegengesetzt; höherer Strike short |
+| Bear Put Spread | 2 | wie oben, höherer Strike long |
+| Bear Call Spread | 2 | Calls, gleicher Verfall, gleiche Menge, entgegengesetzt; tieferer Strike short |
+| Bull Call Spread | 2 | wie oben, tieferer Strike long |
+| Calendar Spread | 2 | gleicher Typ und Strike, verschiedener Verfall, entgegengesetzt |
+| Diagonal Spread | 2 | gleicher Typ, verschiedener Strike und Verfall, entgegengesetzt |
+| Straddle | 2 | Call + Put, gleicher Strike und Verfall, gleiche Richtung |
+| Strangle | 2 | Call + Put, verschiedener Strike, gleicher Verfall, gleiche Richtung |
+| Call / Put Butterfly | 3 | ein Typ, ein Verfall, Mengen 1 : 2 : 1, Summe 0 |
+| Iron Condor | 4 | 2 Calls + 2 Puts, ein Verfall, Calls und Puts heben sich je auf |
 
-**Ergebnis:** Jeder Leg erhält `opt_strategyID` (UUID) und `opt_strategyName`.
+Nicht erkannt (bleiben Einzeloptionen): ungleiche Mengen bei 2 Legs (Ratio Spreads), mehr als
+4 Legs, Legs an verschiedenen Tagen.
 
-### 5.5 BookTrade-Klassifizierung: `book_trades.py`
+**Was mit dem Namen passiert:** `trades_raw` speichert ihn an jedem Leg. `trades_open` übernimmt
+ihn beim Eröffnen, `trades_close` übernimmt ihn **von der Eröffnung** — die Spreads-Ansichten in
+TradingJournal gruppieren `trades_close` nach dieser `opt_strategyID`. Die Kampagne hängt
+unabhängig davon am Underlying (§ 6.3).
+
+**Grenzen (Stand 2026-10-20, gegen Code und Echtdaten geprüft):**
+
+- **Schließende Combo-Orders bekommen einen eigenen, „umgekehrten“ Namen.** Die Erkennung kennt
+  keine Eröffnung/Schließung: Wer einen Bull Put Spread per Combo-Order zurückkauft, erzeugt in
+  `trades_raw` einen „Bear Put Spread“ (in einem Konto der Echtdaten sind alle 32 „Bear Put
+  Spreads“ und alle 10 „Bull Call Spreads“ solche Schließungen). Auswirkung nur auf die Ansicht *Raw Data* —
+  `trades_close` und die Spreads-Auswertung verwenden die Strategie der Eröffnung.
+- **Rolls werden als Spread erkannt.** Ein Roll als Combo-Order (alte Option zurückkaufen, neue
+  verkaufen) sieht aus wie ein Calendar- oder Diagonal-Spread. Die neu eröffnete Option trägt
+  dann diesen Namen und erscheint später als „Spread“ mit nur einem Leg (PAPER: 2 Diagonal
+  Spreads, außerdem je ein bis drei gemischte Fälle in zwei weiteren Konten).
+- **Iron Butterfly** (Short Call und Short Put am selben Strike) erfüllt die Iron-Condor-Regel
+  und heißt deshalb „Iron Condor“; die Reihenfolge der Strikes wird nicht geprüft.
+
+### 5.5 Verfall, Ausübung, Zuteilung: `book_trades.py`
+
+Schließt IBKR eine Option automatisch (Verfall, Ausübung, Zuteilung, Barausgleich), stehen im
+XML zwei Dinge: der **BookTrade** im `Trades`-Block (`transactionType="BookTrade"`), der die
+Option ausbucht, und das **OptionEAE**-Ereignis, das den Grund nennt. Bei einer Zuteilung oder
+Ausübung mit Aktienlieferung kommt ein dritter Eintrag dazu: der **Aktien-Trade** zum Strike, als
+eigener Eintrag im `Trades`-Block. `flex_parser.py` trennt die BookTrades ab und gibt sie mit den
+Options-EAE (`assetCategory="OPT"`) an `handle_booktrades()`.
+
+**Schritt 1 — Status am Options-BookTrade (Parser):**
 
 ```
-Ausgangslage:
-  - OptionEAE-Block enthält: Ereignistyp, conid, tradeID, Details
-  - BookTrade im Trades-Block: automatischer Buchungseintrag, noch ohne Status
+Assignment / Exercise / Expiration:
+  BookTrade.tradeID == OptionEAE.tradeID  → Ereignistyp übernehmen
+Cash Settlement (eigene tradeID ohne Bezug zum BookTrade):
+  BookTrade.conid == OptionEAE.conid und Datum höchstens 1 Tag auseinander
 
-Klassifizierungs-Logik:
-  Primär:   tradeID des BookTrade == tradeID im OptionEAE-Eintrag
-            (für Assignment, Exercise, Expiration)
-  Fallback: conid-Matching für Cash Settlement (kein direkter tradeID-Link),
-            anschließend Datumsfilter zur Eingrenzung auf den richtigen Tag
-
-Ergebnis:
-  BookTrade erhält den Status aus dem OptionEAE-Ereignis:
-  "Expired" / "Assigned" / "Exercised" / "CashSettled"
-  (dieser Status wird in trades_close übernommen)
+Status (Spalte trades_raw.status):
+  Assignment oder Exercise   → "Assigned"   (auch die Ausübung — einen eigenen
+                                             Status "Exercised" gibt es nicht)
+  zusätzlich Cash Settlement → "CashSettled", proceeds = Barausgleich
+                               (SPX: Exercise/Assignment + Cash Settlement)
+  Expiration                 → "Expired"
+  nur Cash Settlement        → "CashSettled" + Warnung (sollte nicht vorkommen)
 ```
 
-**Sonderfall SPX / Cash-Settled Options:**
+**Schritt 2 — Option mit Aktie verknüpfen (Parser, nur bei *Assignment*):**
+
 ```
-SPX löst ZWEI OptionEAE-Einträge aus:
-  1. Exercise (formaler Ereignistyp des Holders)
-  2. CashSettlement (die eigentliche Barausgleich-Buchung)
-→ Das System priorisiert CashSettlement als finalen Status am BookTrade
+Voraussetzung: OptionEAE hat underlyingConid (fehlt beim Barausgleich)
+1. linkID = neue UUID → auf den Options-BookTrade
+2. Aktien-Trade suchen:
+     assetCategory = "STK"
+     conid         = underlyingConid der Option
+     |quantity|    = |Kontrakte| × multiplier   (z. B. 1 × 100 = 100 Aktien)
+     noch nicht mit einer anderen Zuteilung verknüpft
+   bei mehreren Treffern: der zeitlich nächste zum EAE-Datum
+3. Treffer → gleiche linkID + status "Assigned" auf den Aktien-Trade
+   kein Treffer → Logzeile "Kein passender Stock-Trade gefunden", Option behält linkID
 ```
+
+Beide Einträge landen so in `trades_raw` mit derselben `linkID`.
+
+**Schritt 3 — Verarbeitung (`process_ibkr_trades.py`):** Der Options-BookTrade schließt die
+offene Options-Tranche (FIFO, § 6.2). In `trades_close` werden `status` und `closedBy` gesetzt
+(`Assigned` → `ASSIGNMENT`, `Expired`/`CashSettled` → `EXPIRY`); die `linkID` kommt dabei vom
+schließenden BookTrade, nicht von der Eröffnung (die nie eine hat). Im Fall 2c (exakter
+Gegenabschluss) schreibt das Ledger `OPTION_EXERCISE` bzw. `OPTION_EXPIRATION` /
+`CASH_SETTLEMENT`. Bei `OPTION_EXERCISE` merkt sich der Tracker die `linkID` als
+`pending_link_id` am Underlying; eröffnet der nächste Aktien-Trade dieses Underlyings eine
+Position (Fall 1), bekommt sein Ledger-Eintrag diese `linkID`. Schließt der Aktien-Trade dagegen
+eine bestehende Position (z. B. Covered Call zugeteilt → Aktien gehen weg), trägt er die
+`linkID` aus Schritt 2 direkt in seinen `trades_close`-Eintrag. Option und Aktie landen in
+derselben Kampagne, weil die Kampagne am Underlying hängt (§ 6.3).
+
+**Nutzung in TradingJournal:** `SpreadsList`/`SpreadDetail` addieren das Ergebnis der über
+`linkID` verknüpften Aktien-Trades zum Spread-Ergebnis (sonst wäre ein zugeteilter Bull Put
+Spread zu optimistisch, weil der Verlust aus der Aktienzuteilung fehlt). Die Detailseiten offener
+und geschlossener Trades zeigen verknüpfte Trades mit gleicher `linkID` an.
+
+**Grenzen (Stand 2026-10-20, gegen Code und Echtdaten geprüft):**
+
+- **Ausübung eigener Optionen** (*Exercise*): Der Parser vergibt keine `linkID`, der Aktien-Trade
+  wird nicht gesucht. Nur im Fall 2c erzeugt die Verarbeitung eine `linkID` für den Ledger-Eintrag
+  des nächsten eröffnenden Aktien-Trades; in `trades_close`/`trades_open` bleibt sie leer.
+- **Teilschließungen** (Fall 2a/2b, z. B. 1 von 2 Kontrakten zugeteilt oder eine in zwei
+  Tranchen eröffnete Option auf einmal verfallen): Der Status in `trades_close` wird auf `Closed`
+  überschrieben, das Ledger schreibt eine normale Schließung statt `OPTION_EXERCISE` /
+  `OPTION_EXPIRATION`, und es gibt keine `pending_link_id`. `closedBy` bleibt richtig
+  (`ASSIGNMENT`/`EXPIRY`). In den Echtdaten kommt das bisher nur bei Verfall vor (8 Einträge
+  `status=Closed, closedBy=EXPIRY` über alle Environments).
+- **Altdaten** vor dem linkID-Fix (2026-07-31) wurden per
+  `dev/migrate_backfill_assignment_linkid.py` nachgetragen; ohne Aktien-Gegenstück (Barausgleich)
+  bleibt die `linkID` des Options-Eintrags ohne Partner.
 
 ### 5.6 Duplikat-Schutz: Checksums
 
@@ -502,20 +605,29 @@ Geschlossene Tranchen werden in `trades_open` nicht gelöscht, sondern auf `proc
 
 #### Fall 0: CASH / FX-Trade
 ```
-assetCategory = "CASH"
-→ Keine Kampagne, kein FIFO
-→ Aktion: FX_EXCHANGE_FROM_<Basis> / FX_EXCHANGE_TO_<Quote> im Ledger
-  (nur wenn der Tausch einer Kampagne zugeordnet ist)
+assetCategory = "CASH"   (die beiden „von“/„nach“-Zeilen aus § 5.3)
+→ Keine Kampagne, kein FIFO, kein Eintrag in trades_open/trades_close
 → trades_raw markieren: processed=1
   (trades_fx wird bereits beim Import befüllt, nicht hier)
 ```
 
+Im Code steht zusätzlich ein Zweig, der für die Zeile „von“ `FX_EXCHANGE_FROM_<Basis>` und für
+„nach“ `FX_EXCHANGE_TO_<Quote>` ins Ledger schreiben würde — aber nur mit `campaign_id`. Da
+CASH-Trades vor der Verarbeitung nie einer Kampagne zugeordnet werden (`campaign_id = None`),
+läuft dieser Zweig derzeit nie; in den Echtdaten gibt es keinen einzigen `FX_*`-Ledger-Eintrag.
+
 #### Fall 1: Gleiche Richtung (Positionsaufbau)
 ```
 Bedingung: current_qty * new_qty > 0  ODER  current_qty = 0
+           (Produkt > 0 ⇔ gleiches Vorzeichen ⇔ gleiche Richtung;
+            eine Summe würde nicht funktionieren: 100 + (−50) = 50 > 0)
 
 Beispiel: Bestand = 100 AAPL, neuer Trade = BUY 50 AAPL
-          → Bestand wird 150
+          → 100 × 50 > 0, Bestand wird 150
+          Bestand = −100 AAPL (short), neuer Trade = SELL 50 AAPL
+          → (−100) × (−50) > 0, Short wird −150
+          Bestand = 100 AAPL, neuer Trade = SELL 50 AAPL
+          → 100 × (−50) < 0 → kein Fall 1, sondern Fall 2a (Teilschließung)
 
 Aktion: INSERT trades_open (status=OPEN)
         Kampagne: TRADE_OPEN im Ledger
@@ -585,17 +697,64 @@ Aktion: Restmenge → INSERT trades_open (status=REV_OPEN)
 ```
 
 #### Fall SPLIT: Corporate Action (Aktiensplit)
-```
-Bedingung: trade["is_split"] = True
 
-Beispiel: APDN Reverse Split 1:25
-          → Alle offenen Tranchen: qty / 25
+**Woher die Daten kommen:** Aus dem Abschnitt *Kapitalmaßnahmen* der Flex Query
+(`<CorporateAction>`, Option *Detail*). `extract_corporateaction_for_db()` übernimmt jede
+Kapitalmaßnahme als Zeile in `trades_raw` (`source="split"`, `dateTime` = `reportDate`) und
+setzt `is_split=1` für die Typen `RS` (Reverse Split), `FS` (Forward Split) und `SS` (Split) —
+die Liste steht an einer Stelle in `src/utils/corporate_utils.py`. IBKR liefert einen Split als
+**Paar mit derselben `actionID`**: die alten Aktien gehen raus (negative Menge, Symbol meist mit
+Endung `.OLD`), die neuen kommen rein (positive Menge, neues Symbol). `sort_corporate_actions()`
+ordnet die Paare (alter Teil zuerst).
 
-Aktion: UPDATE trades_open SET quantity = quantity * factor
-        UPDATE campaign inventory
-        INSERT campaign_ledger (action=STOCK_SPLIT)
-        Neue Tranchen-Preise: price * (1/factor)
+**Verarbeitung** (`process_ibkr_trades.py`, vor der Kampagnenlogik — Split-Zeilen lösen keinen
+PENDING/ACTIVE-Wechsel aus):
+
 ```
+1. _handle_split_trade(): Zeilen je actionID puffern
+     erster Teil  → warten, als verarbeitet markieren
+     zweiter Teil → Faktor = |Menge neu| / |Menge alt|, Symbol = neues Symbol
+2. process_stock_split(): alle offenen Tranchen des Symbols (trades_open, processed=0)
+     quantity   = quantity × Faktor
+     tradePrice = tradePrice / Faktor          (Einstand gesamt bleibt gleich)
+     Menge 0    → Tranche geschlossen (processed=1), nicht als 0-Menge stehen lassen
+     Ledger     → STOCK_SPLIT, inventory_delta = neue − alte Menge, kein Cash, kein P&L
+3. Tracker: Bestand der Kampagne × Faktor, danach Flat-Check (Bestand 0 → PENDING)
+```
+
+Kein Cash, kein Gewinn/Verlust: Ein Split ändert nur Stückzahl und Preis je Aktie. Spätere
+Trades finden die Tranchen über das Symbol; ändert IBKR beim Split die `conid`, greift der
+Fallback in `get_open_trades()` nicht ein, weil das Symbol gleich bleibt.
+
+**Beispiele aus echten Daten** (beide Reverse Splits):
+
+| Symbol | Datum | alt → neu | Faktor | Ledger `inventory_delta` |
+|---|---|---|---|---|
+| CYN | 18.02.2025 | 4.152 → 27,68 | ≈ 0,00667 (1:150) | −4.124,32 |
+| APDN | 14.03.2025 | 1.500 → 30 | 0,02 (1:50) | −1.470 |
+
+Die neue Menge kann krumm werden (27,68 CYN-Aktien) — sie wird so übernommen, wie IBKR sie
+liefert.
+
+**Grenzen (Stand 2026-10-20, gegen Code und Echtdaten geprüft):**
+
+- **Optionen auf die gesplittete Aktie** werden erkannt (`is_split=1`), aber offene
+  Options-Tranchen werden nicht umgestellt: `process_stock_split()` sucht nach dem *neuen*
+  Options-Symbol, die Tranche steht aber unter dem alten. Bisher nur einmal vorgekommen
+  (PAPER, TQQQ-Forward-Split 20.11.2025) — ohne offene Position, daher ohne Auswirkung.
+- **Mehr als zwei Zeilen je `actionID`** (z. B. mehrere Options-Strikes in einer
+  Kapitalmaßnahme) passen nicht ins Paar-Schema; ab der dritten Zeile beginnt ein neues Paar.
+- Der zweite Teil des Paares wird im selben Lauf nicht als verarbeitet markiert; der nächste
+  Lauf puffert ihn allein („warte auf zweiten Teil“) und markiert ihn dann — ohne
+  Auswirkung auf die Daten.
+- Der Ledger-Eintrag `STOCK_SPLIT` trägt das **Eröffnungsdatum der Tranche**, nicht das
+  Split-Datum (CYN: Ledger 10.02.2025, Split 18.02.2025).
+- **Andere Kapitalmaßnahmen** (Fusion, Spin-off, Symbolwechsel) bekommen `is_split=0` und
+  würden wie normale Trades (Preis 0) durch die FIFO-Logik laufen — eine eigene Behandlung gibt
+  es nicht. In den Echtdaten bisher nicht vorgekommen.
+
+Ein früherer Fehler, bei dem die Kampagne nach einem Split fälschlich `ACTIVE` blieb, ist in
+§ 10.1 („Split-Bug“) beschrieben.
 
 ### 6.3 Kampagnen-Lebenszyklus: `inventory_tracker.py`
 
@@ -634,7 +793,8 @@ Seit 2026-05 werden **feingranulare Actions** geschrieben — statt generischem 
 | Optionen: Eröffnung | `OPT_PUT_SELL`, `OPT_PUT_BUY`, `OPT_CALL_SELL`, `OPT_CALL_BUY` | Fall 1 |
 | Optionen: Schließung | `OPT_PUT_BUY_CLOSE`, `OPT_PUT_SELL_CLOSE`, `OPT_CALL_BUY_CLOSE`, `OPT_CALL_SELL_CLOSE` + `*_PARTIAL`-Varianten | Fall 2c bzw. 2a |
 | Options-Events | `OPTION_EXPIRATION`, `OPTION_EXERCISE`, `CASH_SETTLEMENT` | OptionEAE (Verfall / Ausübung+Assignment / Barausgleich) |
-| Sonstiges | `TRADE_REVERSAL_OPEN`, `STOCK_SPLIT`, `FX_EXCHANGE` | Fall 2b Remainder / CorporateAction / CASH-Trade |
+| Sonstiges | `TRADE_REVERSAL_OPEN`, `STOCK_SPLIT` | Fall 2b Remainder / CorporateAction |
+| (vorgesehen, derzeit nie geschrieben) | `FX_EXCHANGE_FROM_<Währung>`, `FX_EXCHANGE_TO_<Währung>` | CASH-Trade mit Kampagne — siehe Fall 0 |
 
 **Hinweis:** Die generischen Bezeichnungen `TRADE_OPEN`, `TRADE_CLOSE_FULL`, `TRADE_CLOSE_PARTIAL` in den Fallbeschreibungen oben (Abschnitt 6.2) stehen stellvertretend für die jeweilige feingranulare Action. Alt-Daten mit den Legacy-Actions bleiben gültig, bis das jeweilige Environment per Summary-Re-Import neu aufgebaut wird (TradingJournal kennt beide Varianten).
 
@@ -893,8 +1053,8 @@ Der frühere XML-Weg (`import_flexquery_snapshot.py` / `flexquery_snapshot_parse
 einer älteren Query-Konfiguration mit EquitySummary/CashReport) wurde 2026-10-17 entfernt.
 
 **⚠️ Limitierung: fest auf EUR + USD verdrahtet, nicht generisch.**
-Anders als bei Einzeltrades (`trades_raw.currency` ist freier Text, `FX_EXCHANGE_FROM_*`/`TO_*`-Actions
-in `campaign_ledger` lesen das Währungspaar dynamisch aus dem Trade) ist die Cash-Position im
+Anders als bei Einzeltrades (`trades_raw.currency` ist freier Text, `trades_fx` speichert Basis-
+und Gegenwährung je Tausch aus dem Symbol) ist die Cash-Position im
 Portfolio-Snapshot **hartverdrahtet auf genau zwei Währungen**:
 
 - Schema: `sql/account_snapshots.sql` hat feste Spalten `cash_eur` / `cash_usd`, keine generische Struktur.

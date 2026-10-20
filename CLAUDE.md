@@ -92,7 +92,7 @@ IBKR sign convention: **BUY → netCash negative, SELL → netCash positive**
 
 | Case | Condition | Action |
 |---|---|---|
-| CASH | assetCategory == 'CASH' | Log FX_EXCHANGE action, skip open trade |
+| CASH | assetCategory == 'CASH' | Nur `processed=1` (kein FIFO, keine Kampagne); der `FX_EXCHANGE_FROM_/TO_`-Ledger-Zweig braucht `campaign_id` und läuft daher nie (CASH bekommt `campaign_id=None`). Die zwei `trades_raw`-Zeilen je Tausch haben `quantity` 1 = „von“ / 2 = „nach“ (Kennung, keine Menge); `trades_fx` (1 Zeile je Tausch) wird schon beim Import befüllt |
 | Case 1 | Same direction or flat | INSERT `trades_open`, action=TRADE_OPEN |
 | Case 2c | `open_abs == new_abs` | Full close → `trades_close` |
 | Case 2a | `open_abs > new_abs` | Partial close → `trades_close` + re-insert remainder as SPLIT_REST |

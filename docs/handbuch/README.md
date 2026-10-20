@@ -44,3 +44,4 @@ Für technisch Interessierte, den Betrieb auf eigenen Servern und Mitwirkende.
 | [60 · Installation: TradingJournal](technik/60-installation-tradingjournal.md) | Setup der Weboberfläche, inkl. Apache-VirtualHost |
 | [70 · Server-Betrieb](technik/70-server-betrieb.md) | Eigener Server statt lokalem PC, Zugriff per VPN |
 | [80 · Verteilter Abruf](technik/80-verteilter-abruf.md) | Minimaler Client nur für den Datenabruf |
+| [90 · Bekannte Grenzen und offene Fragen](technik/90-bekannte-grenzen.md) | Was (noch) nicht geht, was ungetestet ist — und wie man mit Beispielen hilft |

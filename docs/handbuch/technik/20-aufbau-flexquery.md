@@ -88,14 +88,16 @@ Reine Devisentausch-Trades (`assetCategory="CASH"`, `symbol="EUR.USD"`) werden i
 
 ### `OptionEAE` (`extract_optioneae_for_db`)
 
-`transactionType` (`Expiration`, `Exercise`, `Assignment`, `CashSettlement`), `date`, `tradeID`,
+`transactionType` (`Expiration`, `Exercise`, `Assignment`, `Cash Settlement`), `date`, `tradeID`,
 `conid`, `symbol`, `description`, `assetCategory`, `subCategory`, `putCall`, `strike`, `expiry`,
 `multiplier`, `underlyingConid`, `underlyingSymbol`, `quantity`, `proceeds`, `currency`,
 `fxRateToBase`, `isin`.
 
 Diese Einträge beschreiben das *Ereignis*. Die zugehörige Buchung liefert IBKR zusätzlich als
 automatischen Trade im Abschnitt `Trades`; `book_trades.py` verbindet beide über `tradeID` bzw.
-`conid` + Datum und überträgt den Status (*Expired*, *Assigned*, *Exercised*, *CashSettled*).
+`conid` + Datum und überträgt den Status (*Expired*, *Assigned* — auch bei Ausübung —,
+*CashSettled*); bei einer Zuteilung verknüpft es außerdem Option und Aktien-Trade über eine
+gemeinsame `linkID` (siehe [Architektur und Import-Pipeline](10-architektur-und-pipeline.md), § 5.5).
 
 ### `CorporateAction` (`extract_corporateaction_for_db`)
 

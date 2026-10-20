@@ -117,7 +117,7 @@ Während des Einlesens passiert Folgendes:
    Konten werden mit einer Warnung übersprungen, nie „irgendwo“ einsortiert.
 2. **Teilausführungen bündeln** — Wurde eine Order in mehreren Teilen ausgeführt, werden die
    Fills derselben Order (`ibOrderID`) zusammengefasst.
-3. **Options-Strategien erkennen** — In der TWS ist ein Spread ein eigenes, synthetisches Finanzinstrument (Combo-Order). In den Flex Queries liefert IBKR jedoch jede Option als eigenen Trade. Das System setzt das synthetische Instrument heuristisch wieder zusammen: Beine mit gleicher Order-ID oder innerhalb von 3 Sekunden werden gruppiert und als Strategie benannt, etwa Bull Put / Bear Call Spread, Iron Condor, Straddle, Strangle, Calendar Spread oder Butterfly.
+3. **Options-Strategien erkennen** — In der TWS ist ein Spread ein eigenes, synthetisches Finanzinstrument (Combo-Order). In den Flex Queries liefert IBKR jedoch jede Option als eigenen Trade. Das System setzt das synthetische Instrument heuristisch wieder zusammen: Beine mit gleicher Order-ID oder nahezu gleichzeitig ausgeführte Beine (dieselben 3 Sekunden) werden gruppiert und als Strategie benannt, etwa Bull Put / Bear Put / Bear Call / Bull Call Spread, Iron Condor, Straddle, Strangle, Calendar Spread, Diagonal Spread oder Butterfly.
 4. **Options-Ereignisse zuordnen** — Verfall, Ausübung, Zuteilung und Barausgleich (z. B. bei SPX)
    werden der passenden automatischen IBKR-Buchung zugeordnet.
 5. **Währungstausch abtrennen** — Reine Devisen-Trades (z. B. EUR.USD) landen zusätzlich in der
@@ -172,8 +172,15 @@ Daneben gibt es einige Sonderfälle:
   kein abgeschlossener Trade.
 - **Verfall, Ausübung, Zuteilung** — Die Option wird als abgeschlossener Trade mit der
   passenden Abschlussart gespeichert (*Expired*, *Assigned*, *CashSettled*). Bei einer Zuteilung
-  kommen die gelieferten Aktien als neue Tranche hinzu.
+  wird die Aktienbuchung wie ein normaler Trade verarbeitet — beim zugeteilten Put kommen die
+  Aktien als neue Tranche hinzu, beim zugeteilten Covered Call gehen sie aus dem Bestand.
 - **Devisentausch** (z. B. EUR.USD) — kein FIFO, eigene Übersicht.
+
+> [!NOTE]
+> **Kein Forex-Trading.** Der Devisentausch wird nur als Umtausch festgehalten — etwa, um Euro in
+> US-Dollar für den Aktienhandel zu tauschen. Devisenhandel als eigene Strategie
+> (Währungspositionen eröffnen und schließen, Gewinn/Verlust aus Kursbewegungen) wertet das
+> Journal **nicht** aus: Es gibt dafür weder Positionen noch Gewinn/Verlust oder Kampagnen.
 
 Wie die Tabellen dabei im Einzelnen geschrieben werden, beschreibt das technische Handbuch
 ([Architektur und Pipeline](../technik/10-architektur-und-pipeline.md), Abschnitt „FIFO-Matching: Die Fälle“).
