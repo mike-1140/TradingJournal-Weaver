@@ -84,9 +84,11 @@ drei Arten von Berichten:
 
 > [!WARNING]
 > Der Kontoauszug wird nur per E-Mail zugestellt. Es gibt keine Möglichkeit, ihn per Abruf (Web-API) anzufordern.
+> Rückwirkend lässt er sich nur Tag für Tag von Hand im Kundenportal herunterladen.
 
 Für **jedes IBKR-Konto**, dessen Daten verarbeitet werden sollen, wird eine eigene Flex Query
-(und ein eigener Kontoauszug) eingerichtet. Welche Einstellungen dafür nötig sind, zeigt Schritt
+eingerichtet, dazu optional ein eigener Kontoauszug — ohne ihn fehlen nur die
+Kontostands-Kacheln auf dem Dashboard. Welche Einstellungen dafür nötig sind, zeigt Schritt
 für Schritt das Kapitel [IBKR einrichten](20-ibkr-einrichten.md). Wie eine Flex Query technisch
 aufgebaut ist und welche Felder der Import daraus liest, beschreibt das technische Handbuch
 ([Aufbau einer Flex Query](../technik/20-aufbau-flexquery.md)).

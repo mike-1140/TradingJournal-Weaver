@@ -36,7 +36,7 @@ wegverschieben. Nur mit leerem Ordner weitermachen.
 ## 1. Anonymisierte Quelldateien erzeugen
 
 ```powershell
-cd C:\Users\MikeDev\trading\TradingJournal-Weaver
+cd $HOME\trading\TradingJournal-Weaver
 .venv\Scripts\python -m tools.demo.anonymize_demo_source
 ```
 
@@ -122,7 +122,7 @@ andere DB).
 ## 5. Dump erzeugen
 
 ```powershell
-mysqldump -u root --default-character-set=utf8mb4 --result-file=C:\Users\MikeDev\trading\TradingJournal-Weaver\tools\demo\output\demo_seed.sql ibkr_demo
+mysqldump -u root --default-character-set=utf8mb4 --result-file="$HOME\trading\TradingJournal-Weaver\tools\demo\output\demo_seed.sql" ibkr_demo
 ```
 
 Eine einzige, in sich geschlossene Datenbank — kein Prefix-Filtern nötig, `ibkr_demo`

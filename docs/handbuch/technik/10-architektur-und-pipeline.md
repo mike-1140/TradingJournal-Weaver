@@ -462,6 +462,27 @@ for trade in trades:
 
 **Schlüsselprinzip:** Trades werden in **Zeitreihenfolge** verarbeitet. FIFO ist nur korrekt, wenn ältere Positionen zuerst geschlossen werden.
 
+**Reihenfolge-Garantie — und ihre Grenze:** Sortiert wird nur die aktuelle Menge
+`trades_raw.processed=0` (`DBAccess.get_all_raw_trades`: `ORDER BY dateTime ASC, symbol ASC`).
+Innerhalb eines Laufs sind Dateireihenfolge, Quelle (`incoming_mail`/`incoming_api`) und
+Mehrfachlieferungen (Checksum-Dedup beim Import) deshalb irrelevant. Bereits verarbeitete Trades
+werden aber nicht neu einsortiert, und es gibt **keinen Guard** gegen nachträglich ankommende
+ältere Trades: Ein Trade mit `dateTime` vor dem jüngsten verarbeiteten Trade desselben
+Environments läuft gegen den aktuellen `trades_open`-/Tracker-Stand. Beispiel: Kauf 02.03. kommt
+nach dem bereits verarbeiteten Verkauf 10.03. → der Verkauf hat zuvor ohne Bestand per Fall 1
+eine Short-Tranche eröffnet, der Kauf schließt sie (Fall 2c) — Bestand 0, aber Richtung,
+`dateTimeOpen`/`dateTimeClose` und Kampagnenzuordnung falsch. Im Regelbetrieb tritt das nicht auf
+(jeder Bericht überlappt die letzten n Tage, ein Trade kommt im ersten Bericht nach dem
+Handelstag), relevant ist es beim Nachholen von Altdaten nach dem ersten produktiven Lauf oder bei
+lange liegengebliebenen Dateien (z. B. unbekannte `accountId`, später in `accounts.toml`
+ergänzt). Kampagnen-Ablauf (`close_old_pending_campaigns`) und PENDING→CLOSED richten sich
+dagegen nach Trade-Datum (`reference_date` = erster Trade des Laufs), nicht nach `now()`.
+**Korrektur:** Neuaufbau per `reset_IBKR_DB.py` + `--from-summary` (Summary ist nach `fromDate`
+sortiert). `reset_IBKR_DB.py` legt dabei u. a. auch `trade_planner`, `trade_planner_legs` und
+`account_snapshots` neu an — Trade-Log-Einträge vorher sichern, Snapshots durch Zurücklegen der
+CSVs aus `C:\Trade_CSV\incoming\<user>\processed\` neu importieren. `account_snapshots` selbst sind
+reihenfolgeunabhängig (ein Datensatz je `snapshot_date`, Dedup).
+
 ### 6.2 FIFO-Matching: Die Fälle
 
 IBKR-Vorzeichenkonvention:

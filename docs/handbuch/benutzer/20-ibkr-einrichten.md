@@ -10,7 +10,7 @@ Insgesamt werden bis zu drei Berichte eingerichtet:
 |---|---|---|---|
 | **Flex Query für E-Mail** | alle Trades, Verfall/Zuteilung von Optionen, Splits | täglich per E-Mail | ja |
 | **Flex Query für Web-API** | dieselben Daten über einen zweiten, unabhängigen Kanal | Abruf mit Prüfcode | optional |
-| **Kontoauszug (CSV)** | Kontostand, Cash, Tagesrendite (TWRR) fürs Dashboard | täglich per E-Mail | empfohlen |
+| **Kontoauszug (CSV)** | Kontostand, Cash, Tagesrendite (TWRR) fürs Dashboard | täglich per E-Mail | optional |
 
 > [!NOTE]
 > Die Bilder stammen aus dem deutschsprachigen Kundenportal (Stand Oktober 2026, Paper-Konto).
@@ -97,16 +97,22 @@ der Import braucht.
 ![Zustellungskonfiguration](img/20-ibkr-einrichten/09-zustellungskonfiguration.jpg)
 
 Der Zeitraum von acht Tagen ist bewusst überlappend: Fällt ein Bericht aus (Feiertag,
-Mail-Problem, Rechner aus), holt der nächste die fehlenden Tage nach. Doppelt gelieferte Trades
-erkennt der Import und überspringt sie.
+Mail-Problem), holt der nächste die fehlenden Tage nach. Doppelt gelieferte Trades erkennt der
+Import und überspringt sie. Ein ausgeschalteter Rechner ist dagegen kein Ausfall: Die Mails
+warten im Postfach, bis der nächste Lauf sie abholt (siehe [Alltag mit dem
+TradingJournal](70-alltag.md), Abschnitt 1).
 
-Wer auf der sicheren Seite sein will — etwa bei längerer Abwesenheit —, kann den Zeitraum auch
-größer wählen, z. B. **30 Tage**. Dann überbrückt jeder Bericht entsprechend längere Ausfälle.
+Wer auf der sicheren Seite sein will, kann den Zeitraum auch größer wählen, z. B. **30 Tage**.
+Dann überbrückt jeder Bericht entsprechend längere Ausfälle bei IBKR oder beim Mailversand.
 Der Preis: Jeder Bericht enthält mehr Tage und Trades, es werden mehr Daten erzeugt und
 übertragen, und die Ablageordner der eingelesenen Berichte (`processed`, `deleted`) wachsen
 schneller, weil jede Datei größer ist. Die Sammeldatei (Summary) wächst dagegen nicht stärker:
 IBKR liefert je Handelstag einen eigenen Teilbericht, und die Sammeldatei übernimmt jeden Tag nur
 einmal.
+
+Für Trades **vor** der Einrichtung reicht der tägliche Bericht nicht. Sie werden einmalig mit
+derselben Query und einem händisch gesetzten Zeitraum abgerufen — siehe [TradingJournal-Weaver
+installieren](40-weaver-installieren.md), Abschnitt 8.
 
 **Allgemeine Konfiguration:**
 
@@ -241,6 +247,15 @@ Mehrere Konten bzw. Queries werden durch Kommas getrennt (`Prüfcode1:QueryID1,P
 Die Tageswerte des Kontos — Nettovermögen, Cash, Tagesrendite — liefert IBKR **nicht** über Flex
 Queries, sondern nur im Kontoauszug, und den **nur per E-Mail**.
 
+> [!NOTE]
+> **Der Kontoauszug ist optional** — je Konto frei wählbar. Ohne ihn funktioniert das Journal
+> vollständig: Trades, Kampagnen, Gewinn/Verlust und Statistiken kommen alle aus der Flex Query.
+> Es fehlen nur die Kontostands-Kacheln auf dem Dashboard: *NAV aktuell*, *NAV Änderung (Tag)*,
+> *TWRR*, *Cash EUR*, *Cash USD*, *Realisiert (Tag)*, *Unrealisiert (Tag)* und der *NAV-Verlauf*
+> werden dann ausgeblendet, *Max Drawdown* zeigt „Keine NAV-Daten vorhanden“. Das Portfolio
+> selbst zeigt die IBKR-Weboberfläche ohnehin aktueller und ausführlicher — wer dort nachsieht,
+> kann auf den Kontoauszug gut verzichten.
+
 > [!IMPORTANT]
 > Dafür muss ein **eigener, benutzerdefinierter Kontoauszug** angelegt werden. Die
 > Standard-Kontoauszüge von IBKR lassen sich nicht täglich per E-Mail zustellen — nur ein
@@ -318,6 +333,6 @@ sichert ihn vorher oder lädt ihn später im IBKR-Kundenportal herunter.
 2. XML, letzte 8 Kalendertage (oder mehr), `dd/MM/yyyy` · `HHmmss` · `;`, Pseudonym *Nein*
 3. Flex Query für die tägliche E-Mail-Zustellung angehakt
 4. *(optional)* zweite, gleich eingestellte Query + Prüfcode für die Web-API, Ablaufdatum notiert
-5. Benutzerdefinierter Kontoauszug: fünf Pflicht-Abschnitte, CSV, täglich, English, Pseudonym *Nein*
-6. Kontoauszug für die tägliche E-Mail-Zustellung angehakt
+5. *(optional)* Benutzerdefinierter Kontoauszug: fünf Pflicht-Abschnitte, CSV, täglich, English, Pseudonym *Nein*
+6. *(optional)* Kontoauszug für die tägliche E-Mail-Zustellung angehakt
 7. Kontonummer in `accounts.toml` eingetragen

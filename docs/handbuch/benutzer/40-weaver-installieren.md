@@ -20,6 +20,7 @@ installiert sein — siehe [Windows vorbereiten](30-windows-vorbereiten.md).
 5. [Automatisierung einrichten](#5-automatisierung-einrichten)
 6. [Ersten Testlauf machen](#6-ersten-testlauf-machen)
 7. [Praktisch: Schnellzugriff einrichten](#7-praktisch-schnellzugriff-einrichten)
+8. [Alte Daten nachholen (einmalig)](#8-alte-daten-nachholen-einmalig)
 
 ---
 
@@ -278,6 +279,113 @@ Danach ein normales (nicht als Administrator geöffnetes) PowerShell-Fenster im
 Danach liegt auf dem Desktop eine Verknüpfung namens **"TradingJournal-Weaver Pipeline"**. Doppelklick
 darauf öffnet PowerShell bereits im richtigen Ordner mit aktivierter Arbeitsumgebung — dort
 dann direkt z.B. `python run_pipeline.py` eintippen.
+
+---
+
+## 8. Alte Daten nachholen (einmalig)
+
+Der tägliche Bericht enthält nur die letzten Tage (siehe [IBKR einrichten — Flex Queries und
+Kontoauszug](20-ibkr-einrichten.md), Abschnitt 2). Alles, was **vor** der Installation gehandelt
+wurde, fehlt also zunächst im Journal — auch Positionen, die heute noch offen sind. Diese alten
+Daten holst du **einmal** von Hand bei IBKR und legst sie dem ersten echten Lauf bei.
+
+> [!IMPORTANT]
+> **Alte Daten vor dem ersten echten Lauf einspielen** — bzw. spätestens im selben Lauf wie die
+> ersten täglichen Berichte. Innerhalb eines Laufs ordnet `TradingJournal-Weaver` alle Trades
+> chronologisch, egal in welcher Datei sie stehen. Kommen alte Trades dagegen erst **nach**
+> neueren Trades dazu, die schon verarbeitet sind, stimmen Positionen und Kampagnen nicht mehr
+> (Beispiel und Abhilfe: [Alltag mit dem TradingJournal](70-alltag.md), Abschnitt 1). Der Testlauf mit `--envs test` aus Schritt 6 ist unbedenklich, er berührt die echten
+> Environments nicht.
+
+**Schritt 1 — Bericht bei IBKR erzeugen** (im Browser, IBKR-Kundenportal):
+
+1. **Performance & Berichte** → Reiter **Flex Queries** öffnen.
+2. Bei der Flex Query für die E-Mail (aus Kapitel „IBKR einrichten“, Abschnitt 2) ganz rechts
+   auf den Pfeil **Starten** (→) klicken.
+
+   ![Flex Query starten](img/40-weaver-installieren/01-query-starten.png)
+
+3. Im folgenden Fenster bei **Zeitraum** den Eintrag **Benutzerdefinierter Zeitraum** wählen.
+   Für genau das letzte Jahr geht auch **Letzte 365 Kalendertage**.
+
+   ![Auswahl des Zeitraums](img/40-weaver-installieren/02-zeitraum-auswahl.png)
+
+4. **Von (Datum)** und **Bis (Datum)** eintragen, **Format** auf **XML** lassen, den **Filter**
+   leer lassen (sonst kommen nur einzelne Symbole) und auf **Starten** klicken. IBKR erstellt
+   den Bericht, der Browser lädt ihn als `.xml`-Datei herunter.
+
+   ![Benutzerdefinierter Zeitraum — hier mit zu langem Datumsbereich](img/40-weaver-installieren/03-benutzerdefinierter-zeitraum.png)
+
+Der Name der Query und der dort gespeicherte Zeitraum (z. B. 30 Tage) spielen dabei keine Rolle:
+Der Name dient nur der Übersicht, und beim händischen Starten gilt der Zeitraum, den du jetzt
+angibst. Die gespeicherte Query bleibt dabei unverändert.
+
+> [!NOTE]
+> **Wie weit es zurückgeht:**
+> - Je Abruf sind höchstens **365 Tage** möglich. Bei einem längeren Bereich erscheint *Der
+>   Datumsbereich darf nicht mehr als 365 Tage betragen* (siehe Bild). Für eine längere
+>   Vorgeschichte den Abruf Jahr für Jahr wiederholen, z. B. 2024-01-01 bis 2024-12-31,
+>   dann 2025-01-01 bis 2025-12-31 und so weiter. Mehrere Dateien sind kein Problem.
+> - **Paper-Konten:** IBKR liefert nur die **letzten rund 180 Tage** (etwa 6 Monate). Ältere
+>   Paper-Daten sind nicht mehr abrufbar — der Kalender lässt frühere Tage gar nicht erst
+>   auswählen (siehe Bild unten).
+> - **Echtgeld-Konten** reichen deutlich weiter zurück — IBKR stellt Kontodaten mehrere Jahre
+>   online bereit. Ein Datum vor der Kontoeröffnung ist sinnlos; am einfachsten beim
+>   Eröffnungsjahr beginnen.
+
+![Paper-Konto: Am 20.10.2026 ist der 23.04.2026 der früheste wählbare Tag, alles davor ist ausgegraut](img/40-weaver-installieren/04-paper-zeitraum-grenze.png)
+
+> [!TIP]
+> Überlappungen sind kein Problem: Liegt das Bis-Datum mitten in einem Zeitraum, den auch der
+> tägliche Bericht liefert, erkennt der Import die doppelten Trades und überspringt sie. Lieber
+> großzügig bis heute abrufen als eine Lücke lassen.
+
+Das wiederholst du für **jedes Konto** (Echtgeld, Paper, …) — wie bei der Einrichtung im
+Kundenportal des jeweiligen Kontos.
+
+**Schritt 2 — Dateien ablegen** (im Windows-Explorer):
+
+Alle heruntergeladenen `.xml`-Dateien in den Ordner **`C:\Trade_XML\incoming_mail`** kopieren.
+Den Ordner legt `TradingJournal-Weaver` beim ersten Lauf selbst an; existiert er noch nicht, ihn
+einfach anlegen. Der Dateiname ist egal, er muss nur auf `.xml` enden: Zu welchem Benutzer und
+Environment eine Datei gehört, liest der Import aus der Kontonummer in der Datei. Die Kontonummer
+muss deshalb in `accounts.toml` stehen (Schritt 3), sonst wird die Datei übersprungen.
+
+**Schritt 3 — verarbeiten** (PowerShell im `TradingJournal-Weaver`-Ordner mit aktivierter
+Arbeitsumgebung, z. B. über die Verknüpfung aus Schritt 7):
+
+```powershell
+python run_pipeline.py
+```
+
+Das ist der normale Lauf: Er holt zusätzlich die aktuellen Berichte aus dem Postfach und
+verarbeitet alles zusammen in der richtigen Reihenfolge. Danach liegen die Dateien nicht mehr in
+`incoming_mail`, sondern in `C:\Trade_XML\<environment>\<benutzer>\processed` (bzw. `deleted`,
+wenn eine Datei keine neuen Trades enthielt), und die alten
+Trades sind im Journal sichtbar.
+
+**Und die Kontostände?** Die Schritte oben holen nur die **Trades** nach (inkl. Verfall/Zuteilung
+von Optionen und Splits). Gewinn/Verlust, Kampagnen und Statistiken reichen damit so weit zurück
+wie die nachgeholten Trades. Die Kontostände (NAV, Cash, TWRR) kommen dagegen nur aus dem
+**täglichen** Kontoauszug (CSV) — und der lässt sich nur **Tag für Tag** nachholen:
+
+- Im Kundenportal unter **Performance & Berichte** → **Kontoauszüge** beim eigenen,
+  benutzerdefinierten Kontoauszug (aus Kapitel „IBKR einrichten“, Abschnitt 6) als Zeitraum
+  **Täglich** wählen, ein **Datum** eintragen und **CSV herunterladen**.
+- Die Datei nach **`C:\Trade_CSV\incoming`** kopieren — der Dateiname ist egal, die Zuordnung
+  läuft auch hier über die Kontonummer in der Datei. Der nächste Lauf liest sie ein; die
+  Reihenfolge der Tage spielt keine Rolle.
+- Für jeden Tag ein eigener Download — für ein ganzes Jahr wären das rund 250. Sinnvoll ist das
+  daher eher für ein paar Tage, z. B. um eine Lücke zu schließen. Beim **Paper-Konto** gilt
+  dieselbe Grenze wie oben: höchstens die letzten rund 180 Tage.
+
+> [!NOTE]
+> Ein **Monats- oder Jahreskontoauszug** bzw. ein Kontoauszug mit *Benutzerdefiniertem
+> Zeitraum* hilft nicht: Er fasst einen ganzen Zeitraum zusammen statt einen Tag. Der Import
+> meldet *Kein Datum im CSV — übersprungen* und lässt die Datei in `incoming` liegen — dort
+> einfach löschen. Wer auf die Kontostände der Vergangenheit verzichtet, verliert nur den
+> Anfang von NAV-Verlauf, TWRR und Max Drawdown; der Kontoauszug ist ohnehin optional, siehe
+> [IBKR einrichten — Flex Queries und Kontoauszug](20-ibkr-einrichten.md), Abschnitt 6.
 
 ---
 

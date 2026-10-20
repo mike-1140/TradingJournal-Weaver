@@ -155,6 +155,24 @@ Danach für einen echten Testlauf (User-/Env-Namen an die eigene `pipeline.toml`
 python run_pipeline.py --users dein_user --envs test
 ```
 
+## 7. Altdaten nachholen (einmalig)
+
+Die tägliche Query deckt nur die letzten n Tage ab. Historie vor der Installation einmalig im
+Kundenportal abrufen: Flex Query **Starten**, Zeitraum *Benutzerdefinierter Zeitraum*, Format
+XML (max. 365 Tage je Abruf, vom Portal erzwungen; Paper-Konten nur rund 180 Tage rückwirkend, frühere Tage sind im Kalender gesperrt). Die `.xml`-Dateien nach
+`C:\Trade_XML\incoming_mail\` legen (Dateiname egal, Routing über `accountId` →
+`accounts.toml`), dann regulär `python run_pipeline.py`.
+
+**Vor dem ersten produktiven `process`-Lauf** einspielen bzw. im selben Lauf: `process` sortiert
+nur die unverarbeiteten Zeilen (`trades_raw.processed=0`) nach `dateTime`. Alte Trades, die nach
+bereits verarbeiteten neueren kommen, laufen danach durch das FIFO-Matching und verfälschen
+Tranchen und Kampagnen. Überlappungen mit den täglichen Berichten fängt der Checksum-Dedup ab.
+Kontostände (`account_snapshots`) kommen nur aus Kontoauszug-CSVs mit **einem** Stichtag
+(`Statement,Data,Period`): rückwirkend nur per Einzel-Download je Tag im Portal (*Täglich* +
+Datum → CSV) nach `C:\Trade_CSV\incoming\`, Routing über die `accountId` in der CSV,
+Reihenfolge egal (Dedup je `snapshot_date`). Monats-/Zeitraumauszüge haben kein parsebares
+Einzeldatum → *Kein Datum im CSV — übersprungen*, Datei bleibt in `incoming\` liegen.
+
 ---
 
 ## Weiterführende Dokumentation
