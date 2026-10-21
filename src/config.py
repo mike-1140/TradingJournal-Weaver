@@ -7,11 +7,30 @@ from pathlib import Path
 
 # Defines
 MAX_TRADE_IDS = 3  # bei Aggregation: max. Anzahl der aufgeführten tradeID's
-MAX_GAP_DAYS = 10  # Kampagnen: max. Tage in PENDING bevor CLOSED (empfohlen 7-14)
 
 # Lade .env aus dem Projekt-Root
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
+
+
+def read_positive_int_env(name: str, default: int) -> int:
+    """Ganzzahl >= 1 aus der .env; fehlt der Eintrag oder ist er leer, gilt der Default.
+    Ein ungültiger Wert bricht ab, statt still mit dem Default weiterzurechnen."""
+    raw = os.getenv(name, "").strip()
+    if raw == "":
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(f"{name}={raw!r} in .env ist keine ganze Zahl") from None
+    if value < 1:
+        raise ValueError(f"{name}={value} in .env muss mindestens 1 sein")
+    return value
+
+
+# Kampagnen: Tage in PENDING ohne neuen Trade, bevor die Kampagne CLOSED wird (empfohlen 7-14).
+# Wirkt nur auf künftige Verarbeitung — bestehende Kampagnen erst nach einem Neuaufbau.
+MAX_GAP_DAYS = read_positive_int_env("MAX_GAP_DAYS", 10)
 
 
 # === Zentrale User-Registry (users.toml) ===

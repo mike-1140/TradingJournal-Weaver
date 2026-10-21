@@ -62,7 +62,7 @@ XML files (C:\Trade_XML\incoming_mail\ + incoming_api\, alle *.xml)
 | `src/parsers/flex_parser.py` | XML orchestrator, aggregates same-day trades |
 | `src/parsers/day_trade_processor.py` | Extracts trades from XML elements |
 | `src/parsers/option_strategies.py` | Detects Vertical/Calendar/Diagonal/Straddle/Strangle/Butterfly/Iron Condor — primär `ibOrderID`, Fallback 3s-Fenster |
-| `src/parsers/inventory_tracker.py` | Campaign lifecycle: ACTIVE → PENDING → CLOSED (10-day gap) |
+| `src/parsers/inventory_tracker.py` | Campaign lifecycle: ACTIVE → PENDING → CLOSED (gap `MAX_GAP_DAYS`, default 10, via `.env`) |
 | `src/book_trades.py` | Matches BookTrades to OptionEAE events (Assignment/Expiry/CashSettlement) |
 | `src/db/db_access.py` | `DBAccess` (low-level SQL) + `TradeRepository` (domain queries) |
 | `src/trade_schemas/open_trade.py` | `OpenTradeSchema` — validation, `to_closed_trade()`, `partial_close_new_open()` |
@@ -104,7 +104,7 @@ IBKR sign convention: **BUY → netCash negative, SELL → netCash positive**
 
 ## Configuration
 
-- `.env` — DB credentials, `DEFAULT_USER` (e.g. `mike`, Prefix wird aus `users.toml` aufgelöst) oder direkt `TABLE_PREFIX` als Override, environment DB names, API keys (z.B. Mail-Zugang für `get_flexquery_emails.py`)
+- `.env` — DB credentials, `DEFAULT_USER` (e.g. `mike`, Prefix wird aus `users.toml` aufgelöst) oder direkt `TABLE_PREFIX` als Override, environment DB names, API keys (z.B. Mail-Zugang für `get_flexquery_emails.py`), optional `MAX_GAP_DAYS` (Kampagnen-Frist, `config.read_positive_int_env()`)
 - `users.toml` — zentrale User↔Prefix-Registry (einzige Quelle für z.B. `mike` → `mike_`); seit 2026-10-19 lokal/gitignored (Vorlage `users.toml.example`, echte Namen nicht im Repo). Fehlt ein in `accounts.toml`/`pipeline.toml` genannter User, wirft `config._registered_prefix()` einen `ValueError` statt leerem Prefix
 - `pipeline.toml` — maschinenspezifisch, gitignored; aktive User/Environments dieser Maschine (siehe `pipeline.toml.example`)
 - `accounts.toml` — maschinenspezifisch, gitignored; IBKR-Konto (letzte 4 Ziffern) → User + Environment (siehe `accounts.toml.example`)
