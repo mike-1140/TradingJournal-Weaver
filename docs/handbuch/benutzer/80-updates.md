@@ -69,57 +69,6 @@ werden müssen (z. B. eine neue PHP-Extension wird plötzlich vorausgesetzt) —
 Skript nicht automatisch erledigen, dann Schritt für Schritt wie in
 „Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server“ nachbessern.
 
-## Umbenennung: `xml_proj` → `TradingJournal-Weaver` (einmalig, Oktober 2026)
-
-Das Repo für den Datenimport hieß früher `xml_proj`. Wer es noch unter dem alten Namen
-installiert hat, passt eine bestehende Installation **einmalig** an — auf jedem Rechner, auf dem
-es liegt (lokaler PC, Server, Rechner für den verteilten Abruf). Erst danach `update.ps1`
-ausführen: Das neue Skript sucht den Ordner bereits unter dem neuen Namen.
-
-Vorher alle Programme schließen, die im Ordner arbeiten (PyCharm, Terminals, Explorer-Fenster),
-sonst lässt Windows das Umbenennen nicht zu.
-
-1. **[PowerShell]** Ordner umbenennen und die Adresse des GitHub-Repos aktualisieren
-   (Pfad `C:\trading` ggf. an die eigene Installation anpassen):
-
-   ```powershell
-   cd C:\trading
-   Rename-Item xml_proj TradingJournal-Weaver
-   cd TradingJournal-Weaver
-   git remote set-url origin https://github.com/mike-1140/TradingJournal-Weaver.git
-   ```
-
-2. **[PowerShell]** Python-Umgebung neu anlegen — eine verschobene `.venv` funktioniert nicht
-   zuverlässig, weil sie den alten Pfad fest enthält:
-
-   ```powershell
-   Remove-Item -Recurse -Force .venv
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. **[Windows-Aufgabenplanung]** Falls der tägliche Lauf als geplante Aufgabe eingerichtet ist:
-   die Aufgabe öffnen und unter *Aktionen* Programmpfad und *Starten in* von `…\xml_proj` auf
-   `…\TradingJournal-Weaver` ändern.
-
-4. **[PowerShell]** Desktop-Verknüpfung erneuern (falls vorhanden): die alte
-   „xml_proj Pipeline“ löschen und im Ordner `TradingJournal-Weaver` neu anlegen:
-
-   ```powershell
-   .\create-desktop-shortcut.ps1
-   ```
-
-5. **[PowerShell]** Prüfen, dass alles läuft — der Trockenlauf zeigt die Schritte, ohne etwas
-   zu verändern:
-
-   ```powershell
-   python run_pipeline.py --dry-run
-   ```
-
-Die Datenordner `C:\Trade_XML\…` und `C:\Trade_CSV\…`, die `.env`, `pipeline.toml` und
-`accounts.toml` bleiben unverändert — sie ziehen mit dem Ordner einfach mit.
-
 ## Welche Version läuft gerade?
 
 Nach einem `update.ps1`-Lauf steht die aktuelle Version (Git-Tag + Kurz-Hash + Zeitpunkt)

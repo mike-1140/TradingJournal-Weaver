@@ -1,9 +1,5 @@
 # TradingJournal-Weaver
 
-> Bis Oktober 2026 hieß dieses Repo **`xml_proj`**. Alte Links und Klone leitet GitHub
-> automatisch weiter; wer einen lokalen Klon hat, siehe „Umbenennung“ in
-> [Updates einspielen](docs/handbuch/benutzer/80-updates.md).
-
 Der Name: Der *Weaver* („Weber“) verwebt die einzelnen Trades aus den IBKR-Berichten zu
 Kampagnen, Spreads und P&L-Verläufen.
 

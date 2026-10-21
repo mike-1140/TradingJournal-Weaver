@@ -1,8 +1,6 @@
 # Architektur und Import-Pipeline
 
 **Projekt:** TradingJournal-Weaver — Trading-Journal Import-System  
-**Stand:** 2026-08-06 (inkl. Running Balance, feingranulare LedgerActions, Snapshot-Import,
-incoming_mail/incoming_api-Trennung, CLI-Override für import_ibkr_trades.py)  
 **Ziel:** Vollständige Dokumentation des Datenflusses von IBKR-Rohdaten (XML/CSV) bis zur befüllten MySQL-Datenbank
 
 ---
@@ -200,8 +198,7 @@ Tabellen-Prefix kommt aus `users.toml` (zentrale, lokale Registry, siehe § 9.1)
 `pipeline.toml` nur bei Bedarf per `prefix = "..."` explizit überschreibbar.
 
 `account_snapshots` kommt ausschließlich aus dem Kontoauszug (CSV per Mail) über
-`snapshot_csv`, siehe § 8.2. Der frühere Step `snapshot_import` (Snapshots aus FlexQuery-XML)
-wurde 2026-10-17 entfernt — die FlexQueries enthalten keine Snapshot-Sektionen.
+`snapshot_csv`, siehe § 8.2 — die Flex Queries enthalten keine Kontostands-Daten.
 
 Der `import`-Step läuft ohne `--users`/`--envs`-Filter **einmal global** (accountId-Routing
 deckt intern alle User/Envs ab); mit gesetztem Filter erzeugt `run_pipeline.py` einen
@@ -228,7 +225,7 @@ get_flexquery_emails.py
 │   └── Speichert in C:\Trade_CSV\incoming\
 │       (enthält Kontostands-Snapshots, keine Einzeltrades)
 │
-└── Markiert verarbeitete Mails (gelesen / verschoben)
+└── Löscht verarbeitete IBKR-Mails aus dem Postfach
 ```
 
 **Konfiguration in `.env`:**
@@ -240,9 +237,9 @@ IBKR_ACTIVITY_SUBJECT=Activity Statement
 IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 ```
 
-**Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Ein Namensmuster ist im Normalbetrieb **nicht** mehr erforderlich (siehe Phase 1) — nur der dedizierte TEST-Modus verlangt weiterhin `flex.*.xml`.
+**Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Ein Namensmuster ist im Normalbetrieb **nicht** erforderlich (siehe Phase 1) — nur der dedizierte TEST-Modus verlangt `flex.*.xml`.
 
-**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` — kein reiner Verifikationskanal mehr, sondern zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Ist die API-Query mit denselben Sektionen eingerichtet wie die Mail-Query (Trades, Option Exercises/Assignments/Expirations, Corporate Actions), liefert sie auch `OptionEAE`/BookTrades und CorporateActions — geprüft 2026-10-17 an den produktiven API-XMLs; die frühere Einschränkung "Assignment-/Expiry-Events nur aus den Mail-XMLs" galt nur für die alte, reine Trades-Query. Timing: Der Report wird bei Anfrage on-demand generiert, kein fixes Tages-Zeitfenster (frühere Annahme "erst ab ca. 14–15 Uhr MEZ" war falsch) — funktioniert bereits kurz nach Handelsschluss zuverlässig (bestätigt: erfolgreicher Lauf 2026-08-06 um 06:01 Uhr lokal). Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
+**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` als zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Ist die API-Query mit denselben Sektionen eingerichtet wie die Mail-Query (Trades, Option Exercises/Assignments/Expirations, Corporate Actions), liefert sie auch `OptionEAE`/BookTrades und CorporateActions. Timing: Der Report wird bei Anfrage on-demand generiert, es gibt kein festes Tages-Zeitfenster — die Daten des Vortags stehen in der Regel schon am frühen Morgen bereit. Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
 
 ---
 
@@ -263,10 +260,9 @@ import_ibkr_trades.py
     └── activity_csv_parser → account_snapshots
 ```
 
-**Kein Dateinamen-Filter mehr (Normalbetrieb):** Verarbeitet werden alle `*.xml`-Dateien
-in beiden Ordnern, unabhängig vom Namen — die frühere `flex.*.xml`-Beschränkung wurde
-aufgehoben, seit `incoming_api\` (FlexQuery Web-API) als zweite Quelle mit anderem
-Namensschema hinzukam. Einzige Ausnahme: der TEST-Modus (`test\<user>\incoming\`)
+**Kein Dateinamen-Filter (Normalbetrieb):** Verarbeitet werden alle `*.xml`-Dateien
+in beiden Ordnern, unabhängig vom Namen — Mail- und API-Dateien haben verschiedene
+Namensschemata. Einzige Ausnahme: der TEST-Modus (`test\<user>\incoming\`)
 verlangt weiterhin `flex.*.xml`.
 
 **CLI-Override — gezielt ein Environment importieren:**
@@ -441,7 +437,7 @@ ihn beim Eröffnen, `trades_close` übernimmt ihn **von der Eröffnung** — die
 TradingJournal gruppieren `trades_close` nach dieser `opt_strategyID`. Die Kampagne hängt
 unabhängig davon am Underlying (§ 6.3).
 
-**Grenzen (Stand 2026-10-20, gegen Code und Echtdaten geprüft):**
+**Grenzen (gegen Code und Echtdaten geprüft):**
 
 - **Schließende Combo-Orders bekommen einen eigenen, „umgekehrten“ Namen.** Die Erkennung kennt
   keine Eröffnung/Schließung: Wer einen Bull Put Spread per Combo-Order zurückkauft, erzeugt in
@@ -515,7 +511,7 @@ derselben Kampagne, weil die Kampagne am Underlying hängt (§ 6.3).
 Spread zu optimistisch, weil der Verlust aus der Aktienzuteilung fehlt). Die Detailseiten offener
 und geschlossener Trades zeigen verknüpfte Trades mit gleicher `linkID` an.
 
-**Grenzen (Stand 2026-10-20, gegen Code und Echtdaten geprüft):**
+**Grenzen (gegen Code und Echtdaten geprüft):**
 
 - **Ausübung eigener Optionen** (*Exercise*): Der Parser vergibt keine `linkID`, der Aktien-Trade
   wird nicht gesucht. Nur im Fall 2c erzeugt die Verarbeitung eine `linkID` für den Ledger-Eintrag
@@ -526,9 +522,9 @@ und geschlossener Trades zeigen verknüpfte Trades mit gleicher `linkID` an.
   `OPTION_EXPIRATION`, und es gibt keine `pending_link_id`. `closedBy` bleibt richtig
   (`ASSIGNMENT`/`EXPIRY`). In den Echtdaten kommt das bisher nur bei Verfall vor (8 Einträge
   `status=Closed, closedBy=EXPIRY` über alle Environments).
-- **Altdaten** vor dem linkID-Fix (2026-07-31) wurden per
-  `dev/migrate_backfill_assignment_linkid.py` nachgetragen; ohne Aktien-Gegenstück (Barausgleich)
-  bleibt die `linkID` des Options-Eintrags ohne Partner.
+- **Ohne Aktien-Gegenstück** (z. B. Barausgleich) bleibt die `linkID` des Options-Eintrags ohne
+  Partner. Ältere Datenbestände lassen sich mit `dev/migrate_backfill_assignment_linkid.py`
+  nachträglich verknüpfen (idempotent).
 
 ### 5.6 Duplikat-Schutz: Checksums
 
@@ -736,7 +732,7 @@ Fallback in `get_open_trades()` nicht ein, weil das Symbol gleich bleibt.
 Die neue Menge kann krumm werden (27,68 CYN-Aktien) — sie wird so übernommen, wie IBKR sie
 liefert.
 
-**Grenzen (Stand 2026-10-20, gegen Code und Echtdaten geprüft):**
+**Grenzen (gegen Code und Echtdaten geprüft):**
 
 - **Optionen auf die gesplittete Aktie** werden erkannt (`is_split=1`), aber offene
   Options-Tranchen werden nicht umgestellt: `process_stock_split()` sucht nach dem *neuen*
@@ -752,9 +748,6 @@ liefert.
 - **Andere Kapitalmaßnahmen** (Fusion, Spin-off, Symbolwechsel) bekommen `is_split=0` und
   würden wie normale Trades (Preis 0) durch die FIFO-Logik laufen — eine eigene Behandlung gibt
   es nicht. In den Echtdaten bisher nicht vorgekommen.
-
-Ein früherer Fehler, bei dem die Kampagne nach einem Split fälschlich `ACTIVE` blieb, ist in
-§ 10.1 („Split-Bug“) beschrieben.
 
 ### 6.3 Kampagnen-Lebenszyklus: `inventory_tracker.py`
 
@@ -796,7 +789,7 @@ Seit 2026-05 werden **feingranulare Actions** geschrieben — statt generischem 
 | Sonstiges | `TRADE_REVERSAL_OPEN`, `STOCK_SPLIT` | Fall 2b Remainder / CorporateAction |
 | (vorgesehen, derzeit nie geschrieben) | `FX_EXCHANGE_FROM_<Währung>`, `FX_EXCHANGE_TO_<Währung>` | CASH-Trade mit Kampagne — siehe Fall 0 |
 
-**Hinweis:** Die generischen Bezeichnungen `TRADE_OPEN`, `TRADE_CLOSE_FULL`, `TRADE_CLOSE_PARTIAL` in den Fallbeschreibungen oben (Abschnitt 6.2) stehen stellvertretend für die jeweilige feingranulare Action. Alt-Daten mit den Legacy-Actions bleiben gültig, bis das jeweilige Environment per Summary-Re-Import neu aufgebaut wird (TradingJournal kennt beide Varianten).
+**Hinweis:** Die generischen Bezeichnungen `TRADE_OPEN`, `TRADE_CLOSE_FULL`, `TRADE_CLOSE_PARTIAL` in den Fallbeschreibungen oben (Abschnitt 6.2) stehen stellvertretend für die jeweilige feingranulare Action. Ältere Datenbestände können noch die generischen Actions enthalten; TradingJournal kennt beide Varianten, ein Neuaufbau per Summary-Re-Import schreibt die feingranularen.
 
 ### 6.4 Schema-Validierung: `open_trade.py` / `closed_trade.py`
 
@@ -1047,10 +1040,8 @@ imported_at
 Befüllt **ausschließlich** von `import_csv_snapshots.py` (`activity_csv_parser.py`,
 `snapshot_csv`-Step, TWRR exakt von IBKR) aus dem **Kontoauszug (Activity Statement, CSV)**,
 den IBKR nur per Mail zustellt — eine Abfrage per Web-API gibt es dafür nicht, und die
-FlexQueries (Mail wie API) enthalten keine Snapshot-Sektionen
-(geprüft 2026-10-17: keine der 763 FlexQuery-XMLs aus Mail- und API-Kanal enthält Snapshot-Sektionen). Bleibt die Mail an einem Tag aus, fehlt der Snapshot dieses Tages.
-Der frühere XML-Weg (`import_flexquery_snapshot.py` / `flexquery_snapshot_parser.py`, aus
-einer älteren Query-Konfiguration mit EquitySummary/CashReport) wurde 2026-10-17 entfernt.
+FlexQueries (Mail wie API) enthalten keine Snapshot-Sektionen. Bleibt die Mail an einem Tag
+aus, fehlt der Snapshot dieses Tages.
 
 **⚠️ Limitierung: fest auf EUR + USD verdrahtet, nicht generisch.**
 Anders als bei Einzeltrades (`trades_raw.currency` ist freier Text, `trades_fx` speichert Basis-
@@ -1064,9 +1055,8 @@ Portfolio-Snapshot **hartverdrahtet auf genau zwei Währungen**:
 Hält das IBKR-Konto Cash in einer dritten Währung (z.B. GBP), wird dieser Betrag beim Snapshot-Import
 **stillschweigend nicht erfasst** — kein Fehler, keine Warnung, der Wert fehlt einfach in
 `account_snapshots`. Bewusste Vereinfachung für ein Konto, das nur in EUR (Basiswährung) und USD
-(Handelswährung für US-Optionen/Aktien) bewegt wird. Geprüft und als aktuell nicht änderungsbedürftig
-eingestuft (Stand 2026-08-03) — falls das Portfolio künftig weitere Cash-Währungen hält, braucht es hier
-eine bewusste Erweiterung (neue Spalte(n) + Parser-Anpassung), kein reiner Bugfix.
+(Handelswährung für US-Optionen/Aktien) bewegt wird. Für weitere Cash-Währungen braucht es eine
+bewusste Erweiterung (neue Spalte(n) + Parser-Anpassung).
 
 ### 8.3 Running Balance — ES-Lite-Upgrade
 
@@ -1095,7 +1085,7 @@ python -m dev.migrate_running_balance money dein_user_      # einzelnes Target
 | Datei | Zweck | Versioniert? |
 |---|---|---|
 | `.env` | Secrets (DB-Passwort, API-Keys) | **Nein** (gitignore, siehe `.env.example`) |
-| `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `dein_user` → `dein_user_`) | **Nein** (gitignore, siehe `users.toml.example`) — enthält die echten Benutzernamen; seit 2026-10-19 nicht mehr versioniert |
+| `users.toml` | Zentrale User↔Prefix-Registry (einzige Quelle für z.B. `dein_user` → `dein_user_`) | **Nein** (gitignore, siehe `users.toml.example`) — enthält die echten Benutzernamen |
 | `config.py` | DB-Konfiguration, lädt Account-Mapping aus `accounts.toml` (`get_account_config()`) | Ja |
 | `accounts.toml` | Account-Mapping (accountId-Suffix → User/Environment, ohne Prefix) | **Nein** (gitignore, siehe `accounts.toml.example`) — enthält reale Kontodaten |
 | `pipeline.toml` | Pipeline-Schritte, aktive User dieser Maschine | **Nein** (gitignore, siehe `pipeline.toml.example`) — maschinenspezifisch: jede Maschine verarbeitet nur die dort tatsächlich per `reset_IBKR_DB.py` initialisierten User/Environments |
@@ -1279,44 +1269,13 @@ environments = ["paper"]
 
 ## 10. Fehlerbehandlung & Robustheit
 
-### 10.1 Bekannte Bugfixes (Lernfälle)
-
-#### Split-Bug: Kampagne bleibt ACTIVE nach Split
-```
-Problem: Nach RS/SS/FS war split_symbol = trade.get('underlyingSymbol')
-         → underlyingSymbol enthielt "APDN.OLD" (altes Symbol)
-         → Inventory wurde nie auf 0 gesetzt
-         → Kampagne blieb ACTIVE
-
-Fix: split_symbol = trade.get('symbol')
-     (nach _handle_split_trade enthält symbol bereits das neue Symbol)
-```
-
-#### Enum-Bug: str(TradeStatus.OPEN) → "TradeStatus.OPEN"
-```
-Problem: Python 3.11+ änderte str()-Verhalten für str-Enums
-         str(TradeStatus.OPEN) → "TradeStatus.OPEN" statt "OPEN"
-         → Datenbankvergleiche schlugen fehl
-
-Fix: raw.value if hasattr(raw, 'value') else str(raw)
-     Merke: Nach Enum-Refactorings immer alle str(enum_val)-Vergleiche prüfen
-```
-
-#### P&L-Skalierungsfehler bei Teilabschluss
-```
-Problem: commission wurde nicht mit ratio skaliert
-         → Bei Teilabschluss wurde volle Kommission dem Close zugerechnet
-
-Fix: commission_close = open_trade.commission * ratio
-```
-
-### 10.2 Duplikat-Schutz
+### 10.1 Duplikat-Schutz
 
 - **Checksum-basiert:** Verhindert Doppel-Import derselben XML
 - **`processed`-Flag:** Verhindert Doppel-Processing desselben Trades
 - **`campaign_ledger`-Atomizität:** Kein Ledger-Eintrag ohne dazugehörigen Trade
 
-### 10.3 Logging
+### 10.2 Logging
 
 Jede Phase schreibt in `log/` mit Timestamp. Logger-Ebenen:
 ```

@@ -12,7 +12,7 @@ Jeder Eintrag verweist auf die Stelle im Handbuch, an der der Ablauf ausführlic
 Wird eine Grenze behoben, verschwindet sie aus diesem Kapitel.
 
 > [!NOTE]
-> Stand: 20.10.2026. Geprüft gegen den Code und gegen die echten Daten des Autors
+> Geprüft gegen den Code und gegen die echten Daten des Autors
 > (mehrere Echtgeld- und Paper-Konten). „Schon vorgekommen“ bezieht sich auf diese Daten.
 
 ---

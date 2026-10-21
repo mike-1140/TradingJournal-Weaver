@@ -209,10 +209,7 @@ intern), mit gesetztem Filter läuft es pro passendem User × Environment.
 
 **`account_snapshots` kommt ausschließlich aus dem Kontoauszug (Activity Statement, CSV per
 Mail) über `snapshot_csv`.** Den Kontoauszug gibt es nicht per Web-API, und die FlexQueries
-(Mail wie API) enthalten keine Snapshot-Sektionen (EquitySummary, CashReport, MTM)
-(geprüft 2026-10-17: keine der 763 FlexQuery-XMLs aus Mail- und API-Kanal enthält Snapshot-Sektionen). Der frühere Step `snapshot_import`
-(`import_flexquery_snapshot.py`, Snapshots aus FlexQuery-XMLs) wurde deshalb am 2026-10-17
-entfernt.
+(Mail wie API) enthalten keine Snapshot-Sektionen (EquitySummary, CashReport, MTM).
 
 ---
 
@@ -241,8 +238,7 @@ Keine Argumente. Relevante `.env`-Variablen:
 ## get_flexquery_api.py — FlexQuery per Web-API abrufen
 
 Holt FlexQuery-XMLs direkt über die IBKR-Web-API, **parallel** zur Mail-Pipeline
-(`get_flexquery_emails.py`) — beide Kanäle sind gleichwertig aktiv, kein reiner
-Verifikationskanal mehr. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von
+(`get_flexquery_emails.py`) — beide Kanäle sind gleichwertig aktiv. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von
 `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben). Der
 `import`-Step scannt **beide** Ordner und importiert daraus `trades_raw` — die
 Query liefert dieselben Trades wie die Mail-XML, Checksum-Dedup verhindert
@@ -250,10 +246,9 @@ doppelte Einträge. Mit denselben Sektionen eingerichtet wie die Mail-Query
 (Trades, Option Exercises/Assignments/Expirations, Corporate Actions) liefert die
 API-Query auch Assignment-/Expiry-Events und Splits — vollwertiger zweiter Kanal.
 
-Timing: Der Report wird bei Anfrage **on-demand generiert**, kein fixes Tages-Zeitfenster
-(die frühere Annahme "erst ab ca. 14–15 Uhr MEZ" war falsch). Voraussetzung ist nur, dass
-der Börsentag abgeschlossen ist — funktioniert bereits kurz nach Handelsschluss zuverlässig
-(bestätigt: erfolgreicher Lauf 2026-08-06 um 06:01 Uhr lokal). Die Retry-Logik
+Timing: Der Report wird bei Anfrage **on-demand generiert**, es gibt kein festes
+Tages-Zeitfenster. Voraussetzung ist nur, dass der Börsentag abgeschlossen ist — die Daten des
+Vortags stehen in der Regel schon am frühen Morgen bereit. Die Retry-Logik
 (`RETRY_DELAY`/`MAX_RETRIES`) fängt die kurze "noch in Verarbeitung"-Phase ab — typischerweise
 wenige Sekunden, bis zu ~30s bei Accounts mit geringerer IBKR-Priorität (z.B. Paper-Konten).
 
@@ -451,7 +446,7 @@ python -m src.process_ibkr_trades money dein_user_
 
 ### Manuell erhaltene XML importieren (z.B. für einen zweiten Benutzer)
 ```powershell
-# Einfach ablegen — kein Umbenennen mehr noetig (kein Dateinamen-Filter im Normalbetrieb)
+# Einfach ablegen — Umbenennen ist nicht noetig (kein Dateinamen-Filter im Normalbetrieb)
 Move-Item Bericht_zweiter_user.xml C:\Trade_XML\incoming_mail\
 ```
 ```bash
