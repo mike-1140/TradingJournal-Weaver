@@ -71,6 +71,22 @@ Neue Versionen bringen manchmal zusätzliche, **optionale** Einstellungen mit (z
 Programme, landen aber nicht automatisch in der eigenen `.env`. Wer eine neue Einstellung nutzen
 möchte, überträgt die Zeile von Hand. Ohne Eintrag gilt jeweils der bisherige Standard.
 
+## Sicherheitsupdates für PHP
+
+`update.ps1` aktualisiert nur TradingJournal und TradingJournal-Weaver, nicht die Programme
+darunter. PHP kommt bei einer XAMPP-Installation mit XAMPP mit — und XAMPP liefert neue
+PHP-Versionen oft erst Wochen nach einem Sicherheitsupdate aus. Wird eine kritische PHP-Lücke
+bekannt (Ankündigungen unter [php.net](https://www.php.net/) → *News*), lässt sich PHP auch
+selbst austauschen, ohne auf ein neues XAMPP zu warten. Die Schritt-für-Schritt-Anleitung steht
+im technischen Handbuch ([Installation: Windows-Grundausstattung](../technik/40-installation-windows.md),
+Abschnitt „PHP aktualisieren, ohne auf ein neues XAMPP zu warten“).
+
+Welche PHP-Version gerade läuft — **[PowerShell]:**
+
+```powershell
+php -v
+```
+
 ## Welche Version läuft gerade?
 
 Unten in der Seitenleiste der App steht **Build:** mit einer kurzen Kennung (z. B.

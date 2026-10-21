@@ -185,6 +185,14 @@ Download: https://windows.php.net/download/ → **PHP 8.3.x VS16 x64 Thread Safe
 - [ ] **[PowerShell]** — neues Fenster, prüfen: `php --version`,
   `php -m | findstr -i "pdo_mysql mbstring"`
 
+**PHP später aktualisieren** (Sicherheitsupdates innerhalb von 8.3.x): gleicher Ablauf wie in
+[Installation: Windows-Grundausstattung](40-installation-windows.md), Abschnitt „PHP
+aktualisieren, ohne auf ein neues XAMPP zu warten“ — nur mit `C:\php` statt `C:\xampp\php` und
+`C:\Apache24` statt `C:\xampp\apache`. `php.ini` bleibt beim Drüberkopieren erhalten. Da
+`C:\php` im System-PATH steht, findet Apache die Begleit-DLLs von curl in der Regel ohne
+zusätzliche `LoadFile`-Zeilen; nach dem Neustart trotzdem `C:\Apache24\logs\error.log` auf
+`Unable to load dynamic library` prüfen.
+
 ---
 
 ## Schritt 5 — Apache HTTP Server
@@ -233,8 +241,17 @@ existierende Adresse.
 **[PowerShell – Administrator]**:
 ```powershell
 C:\Apache24\bin\httpd.exe -k install -n "Apache2.4"
+sc.exe config Apache2.4 start= delayed-auto
+sc.exe failure Apache2.4 reset= 86400 actions= restart/60000/restart/60000/restart/120000
 net start Apache2.4
 ```
+
+**Warum verzögerter Start:** Apache lauscht nur auf der VPN-Adresse. Beim Hochfahren des
+Servers ist das VPN oft noch nicht verbunden, wenn der normale Autostart Apache startet — die
+Adresse existiert dann noch nicht, Apache bricht ab (`could not bind to address ...:80` im
+Ereignisprotokoll) und bleibt gestoppt, bis ihn jemand von Hand startet. `delayed-auto` startet
+Apache erst nach den übrigen Autostart-Diensten, die Fehleraktionen (`sc.exe failure`) versuchen
+den Start bei Misserfolg nach 1, 1 und 2 Minuten erneut.
 
 **Firewall — nur das VPN-Netz erlauben** (Beispiel für Tailscales Standard-Adressbereich
 `100.64.0.0/10`, bei anderem VPN entsprechend anpassen) — **[PowerShell – Administrator]**:
@@ -250,7 +267,7 @@ des oben erlaubten VPN-Bereichs — Windows Firewall lässt eine passende Block-
 gegen eine passende Allow-Regel gewinnen, unabhängig von der Reihenfolge. Unnötig ohnehin:
 Windows Firewall blockt standardmäßig bereits alles, was nicht explizit erlaubt ist.
 
-- [ ] Apache-Service läuft, Autostart
+- [ ] Apache-Service läuft, Autostart verzögert (`sc.exe qc Apache2.4` zeigt `AUTO_START (DELAYED)`)
 - [ ] Test: Browser über die VPN-Adresse erreichbar; über die öffentliche IP des Servers
   **nicht** erreichbar (mit einem Gerät außerhalb des VPNs testen)
 
@@ -462,7 +479,8 @@ Vorlage).
 
 ## Schritt 12 — Abschlusstest
 
-- [ ] `services.msc`: `MySQL84`/`Apache2.4` → Gestartet, Autostart
+- [ ] `services.msc`: `MySQL84` → Gestartet, Autostart; `Apache2.4` → Gestartet, Automatisch (Verzögerter Start)
+- [ ] Server einmal neu starten: Apache kommt ohne Eingriff wieder hoch
 - [ ] Browser über die VPN-Adresse: `http://<server-vpn-ip>/login` erreichbar
 - [ ] Login funktioniert, zeigt die erwarteten Daten
 - [ ] Von einem Gerät **ohne** VPN-Verbindung: Server über seine öffentliche IP → keine

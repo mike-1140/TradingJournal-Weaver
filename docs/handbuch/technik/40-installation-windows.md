@@ -166,6 +166,81 @@ Ein Produktionsserver läuft üblicherweise mit einer **Standalone-MySQL-Install
 XAMPP — ein bewusster, bekannter Unterschied zwischen lokaler Entwicklung und Produktion, hier
 nicht weiter behandelt.
 
+### PHP aktualisieren, ohne auf ein neues XAMPP zu warten
+
+XAMPP bündelt eine feste PHP-Version und liefert neue Versionen oft erst Wochen nach einem
+PHP-Sicherheitsupdate aus. Bei kritischen Lücken (angekündigt unter
+[php.net](https://www.php.net/) → *News*) lässt sich PHP innerhalb desselben Versionszweigs
+(z. B. 8.2.12 → 8.2.35) selbst austauschen. `php.ini`, PEAR und die XAMPP-Extras bleiben dabei
+erhalten. Für einen Wechsel des Zweigs (z. B. 8.2 → 8.3) ist dieser Weg nicht gedacht — dann
+besser ein passendes XAMPP neu installieren.
+
+**1. Passendes Build bestimmen — [PowerShell]:**
+```powershell
+C:\xampp\php\php.exe -v
+```
+Die erste Zeile zeigt Version und Build, z. B. `PHP 8.2.12 (cli) ... (ZTS Visual C++ 2019 x64)`.
+`ZTS` bedeutet **Thread Safe** (Pflicht für Apache mit mod_php), `Visual C++ 2019` entspricht
+**VS16**. Auf [windows.php.net/download](https://windows.php.net/download/) **[Browser]** im
+selben Zweig die neueste Version als **VS16 x64 Thread Safe** (ZIP) laden — nicht die
+Non-Thread-Safe-Variante.
+
+**2. Download prüfen — [PowerShell]:** Die SHA256-Summe mit der Angabe auf der Download-Seite
+(bzw. in `sha256sum.txt` im selben Verzeichnis) vergleichen:
+```powershell
+Get-FileHash $env:USERPROFILE\Downloads\php-8.2.35-Win32-vs16-x64.zip -Algorithm SHA256
+```
+
+**3. Entpacken und sichern — [PowerShell]:**
+```powershell
+Expand-Archive $env:USERPROFILE\Downloads\php-8.2.35-Win32-vs16-x64.zip -DestinationPath C:\xampp\php-neu
+robocopy C:\xampp\php C:\xampp\php-backup /E
+```
+Prüfen, dass jede in `php.ini` aktivierte Erweiterung (`extension=...`) auch im neuen Build
+liegt (`C:\xampp\php-neu\ext\php_<name>.dll`). XAMPP bringt einzelne Zusätze mit, die das
+offizielle Build nicht enthält (z. B. Oracle-Treiber) — für dieses Projekt nicht nötig.
+
+**4. Austauschen — [PowerShell – Administrator]:** Apache muss dafür gestoppt sein, sonst
+sind die PHP-DLLs gesperrt. Die neuen Dateien werden **über** den bestehenden Ordner kopiert;
+`php.ini` ist nicht im ZIP und bleibt deshalb unverändert.
+```powershell
+net stop Apache2.4
+robocopy C:\xampp\php-neu C:\xampp\php /E
+net start Apache2.4
+```
+Läuft Apache nicht als Dienst, stattdessen im XAMPP Control Panel stoppen bzw. starten.
+
+**5. Prüfen:**
+- **[PowerShell]** `php -v` zeigt die neue Version.
+- **[Browser]** `http://localhost/dashboard/phpinfo.php` zeigt in Apache ebenfalls die neue
+  Version — das ist der Teil, der für die Weboberfläche zählt.
+- **[Text-Editor]** `C:\xampp\apache\logs\error.log`: Nach dem Neustart darf keine Zeile
+  `PHP Warning: PHP Startup: Unable to load dynamic library` stehen.
+
+**Bekannter Stolperstein — curl lädt in Apache nicht:** Erscheint im Apache-Log
+`Unable to load dynamic library 'curl'`, während `php -m` in der PowerShell `curl` auflistet,
+fehlt dem Apache-Prozess eine DLL. Neuere `php_curl.dll`-Versionen brauchen Bibliotheken
+(z. B. `brotlidec.dll`), die nur im PHP-Ordner liegen. Apache sucht dort nicht, sondern nimmt
+ältere oder gar keine Fassungen aus `C:\xampp\apache\bin`. Abhilfe: In
+`C:\xampp\apache\conf\extra\httpd-xampp.conf` **[Text-Editor]** direkt unter den vorhandenen
+`LoadFile`-Zeilen (vor `LoadModule php_module`) ergänzen:
+```apache
+LoadFile "C:/xampp/php/brotlicommon.dll"
+LoadFile "C:/xampp/php/brotlidec.dll"
+LoadFile "C:/xampp/php/nghttp2.dll"
+LoadFile "C:/xampp/php/libssh2.dll"
+```
+Danach Apache neu starten und das Log erneut prüfen.
+
+**Zurück zur alten Version — [PowerShell – Administrator]:**
+```powershell
+net stop Apache2.4
+robocopy C:\xampp\php-backup C:\xampp\php /E
+net start Apache2.4
+```
+Läuft alles, können `C:\xampp\php-neu` und nach einigen Tagen auch `C:\xampp\php-backup`
+gelöscht werden.
+
 ## 3. Composer
 
 - Installer von [getcomposer.org](https://getcomposer.org/download/) (`Composer-Setup.exe`)
