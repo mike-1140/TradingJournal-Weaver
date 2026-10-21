@@ -17,7 +17,7 @@ Datenimport-Pipeline sollte schon eingerichtet sein — siehe
 3. [Datenbank-Tabellen anlegen](#3-datenbank-tabellen-anlegen)
 4. [Ersten Benutzer anlegen](#4-ersten-benutzer-anlegen)
 5. [Optik der Seite bauen](#5-optik-der-seite-bauen)
-6. [Starten und einloggen](#6-starten-und-einloggen)
+6. [Starten und öffnen](#6-starten-und-öffnen)
 7. [Praktisch: Schnellzugriff einrichten](#7-praktisch-schnellzugriff-einrichten)
 
 ---
@@ -76,19 +76,20 @@ bei `DB_PASSWORD=` und `TRADING_DB_PASSWORD=` ein.
 
 ## 3. Datenbank-Tabellen anlegen
 
-Dieser Befehl legt die Tabellen an, die die Weboberfläche selbst braucht (z.B. für den
-Login):
+Dieser Befehl legt die Tabellen an, die die Weboberfläche selbst braucht (z.B. für die
+Benutzer):
 
 ```powershell
 php artisan migrate
 ```
 
-**Wichtig:** Ohne diesen Schritt gibt es später keine Login-Seite.
+**Wichtig:** Ohne diesen Schritt gibt es keine Benutzer, und die Seite startet nicht.
 
 Die eigentlichen Handelsdaten-Tabellen kommen von einem anderen Programm (`TradingJournal-Weaver`) — die sollten laut der `TradingJournal-Weaver`-Anleitung schon angelegt worden sein. Falls nicht, jetzt nachholen (aus dem `TradingJournal-Weaver`-Ordner heraus, `<dein Name>_` durch den eigenen gewählten Namen ersetzen):
 
 ```powershell
 cd ..\TradingJournal-Weaver
+python -m tools.maintenance.reset_IBKR_DB test <dein Name>_
 python -m tools.maintenance.reset_IBKR_DB money <dein Name>_
 cd ..\TradingJournal
 ```
@@ -111,7 +112,7 @@ Jetzt den ersten Benutzer anlegen — Name, E-Mail und Passwort durch eigene Wer
 php artisan auth:create-user "Dein Name" deine@mail-adresse.at "EinSicheresPasswort" --prefix=<dein Name>_ --admin
 ```
 
-Das Wort `--admin` am Ende sorgt dafür, dass dieser erste Benutzer Administrator-Rechte hat (z.B. um später weitere Benutzer anzulegen).
+Das Wort `--admin` am Ende macht diesen ersten Benutzer zum Administrator. Auf dem eigenen PC wird er beim Öffnen der App automatisch angemeldet und kann über einen Dropdown zu weiteren Benutzern wechseln (siehe [Erster Start — UI-Erstkonfiguration](60-erster-start.md), Abschnitt 3). Deshalb sollte der eigene Zugang als **erster** angelegt werden.
 
 ---
 
@@ -125,7 +126,7 @@ npm run build
 
 ---
 
-## 6. Starten und einloggen
+## 6. Starten und öffnen
 
 Die einfachste Variante, um die Seite auszuprobieren:
 
@@ -133,7 +134,7 @@ Die einfachste Variante, um die Seite auszuprobieren:
 php artisan serve
 ```
 
-Danach im Browser `http://localhost:8000` öffnen und mit den in Schritt 4 vergebenen Zugangsdaten einloggen.
+Danach im Browser `http://localhost:8000` öffnen. Ein Login ist auf dem eigenen PC nicht nötig: Die App meldet automatisch den in Schritt 4 angelegten Benutzer an.
 
 **Zu beachten:** Diese Variante läuft nur, solange das PowerShell-Fenster offen bleibt.
 Fenster geschlossen → Seite nicht mehr erreichbar, dann `php artisan serve` erneut
@@ -181,5 +182,5 @@ Nach der Ersteinrichtung, für den täglichen Gebrauch:
 | Datei                                                | Inhalt                                                                                       |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | [Technisches Handbuch: Installation: TradingJournal](../technik/60-installation-tradingjournal.md) | Dieselben Schritte, technischer/kompakter, plus fortgeschrittene Themen (Apache-VirtualHost) |
-| [Erster Start — UI-Erstkonfiguration](60-erster-start.md)                 | Was nach dem ersten Login einzustellen ist                                                   |
+| [Erster Start — UI-Erstkonfiguration](60-erster-start.md)                 | Was nach dem ersten Start einzustellen ist                                                   |
 | [TradingJournal-Weaver-Setup](../technik/50-installation-weaver.md) | Setup der Datenimport-Pipeline |

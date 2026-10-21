@@ -99,12 +99,13 @@ in gleicher Form erwartet.
 ⚠️ **Destruktiv** — legt Datenbank + alle Tabellen aus `sql/` neu an, löscht bestehende Daten
 des jeweiligen Environment/Prefix-Paars. Nur beim ersten Setup bzw. bewusstem Reset ausführen.
 
-Für jede benötigte Kombination aus Environment × Nutzer-Prefix einmal ausführen:
+Für jede benötigte Kombination aus Environment × Nutzer-Prefix einmal ausführen — `test` immer
+(Start-Environment der Web-App, solange `TRADING_DEFAULT_ENV` nicht gesetzt ist):
 
 ```bash
+python -m tools.maintenance.reset_IBKR_DB test dein_user_
 python -m tools.maintenance.reset_IBKR_DB money dein_user_
 python -m tools.maintenance.reset_IBKR_DB paper dein_user_
-python -m tools.maintenance.reset_IBKR_DB test dein_user_
 ```
 
 Zusätzliche Tabellen außerhalb des Kern-Schemas (z.B. Psychology-Modul) werden **nicht**
@@ -135,7 +136,7 @@ auf dieser Maschine nicht existieren, lässt `run_pipeline.py` im Auto-Modus mit
 
 ```toml
 [users.dein_user]
-environments = ["money"]   # nur die Environments, die in Schritt 4 initialisiert wurden
+environments = ["test", "money"]   # nur die Environments, die in Schritt 4 initialisiert wurden
 ```
 
 Kein `prefix =` nötig — der wird automatisch aus `users.toml` aufgelöst (User-Name = Name

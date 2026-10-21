@@ -57,8 +57,9 @@ unpassenden Kodierung gespeichert — typischerweise, wenn sie per PowerShell
 
 Meist kann die Web-App die Trading-Datenbank nicht erreichen. In `storage\logs\laravel.log`
 nach `ERROR` suchen. Häufige Auslöser: `TRADING_DB_USERNAME` oder `TRADING_DB_PASSWORD` in der
-`.env` falsch, oder `TRADING_DEFAULT_ENV` zeigt auf ein Environment, dessen Datenbank nicht
-existiert.
+`.env` falsch, oder für den Benutzer gibt es in keinem Environment Tabellen — dann
+`reset_IBKR_DB.py` mit genau dem Präfix ausführen, der beim Anlegen des Benutzers angegeben wurde
+([TradingJournal-Weaver installieren](40-weaver-installieren.md), Schritt 4).
 
 ## 3. Daten abholen (Mail und Web-API)
 

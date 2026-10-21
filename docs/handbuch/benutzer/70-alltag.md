@@ -292,9 +292,11 @@ ist die systematische Regel-Compliance über die Zeit.
 ## 7. Multi-User-Betrieb
 
 Jeder Nutzer hat einen eigenen Tabellen-Prefix und eigene IBKR-Konten (Zuordnung per
-`accountId` in `accounts.toml`). In der UI loggt sich jeder mit eigenem Account ein; ein
-Admin-Account kann zusätzlich über "Nutzer wechseln" in die Sicht eines anderen Users
-springen (siehe [Erster Start — UI-Erstkonfiguration](60-erster-start.md) Abschnitt 3).
+`accountId` in `accounts.toml`). Auf einem Server meldet sich jeder mit eigenem Zugang an. Auf
+dem eigenen PC gibt es keine Anmeldung: Der Admin ist automatisch angemeldet und wechselt über
+den Benutzer-Dropdown auf dem Dashboard zu den anderen Benutzern, zurück geht es über
+**Abmelden** rechts oben (siehe [Erster Start — UI-Erstkonfiguration](60-erster-start.md)
+Abschnitt 3).
 
 ---
 

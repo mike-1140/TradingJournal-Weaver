@@ -117,10 +117,12 @@ Kein Laravel-Migrationsschritt. Falls noch nicht geschehen, in `TradingJournal-W
 
 ```bash
 cd ../TradingJournal-Weaver
+python -m tools.maintenance.reset_IBKR_DB test dein_user_
 python -m tools.maintenance.reset_IBKR_DB money dein_user_
 ```
 
-Prefix (`dein_user_` etc.) muss zu dem Prefix passen, der beim Anlegen des Users in Schritt 5
+`test` immer anlegen: Ohne `TRADING_DEFAULT_ENV` in der `.env` startet die Web-App im
+Environment TEST. Prefix (`dein_user_` etc.) muss zu dem Prefix passen, der beim Anlegen des Users in Schritt 5
 verwendet wird.
 
 ## 5. Ersten User anlegen
@@ -143,7 +145,7 @@ php artisan auth:create-user "Dein Name" dein_name@example.com "PASSWORT" --pref
 | --------------------------- | -------------------------------------------------------------------- |
 | `name`, `email`, `password` | Pflichtargumente                                                     |
 | `--prefix=`                 | Tabellen-Prefix, muss zum in Schritt 4 initialisierten Prefix passen |
-| `--admin`                   | Setzt `is_admin=1`                                                   |
+| `--admin`                   | Setzt `is_admin=1` — nur lokal (`APP_ENV=local`) wirksam: Benutzer-Dropdown zum Wechsel auf andere User (Gate `switch-user`) |
 
 Der Befehl gibt nach dem Anlegen den passenden `reset_IBKR_DB`-Aufruf für den gewählten Prefix aus, falls Schritt 4 noch nicht erledigt wurde.
 
@@ -170,7 +172,12 @@ Zwei Möglichkeiten — beide führen zur selben App, unterschiedlich bequem fü
 php artisan serve
 ```
 
-`http://localhost:8000` aufrufen und mit den in Schritt 5 angelegten Zugangsdaten einloggen.
+`http://localhost:8000` aufrufen. Mit `APP_ENV=local` gibt es keine Login-Seite: Die Middleware
+`SetDefaultUser` meldet einmal pro Browser-Sitzung automatisch den User mit der ID 1 an (daher
+den eigenen Admin-Zugang als ersten anlegen). *Abmelden* beendet die Sitzung, die nächste
+Anfrage meldet wieder User 1 an — so kehrt der Admin nach einem Benutzerwechsel zurück.
+Login-Seite und Passwort gelten nur mit
+`APP_ENV=production` (Server-Betrieb).
 **Nachteil:** läuft nur, solange dieses Terminal-Fenster offen bleibt — bei jedem Neustart
 erneut manuell ausführen.
 

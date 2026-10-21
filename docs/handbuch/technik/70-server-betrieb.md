@@ -119,7 +119,8 @@ FLUSH PRIVILEGES;
 ```
 
 Nur die Environments anlegen, die du tatsächlich brauchst — `ibkr_test` kann entfallen,
-wenn kein Test-Environment genutzt wird (siehe Hinweis zu `TRADING_DEFAULT_ENV` in Schritt 8).
+wenn kein Test-Environment genutzt wird. Die App startet dann im Environment aus
+`TRADING_DEFAULT_ENV` bzw. automatisch im ersten Environment mit Tabellen (siehe Schritt 8).
 
 **Host bewusst `%` statt `127.0.0.1`:** MySQL löst eine eingehende Verbindung von
 `127.0.0.1` serverseitig per Reverse-Lookup standardmäßig zu `localhost` auf und matcht die
@@ -325,12 +326,11 @@ TRADING_DB_PASSWORD=<db-passwort>
 TRADING_DEFAULT_ENV=MONEY
 ```
 
-**Wichtig — `TRADING_DEFAULT_ENV` setzen, falls `ibkr_test` nicht angelegt wurde:** Ohne
-diese Zeile fällt `config/trading.php` auf `TEST` als Default-Environment zurück. Existiert
-`ibkr_test` nicht, scheitert das Dashboard nach dem Login mit "Datenbank nicht vorhanden" —
-`bootstrap/app.php`s `QueryException`-Handler fängt das per `back()` ab, was zu einem
-Redirect-Loop zwischen `/` und `/login` führt ("Diese Seite funktioniert nicht — zu oft
-weitergeleitet"). Auf ein Environment setzen, das tatsächlich existiert (z. B. `MONEY`).
+**`TRADING_DEFAULT_ENV`** legt fest, in welchem Environment die App nach dem Login startet
+(ohne die Zeile: `TEST`). Auf dem Server ist `MONEY` meist die bessere Wahl. Hat der Benutzer im
+eingestellten Environment keine Tabellen — etwa weil `ibkr_test` gar nicht angelegt wurde —,
+startet die App automatisch im ersten Environment, in dem er welche hat
+(`TradingHelper::getStartEnvironment()`, Reihenfolge wie in `config/trading.php`).
 
 **`APP_KEY` wird im nächsten Schritt generiert, nicht manuell eintragen.**
 
@@ -483,6 +483,6 @@ Vorlage).
 | PowerShell meldet `Unerwartetes Token` bei `"pfad\programm.exe" -argument` | Ein in Anführungszeichen gesetzter Pfad wird ohne Call-Operator nur als String interpretiert | `&` vor den Pfad setzen: `& "pfad\programm.exe" -argument` |
 | PowerShell meldet `Der Operator "<" ist für zukünftige Versionen reserviert` | PowerShell kennt keine `<`-Umleitung (im Gegensatz zu cmd/bash) | Über `cmd /c '"pfad\programm.exe" ... < datei'` ausführen (einfache Anführungszeichen außen) |
 | Seite liefert 500 mit "Vite manifest not found" | Kein Frontend-Build durchgeführt | `npm install && npm run build` im TradingJournal-Ordner |
-| "Diese Seite funktioniert nicht — zu oft weitergeleitet" nach Login | Meist eine fehlgeschlagene DB-Verbindung, die `bootstrap/app.php`s Exception-Handler abfängt und zu einem Redirect-Loop mit `/login` führt | Laravel-Log prüfen (`storage/logs/laravel.log`, nach `\]\s+\w+\.ERROR:` filtern) — üblicher Auslöser: `TRADING_DB_USERNAME`/`_PASSWORD` falsch/fehlend, oder `TRADING_DEFAULT_ENV` zeigt auf ein nicht existierendes Environment |
+| "Diese Seite funktioniert nicht — zu oft weitergeleitet" nach Login | Meist eine fehlgeschlagene DB-Verbindung, die `bootstrap/app.php`s Exception-Handler abfängt und zu einem Redirect-Loop mit `/login` führt | Laravel-Log prüfen (`storage/logs/laravel.log`, nach `\]\s+\w+\.ERROR:` filtern) — üblicher Auslöser: `TRADING_DB_USERNAME`/`_PASSWORD` falsch/fehlend, oder der Benutzer hat in keinem Environment Tabellen (Prefix in der `users`-Tabelle prüfen, `reset_IBKR_DB.py` für diesen Prefix gelaufen?) |
 | `run_pipeline.py` meldet "Unbekannte accountId ... übersprungen" für jede Datei | `accounts.toml` fehlt oder ist unvollständig | Siehe Schritt 11 |
 | `run_pipeline.py` verarbeitet unerwartet auch ein TEST-Environment | Der mitkopierte `[[test]]`-Block aus `pipeline.toml.example` wurde nicht entfernt | Siehe Schritt 11 |

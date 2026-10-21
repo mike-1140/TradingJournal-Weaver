@@ -101,7 +101,7 @@ Handelsdaten gespeichert werden), **PHP** (die Programmiersprache, in der die We
 geschrieben ist) und **Apache** (ein Webserver). Gebraucht werden zunächst nur MySQL und PHP —
 die Weboberfläche startet später mit einem eigenen, eingebauten Mini-Webserver. Apache ist nur
 für eine fortgeschrittene Variante nötig (Kapitel [TradingJournal
-installieren](50-tradingjournal-installieren.md), Abschnitt „Starten und einloggen“).
+installieren](50-tradingjournal-installieren.md), Abschnitt „Starten und öffnen“).
 
 **Wichtig bei der Auswahl:** Auf der Download-Seite gibt es mehrere Versionen nebeneinander.
 Für dieses Projekt wird **PHP Version 8.2 oder neuer** gebraucht — also die

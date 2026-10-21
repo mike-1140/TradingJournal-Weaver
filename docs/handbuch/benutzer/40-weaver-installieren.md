@@ -177,27 +177,31 @@ Dieser Befehl legt die eigentlichen Datenbank-Tabellen an, in denen später die 
 landen. **Wichtig:** Läuft man ihn ein zweites Mal für dieselbe Kombination, werden
 bestehende Daten dort gelöscht und neu angelegt — beim allerersten Setup aber genau richtig.
 
-Den eigenen Namen (aus Schritt 3, mit Unterstrich am Ende) und die gewünschten
-Environments einsetzen — mindestens eines ist nötig, z.B. `money` für den Echtgeld-Bereich
-oder `test` zum ersten Ausprobieren ohne echtes IBKR-Konto:
+Den eigenen Namen (aus Schritt 3, mit Unterstrich am Ende) einsetzen. **`test` immer
+anlegen** — die Weboberfläche startet in diesem Bereich, und er dient zum gefahrlosen
+Ausprobieren. Dazu die Environments für die eigenen IBKR-Konten, z. B. `money` für den
+Echtgeld-Bereich:
 
 ```powershell
+python -m tools.maintenance.reset_IBKR_DB test dein_name_
 python -m tools.maintenance.reset_IBKR_DB money dein_name_
 ```
 
-Für mehrere Environments (z.B. zusätzlich Paper-Trading) den Befehl mit dem jeweils anderen
+Für weitere Environments (z.B. zusätzlich Paper-Trading) den Befehl mit dem jeweils anderen
 Environment-Namen wiederholen:
 
 ```powershell
 python -m tools.maintenance.reset_IBKR_DB paper dein_name_
-python -m tools.maintenance.reset_IBKR_DB test dein_name_
 ```
 
-**Beispiel Anna und Tom** — Anna braucht Tabellen für *money* und *paper*, Tom nur für *paper*:
+**Beispiel Anna und Tom** — beide bekommen *test*, dazu Anna *money* und *paper*, Tom nur
+*paper*:
 
 ```powershell
+python -m tools.maintenance.reset_IBKR_DB test anna_
 python -m tools.maintenance.reset_IBKR_DB money anna_
 python -m tools.maintenance.reset_IBKR_DB paper anna_
+python -m tools.maintenance.reset_IBKR_DB test tom_
 python -m tools.maintenance.reset_IBKR_DB paper tom_
 ```
 
@@ -218,18 +222,22 @@ Namen (ohne Unterstrich) und die in Schritt 4 angelegten Environments eintragen:
 
 ```toml
 [users.dein_name]
-environments = ["money"]
+environments = ["test", "money"]
 ```
 
 **Beispiel Anna und Tom** — genau die Environments aus Schritt 4:
 
 ```toml
 [users.anna]
-environments = ["money", "paper"]
+environments = ["test", "money", "paper"]
 
 [users.tom]
-environments = ["paper"]
+environments = ["test", "paper"]
 ```
+
+`test` in der Liste schadet im Alltag nicht: Der Bereich liest nur Dateien, die man selbst
+nach `C:\Trade_XML\test\<name>\incoming\` legt (siehe [Alltag mit dem
+TradingJournal](70-alltag.md), Abschnitt 6), und wird für den Testlauf in Schritt 6 gebraucht.
 
 **Wichtig:** Hier nur Environments eintragen, für die Schritt 4 auch wirklich schon gelaufen
 ist — sonst bricht die automatische Verarbeitung später mit einer Fehlermeldung ab, weil die

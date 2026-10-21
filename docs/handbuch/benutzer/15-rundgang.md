@@ -32,7 +32,7 @@ Kampagnen, die noch nicht im Log dokumentiert sind (siehe Abschnitt 7).
 
 ## 2. Dashboard
 
-Die erste Seite nach dem Login: Hier siehst du auf einen Blick, wie es um das Portfolio steht.
+Die erste Seite nach dem Start: Hier siehst du auf einen Blick, wie es um das Portfolio steht.
 
 - **Kennzahlen-Kacheln** (oberes Bild): P&L für den laufenden Monat, das Jahr und den gewählten
   Zeitraum, Trefferquote (Win Rate), Ø P&L pro Trade, offene Kampagnen, Profit Factor, Max
