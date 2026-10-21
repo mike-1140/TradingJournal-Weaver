@@ -27,6 +27,7 @@ Programmierkenntnisse.
 | [50 · TradingJournal installieren](benutzer/50-tradingjournal-installieren.md) | Weboberfläche einrichten |
 | [60 · Erster Start](benutzer/60-erster-start.md) | Anmelden (PC vs. Server), Environments, mehrere Benutzer, Dashboard anpassen |
 | [70 · Alltag](benutzer/70-alltag.md) | Daten holen und verarbeiten, Durchgang nach dem Import, Kampagnen, wenn etwas nicht stimmt |
+| [75 · Eigener Server](benutzer/75-eigener-server.md) | Was auf einem Server anders ist, wie die Daten hinkommen, automatischer Lauf per Aufgabenplanung |
 | [80 · Updates](benutzer/80-updates.md) | Neue Versionen einspielen |
 | [90 · Fehlerbehebung](benutzer/90-fehlerbehebung.md) | Häufige Probleme bei Installation, Abruf, Import und Anzeige — mit Lösung |
 

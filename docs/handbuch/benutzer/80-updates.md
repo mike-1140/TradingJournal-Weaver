@@ -1,90 +1,95 @@
 # Updates einspielen
 
-Beschreibt, wie du eine bestehende Installation (lokaler PC oder eigener Server, siehe
-[Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md)) auf den neuesten Stand von
-TradingJournal-Weaver + TradingJournal bringst. Für die Erstinstallation siehe stattdessen
-[Technisches Handbuch: Installation: TradingJournal-Weaver](../technik/50-installation-weaver.md)/
-[Technisches Handbuch: Installation: TradingJournal](../technik/60-installation-tradingjournal.md).
+Wie eine bestehende Installation — auf dem eigenen PC oder auf einem Server — auf den neuesten
+Stand von TradingJournal-Weaver und TradingJournal kommt. Für die Erstinstallation siehe
+[TradingJournal-Weaver installieren](40-weaver-installieren.md) und [TradingJournal
+installieren](50-tradingjournal-installieren.md).
 
-## Was "Update" hier bedeutet
+## Was ein Update macht — und was nicht
 
-Neuer Code aus GitHub (`git pull`) + alles, was danach nötig ist, damit er auch wirklich
-läuft: neue Python-/Composer-/npm-Abhängigkeiten installieren, neue Datenbank-Migrationen
-anwenden (sowohl Laravel-eigene als auch die kleinen `TradingJournal-Weaver/dev/migrate_*.py`-Skripte),
-Frontend neu bauen (Vite), Laravel-Caches neu aufbauen. **Kein** Neuaufbau der
-Trading-Datenbanken selbst — die bleiben unangetastet, `reset_IBKR_DB.py` ist für Updates
-nie nötig.
+Ein Update holt den neuen Code von GitHub und erledigt alles, was danach nötig ist, damit er
+läuft: neue Programmbausteine (Python, PHP, JavaScript) installieren, kleine Anpassungen an den
+Datenbank-Tabellen vornehmen, die Weboberfläche neu bauen.
 
-## Automatisiert — `update.ps1`
+**Deine Daten bleiben unangetastet:** Trades, Kampagnen, Log, Psychologie und Kontostände
+werden nicht neu aufgebaut, `reset_IBKR_DB.py` ist für ein Update nie nötig. Ebenso bleiben
+deine eigenen Einstellungsdateien unverändert — die beiden `.env`-Dateien, `users.toml`,
+`accounts.toml` und `pipeline.toml`.
 
-Im TradingJournal-Repo liegt ein fertiges Skript, das alle nötigen Schritte in der
-richtigen Reihenfolge ausführt:
+## Update starten
 
-```powershell
-cd TradingJournal
-.\update.ps1
-```
+Das Skript `update.ps1` im Ordner `TradingJournal` erledigt alle Schritte in der richtigen
+Reihenfolge — für **beide** Programme.
 
-Voraussetzung: `TradingJournal-Weaver` liegt als Geschwister-Verzeichnis neben `TradingJournal` (genau
-wie bei der Installation, siehe README). Das Skript bricht bei jedem Fehler sofort mit
-einer klaren Meldung ab, statt mit einem halbaktualisierten Stand weiterzumachen — meist
-ist die Ursache ein `git pull`-Konflikt durch lokale, nicht committete Änderungen
-(`git status`/`git stash` im betroffenen Repo prüfen, dann `update.ps1` erneut starten).
+1. Vorher sicherstellen, dass gerade **kein Lauf** von `run_pipeline.py` aktiv ist.
+2. **[PowerShell]** in den Ordner `TradingJournal` wechseln (Pfad an die eigene Installation
+   anpassen) und das Skript starten:
 
-**Was das Skript macht** (Kurzfassung, siehe Kommentare im Skript für Details):
-1. `git pull` in beiden Repos
-2. Python-Abhängigkeiten (`pip install -r requirements.txt`)
-3. `TradingJournal-Weaver/dev/migrate_*.py`-Skripte (idempotent, überspringen bereits vorhandene Spalten)
-4. Composer- + npm-Abhängigkeiten, `npm run build` (Frontend-Assets)
-5. `php artisan migrate --force` (Laravel-eigene Tabellen wie `users`)
-6. Laravel-Caches neu aufbauen (`config:cache`, `route:cache`, `view:cache`)
-7. Aktuelle Version in `storage/app/version.json` schreiben — erscheint danach in der
-   Sidebar der App
+   ```powershell
+   cd C:\Users\<dein Anmeldename>\trading\TradingJournal
+   .\update.ps1
+   ```
 
-## Update auf dem lokalen PC
+3. Am Ende steht in grün `=== Update abgeschlossen: … ===`. Danach im Browser die Seite neu
+   laden.
 
-Direkt wie oben beschrieben — Terminal öffnen, ins `TradingJournal`-Verzeichnis wechseln,
-`.\update.ps1` ausführen. Kein Neustart von irgendetwas nötig (kein eigener Webserver-Prozess
-läuft dauerhaft im Hintergrund, `php artisan serve`/dein lokaler Webserver liest Code und
-Caches bei jedem Request neu).
+Voraussetzung: `TradingJournal-Weaver` und `TradingJournal` liegen nebeneinander im selben
+Ordner — so wie bei der Installation. Meldet PowerShell, dass das Ausführen von Skripts
+deaktiviert ist, hilft derselbe einmalige Schritt wie beim Einrichten der Desktop-Verknüpfung
+([TradingJournal-Weaver installieren](40-weaver-installieren.md), Schritt 7).
 
-## Update auf dem Server
+**Neu starten muss man danach nichts** — weder `php artisan serve` noch Apache. Die Weboberfläche
+liest den neuen Stand beim nächsten Seitenaufruf.
 
-Gleicher Ablauf, nur zuerst per Remote-Zugriff (RDP, RustDesk o. ä. — siehe
-[Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md)) auf den Server verbinden. Dort:
+**Auf einem Server** genauso, nur vorher per Fernzugriff (RDP o. ä., siehe Technisches Handbuch
+[Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md)) auf
+den Server verbinden und dort im Ordner `TradingJournal` `.\update.ps1` starten.
 
-```powershell
-cd C:\trading\TradingJournal
-.\update.ps1
-```
+## Was das Skript im Einzelnen tut
 
-**Kein Apache-Neustart nötig** — weder `httpd.conf` noch geladene PHP-Module ändern sich
-durch ein normales Code-Update; `php artisan config:cache`/`route:cache`/`view:cache`
-überschreiben die Cache-Dateien direkt, Apache/PHP liest sie beim nächsten Request
-automatisch neu ein.
+1. **Code holen** — `git pull` in `TradingJournal-Weaver` und in `TradingJournal`
+2. **Python-Pakete** für TradingJournal-Weaver aktualisieren (`pip install -r requirements.txt`
+   in dessen Arbeitsumgebung)
+3. **Datenbank-Anpassungen** — die Skripte `TradingJournal-Weaver/dev/migrate_*.py` ausführen;
+   sie ergänzen fehlende Spalten oder Tabellen und überspringen, was schon da ist
+4. **PHP- und JavaScript-Pakete** installieren und die Weboberfläche neu bauen (`composer
+   install`, `npm install`, `npm run build`)
+5. **Laravel-Tabellen** aktualisieren (`php artisan migrate --force`, z. B. die Benutzer)
+6. **Zwischenspeicher** von Laravel leeren und neu aufbauen
+7. **Versionsstand** notieren, damit die App ihn anzeigen kann (siehe unten)
 
-**Ausnahme:** Falls eine neue TradingJournal-Weaver-Version zusätzliche Python-Pakete braucht, die noch
-nicht in `requirements.txt` standen, oder falls `httpd.conf`/`php.ini` manuell angepasst
-werden müssen (z. B. eine neue PHP-Extension wird plötzlich vorausgesetzt) — das würde das
-Skript nicht automatisch erledigen, dann Schritt für Schritt wie in
-„Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server“ nachbessern.
+Geht ein Schritt schief, **bricht das Skript sofort ab** und sagt, wo — statt mit einem halb
+aktualisierten Stand weiterzumachen. Einzige Ausnahme sind die Datenbank-Anpassungen aus
+Schritt 3: Sie melden ein Problem als gelbe Warnung, und das Skript läuft weiter — die Warnung
+dann trotzdem ernst nehmen. Nach dem Beheben einfach `.\update.ps1` noch einmal
+starten; alle Schritte lassen sich gefahrlos wiederholen.
+
+## Nach dem Update: neue Einstellungen?
+
+Neue Versionen bringen manchmal zusätzliche, **optionale** Einstellungen mit (z. B.
+`MAX_GAP_DAYS` für die Kampagnen-Frist). Sie stehen in den Vorlagen `.env.example` der beiden
+Programme, landen aber nicht automatisch in der eigenen `.env`. Wer eine neue Einstellung nutzen
+möchte, überträgt die Zeile von Hand. Ohne Eintrag gilt jeweils der bisherige Standard.
 
 ## Welche Version läuft gerade?
 
-Nach einem `update.ps1`-Lauf steht die aktuelle Version (Git-Tag + Kurz-Hash + Zeitpunkt)
-in der TradingJournal-Sidebar. Manuell nachsehen:
+Unten in der Seitenleiste der App steht **Build:** mit einer kurzen Kennung (z. B.
+`Build: e1db712`); fährt man mit der Maus darüber, erscheinen Versionsbezeichnung und
+Zeitpunkt des Updates. Die Anzeige erscheint erst nach dem **ersten** Lauf von `update.ps1` —
+direkt nach der Installation ist dort noch nichts zu sehen.
+
+Ohne App nachsehen — **[PowerShell]** im Ordner `TradingJournal`:
 
 ```powershell
-cd TradingJournal
 git describe --tags --always
-git rev-parse --short HEAD
 ```
 
-## Troubleshooting
+## Wenn etwas schiefgeht
 
 | Problem | Ursache | Lösung |
 |---|---|---|
-| `git pull` schlägt fehl | Lokale, nicht committete Änderungen oder kollidierende untracked Dateien | `git status`/`git diff` im betroffenen Repo prüfen, Änderungen sichern (`git stash`) oder committen |
-| `pip install`/`composer install`/`npm install` schlägt fehl | Fehlende Systemvoraussetzung, oder Netzwerkproblem | Fehlermeldung lesen — meist eindeutig (fehlende Extension, Versionskonflikt); `setup/*-setup.md` für Grundvoraussetzungen prüfen |
-| `php artisan migrate --force` meldet Fehler | Migration setzt eine Spalte voraus, die schon anders existiert (z. B. bei sehr alten, manuell angepassten Installationen) | Fehlermeldung + betroffene Migration in `database/migrations/` ansehen, im Zweifel vor dem nächsten Update-Versuch ein Datenbank-Backup ziehen |
-| Seite zeigt nach dem Update einen alten Zustand | Browser-Cache oder alte Vite-Assets | Hard-Reload im Browser (`Strg+Shift+R`); prüfen, dass `npm run build` im Skript-Log erfolgreich durchlief |
+| `git pull` schlägt fehl | Im Ordner wurden Dateien geändert, die auch das Update ändert, oder es liegt eine gleichnamige neue Datei im Weg | **[PowerShell]** im genannten Ordner `git status` — eigene Änderungen sichern (`git stash`) oder die störende Datei umbenennen, dann `.\update.ps1` erneut starten |
+| `pip install`, `composer install` oder `npm install` schlägt fehl | Fehlendes Programm bzw. fehlende PHP-Erweiterung, oder keine Internetverbindung | Die Fehlermeldung nennt meist die Ursache; Grundausstattung prüfen ([Windows vorbereiten](30-windows-vorbereiten.md)) |
+| `php artisan migrate --force` meldet einen Fehler | Die Datenbank wurde von Hand verändert und passt nicht zur erwarteten Struktur | Fehlermeldung lesen; vor einem weiteren Versuch ein Datenbank-Backup ziehen |
+| Die Seite zeigt nach dem Update noch den alten Stand | Der Browser zeigt eine zwischengespeicherte Fassung | Seite mit **Strg + Shift + R** neu laden; prüfen, ob `npm run build` ohne Fehler durchlief |
+| Ein Update verlangt eine neue Python- oder PHP-Version bzw. -Erweiterung | Das kann das Skript nicht selbst installieren | Wie bei der Ersteinrichtung nachinstallieren ([Windows vorbereiten](30-windows-vorbereiten.md)), dann `.\update.ps1` erneut starten |

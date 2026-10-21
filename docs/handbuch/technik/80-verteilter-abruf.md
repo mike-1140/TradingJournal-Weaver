@@ -159,10 +159,14 @@ $KeyPath      = "$env:USERPROFILE\.ssh\fetch_client"
 $RemoteTarget = "$ServerUser@$ServerIp"
 
 # Lokaler Ordner -> Ordner auf dem Server (ohne abschliessenden Slash).
-# incoming_mail = get_flexquery_emails, incoming_api = get_flexquery_api; die Pipeline liest beide.
+# incoming_mail = get_flexquery_emails, incoming_api = get_flexquery_api (XML, die Pipeline
+# liest beide); Trade_CSV\incoming = Kontoauszuege (CSV) aus get_flexquery_emails.
+# Pushed = lokale Ablage: erfolgreich uebertragene Dateien wandern dorthin, damit sie beim
+# naechsten Lauf nicht erneut uebertragen werden.
 $Folders = @(
-    @{ Local = "C:\Trade_XML\incoming_mail"; Remote = "C:/Trade_XML/incoming_mail" },
-    @{ Local = "C:\Trade_XML\incoming_api";  Remote = "C:/Trade_XML/incoming_api" }
+    @{ Local = "C:\Trade_XML\incoming_mail"; Remote = "C:/Trade_XML/incoming_mail"; Filter = "*.xml"; Pushed = "C:\Trade_XML\pushed\incoming_mail" },
+    @{ Local = "C:\Trade_XML\incoming_api";  Remote = "C:/Trade_XML/incoming_api";  Filter = "*.xml"; Pushed = "C:\Trade_XML\pushed\incoming_api" },
+    @{ Local = "C:\Trade_CSV\incoming";      Remote = "C:/Trade_CSV/incoming";      Filter = "*.csv"; Pushed = "C:\Trade_CSV\pushed" }
 )
 
 function Assert-LastExit($step) {
@@ -176,25 +180,30 @@ function Assert-LastExit($step) {
 
 $total = 0
 foreach ($f in $Folders) {
-    $xmlFiles = @(Get-ChildItem -Path $f.Local -Filter "*.xml" -ErrorAction SilentlyContinue)
-    if ($xmlFiles.Count -eq 0) {
-        Write-Host "Keine XML-Dateien in $($f.Local)"
+    # Nur Dateien direkt im Ordner (keine Unterordner) - genau diese werden uebertragen und danach verschoben
+    $files = @(Get-ChildItem -Path $f.Local -Filter $f.Filter -File -ErrorAction SilentlyContinue)
+    if ($files.Count -eq 0) {
+        Write-Host "Keine Dateien ($($f.Filter)) in $($f.Local)"
         continue
     }
-    $total += $xmlFiles.Count
-    Write-Host "Uebertrage $($xmlFiles.Count) Datei(en) aus $($f.Local) ..."
+    $total += $files.Count
+    Write-Host "Uebertrage $($files.Count) Datei(en) aus $($f.Local) ..."
 
     # Zielordner auf dem Server anlegen, falls er fehlt (incoming_api existiert dort evtl. noch nicht)
     $remoteWin = $f.Remote.Replace("/", "\")
     ssh -i $KeyPath $RemoteTarget "if not exist $remoteWin mkdir $remoteWin"
     Assert-LastExit "Zielordner anlegen (Server)"
 
-    scp -i $KeyPath "$($f.Local)\*.xml" "${RemoteTarget}:$($f.Remote)/"
+    scp -i $KeyPath $files.FullName "${RemoteTarget}:$($f.Remote)/"
     Assert-LastExit "scp"
+
+    # Erst nach erfolgreicher Uebertragung lokal in die Ablage verschieben (nicht loeschen)
+    New-Item -ItemType Directory -Force -Path $f.Pushed | Out-Null
+    $files | Move-Item -Destination $f.Pushed -Force
 }
 
 if ($total -eq 0) {
-    Write-Host "Keine XML-Dateien gefunden - nichts zu tun."
+    Write-Host "Keine Dateien gefunden - nichts zu tun."
     exit 0
 }
 
@@ -206,6 +215,17 @@ Write-Host "Fertig." -ForegroundColor Green
 
 Bricht bei jedem Fehler mit klarer Meldung ab (Exit-Code-Check), statt stillschweigend
 weiterzulaufen.
+
+**Übertragene Dateien wandern lokal in die Ablage** (`C:\Trade_XML\pushed\…` bzw.
+`C:\Trade_CSV\pushed`), und zwar erst, nachdem `scp` für diesen Ordner erfolgreich war. Ohne
+diesen Schritt blieben sie in den Eingangsordnern liegen und würden bei jedem Lauf erneut
+übertragen und auf dem Server erneut eingelesen — der Duplikat-Schutz verhindert zwar doppelte
+Trades, aber die Datenmenge wächst mit jedem Lauf. Die Ablage kann gelegentlich geleert werden;
+die Daten liegen auf dem Server in `processed`.
+
+**Kontoauszüge (CSV) werden mit übertragen**, sonst fehlen auf dem Server die Kontostände der
+Tage, an denen dieser Rechner die Mails abgeholt hat (der Mail-Abruf löscht die Mails, der Server
+bekommt sie also nicht mehr selbst).
 
 ---
 

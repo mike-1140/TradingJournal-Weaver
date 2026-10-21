@@ -38,8 +38,8 @@ Welche Benutzer und Environments auf diesem Rechner verarbeitet werden, steht in
 `pipeline.toml` ([TradingJournal-Weaver installieren](40-weaver-installieren.md), Schritt 5). Die
 einzelnen Schritte mit ihren technischen Namen und Optionen beschreibt die
 [Befehlsreferenz](../technik/30-befehlsreferenz.md). Wer den Lauf automatisch starten lassen
-möchte (z. B. täglich per Windows-Aufgabenplanung), findet das im technischen Handbuch unter
-[Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md).
+möchte (z. B. täglich per Windows-Aufgabenplanung), findet die Anleitung in [Eigener
+Server](75-eigener-server.md), Abschnitt 4 — sie gilt genauso für den eigenen PC.
 
 ### Muss das täglich laufen? — Nein, auch einmal im Monat genügt
 
