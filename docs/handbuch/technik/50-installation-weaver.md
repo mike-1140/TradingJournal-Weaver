@@ -79,6 +79,7 @@ Werte ausfüllen (siehe `.env.example` für alle Felder):
 | `DEFAULT_USER` | Eigener Username (z.B. `dein_user`) — Tabellen-Prefix wird daraus aus `users.toml` aufgelöst. Alternativ direkt `TABLE_PREFIX` setzen (Override) |
 | `IMAP_USERNAME` / `IMAP_PASSWORD` / `IMAP_SERVER` | Nur nötig, falls `get_flexquery_emails.py` genutzt wird |
 | `IBKR_FLEX_QUERIES` | Optional — nur für den zweiten Import-Kanal `get_flexquery_api.py` |
+| `MAX_GAP_DAYS` | Optional — Tage, die eine glattgestellte Kampagne *PENDING* bleibt, bevor sie *CLOSED* wird (Standard `10`, ganze Zahl ≥ 1) |
 
 **Sicherheit:** `.env` ist in `.gitignore` — niemals committen.
 
@@ -136,7 +137,10 @@ auf dieser Maschine nicht existieren, lässt `run_pipeline.py` im Auto-Modus mit
 
 ```toml
 [users.dein_user]
-environments = ["test", "money"]   # nur die Environments, die in Schritt 4 initialisiert wurden
+environments = ["money"]   # nur die Environments, die in Schritt 4 initialisiert wurden
+
+[[test]]                   # TEST je User als eigener Block (steht schon in der Vorlage),
+user = "dein_user"         # nicht zusätzlich in environments — sonst läuft TEST doppelt
 ```
 
 Kein `prefix =` nötig — der wird automatisch aus `users.toml` aufgelöst (User-Name = Name

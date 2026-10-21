@@ -1,34 +1,45 @@
 # Alltag mit dem TradingJournal
 
-Beschreibt den betrieblichen Ablauf aus Nutzersicht: was täglich automatisch passiert, wie
-Kampagnen im UI "leben", und welche manuellen Workflows (Trade Log, Psychology) es
-zusätzlich zur reinen Datenanzeige gibt. Für die technische Pipeline-Architektur siehe
-[`docs/handbuch/technik/10-architektur-und-pipeline.md`](../technik/10-architektur-und-pipeline.md).
+Was im laufenden Betrieb zu tun ist: neue Daten holen und verarbeiten, sie in der App
+durchsehen und ergänzen — und was zu tun ist, wenn etwas nicht stimmt. Wie die einzelnen Seiten
+der App aussehen, zeigt [Rundgang durch die App](15-rundgang.md); was im Hintergrund genau
+passiert, das technische Handbuch ([Architektur und
+Import-Pipeline](../technik/10-architektur-und-pipeline.md)).
 
 ---
 
-## 1. Datenimport
+## 1. Daten holen und verarbeiten
 
-Läuft über einen einzigen Einstiegspunkt in `TradingJournal-Weaver`:
+**So startest du einen Lauf** — Doppelklick auf die Desktop-Verknüpfung **„TradingJournal-Weaver
+Pipeline“** (aus [TradingJournal-Weaver installieren](40-weaver-installieren.md), Schritt 7). Im
+PowerShell-Fenster, das sich öffnet:
 
-```bash
+```powershell
 python run_pipeline.py
 ```
 
-Gesteuert durch `TradingJournal-Weaver/pipeline.toml` — Standard-Schrittfolge:
+Danach im Browser die App neu laden — die neuen Daten sind da.
 
-```
-fetch_emails → fetch_api → snapshot_csv → import → process → summary
-```
+**Was dabei passiert** — der Lauf arbeitet sechs Schritte nacheinander ab:
 
-| Schritt        | Was passiert                                                                                                                                                                   |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `fetch_emails` | IBKR FlexQuery-XML + Activity-CSV per IMAP abrufen → `C:\Trade_XML\incoming_mail\` / `C:\Trade_CSV\incoming\`                                                                  |
-| `fetch_api`    | Zweiter, gleichwertiger Kanal: FlexQuery direkt per Web-API → `C:\Trade_XML\incoming_api\` (No-Op ohne konfiguriertes `IBKR_FLEX_QUERIES`)                                     |
-| `snapshot_csv` | NAV-Tagesschnappschüsse (`account_snapshots`) aus den Activity-CSVs — einziger aktiver Weg, TWRR exakt zu bestimmen                                                            |
-| `import`       | Beide XML-Quellordner → `trades_raw`, Routing per `accountId` → User/Environment (`accounts.toml`), Checksum-Dedup verhindert Doppel-Import über beide Kanäle                 |
-| `process`      | FIFO-Matching: `trades_raw` → `trades_open`/`trades_close`/`trading_campaigns`/`campaign_ledger`                                                                               |
-| `summary`      | Verarbeitete XML-Berichte (Mail und API) in `summary_<prefix><env>.xml` zusammenfassen (Basis für spätere `--from-summary`-Rebuilds)                                           |
+1. **Mails abholen:** neue IBKR-Berichte (Flex Query als XML, Kontoauszug als CSV) aus dem
+   Postfach holen; die Mails werden danach gelöscht.
+2. **Web-API abfragen:** dieselben Trades auf dem zweiten Weg holen — nur, wenn der Abruf per
+   Web-API eingerichtet ist.
+3. **Kontostände einlesen:** die Kontoauszüge auswerten (Nettovermögen, Cash, Tagesrendite).
+4. **Trades einlesen:** alle neuen Berichte lesen, jedem Benutzer und Environment zuordnen und
+   doppelt gelieferte Trades überspringen.
+5. **Trades verarbeiten:** offene und geschlossene Positionen bilden, Gewinn/Verlust berechnen,
+   Kampagnen fortschreiben.
+6. **Sammeldatei ergänzen:** die eingelesenen Berichte zusätzlich in einer Sammeldatei je
+   Environment ablegen — daraus lässt sich später alles neu aufbauen (Abschnitt 4).
+
+Welche Benutzer und Environments auf diesem Rechner verarbeitet werden, steht in der
+`pipeline.toml` ([TradingJournal-Weaver installieren](40-weaver-installieren.md), Schritt 5). Die
+einzelnen Schritte mit ihren technischen Namen und Optionen beschreibt die
+[Befehlsreferenz](../technik/30-befehlsreferenz.md). Wer den Lauf automatisch starten lassen
+möchte (z. B. täglich per Windows-Aufgabenplanung), findet das im technischen Handbuch unter
+[Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md).
 
 ### Muss das täglich laufen? — Nein, auch einmal im Monat genügt
 
@@ -98,7 +109,7 @@ neuere Trades verarbeitet waren.
 
 > [!WARNING]
 > **Ist es schon passiert, hilft nur ein Neuaufbau des Environments** (`reset_IBKR_DB.py` und
-> Import aus der Sammeldatei, siehe Abschnitt 6). Die Sammeldatei ist nach Datum sortiert und
+> Import aus der Sammeldatei, siehe Abschnitt 4, „Alles neu aufbauen“). Die Sammeldatei ist nach Datum sortiert und
 > enthält auch die nachgeholten Tage, beim Neuaufbau stimmt die Reihenfolge also wieder. Der
 > Neuaufbau legt die Tabellen dieses Environments neu an — neben Trades und Kampagnen gehen
 > dabei auch die Einträge im **Trade Log** und die **Kontostände** verloren. Die Kontostände lassen sich wiederherstellen, indem die
@@ -215,96 +226,117 @@ So ist das zu lesen:
   eingerichtet. Das ist erlaubt, er ist optional (siehe [IBKR einrichten — Flex Queries und
   Kontoauszug](20-ibkr-einrichten.md), Abschnitt 6).
 
-`pipeline.toml` definiert, **welche** User × Environments verarbeitet werden — die Datei
-ist maschinenspezifisch (wie `.env`, nicht versioniert, siehe `pipeline.toml.example`):
-jede Maschine trägt nur die User/Environments ein, die dort tatsächlich per
-`reset_IBKR_DB.py` initialisiert wurden. Beispiel mit zwei Nutzern:
+## 2. Nach dem Import: ein typischer Durchgang
 
-| User | Environments                           |
-| ---- | --------------------------------------- |
-| anna | money, paper, autom_money, autom_paper  |
-| tom  | money                                   |
+Die Daten sind nur die eine Hälfte eines Journals — die andere ist, was du dazu festhältst. Ein
+Durchgang nach dem Import, z. B. am Morgen mit den Daten vom Vortag:
 
-Für den automatisierten Lauf (z. B. täglich per Windows-Aufgabenplanung) siehe
-[Technisches Handbuch: Server-Betrieb — TradingJournal auf einem eigenen Server](../technik/70-server-betrieb.md).
+1. **Dashboard** — wie steht es insgesamt? Kennzahlen, Kontostand und P&L-Verlauf für das
+   gewählte Environment ([Rundgang durch die App](15-rundgang.md), Abschnitt 2).
+2. **Analyse → Aktivität** — was ist seit dem letzten Mal passiert? Alle Buchungen über alle
+   Symbole, wochenweise, ohne jede Kampagne einzeln öffnen zu müssen.
+3. **Kampagnen und Spreads** — bei Bedarf einzelne Positionen genauer ansehen: Verlauf,
+   Buchungen, Ergebnis je Spread (Rundgang, Abschnitte 5 und 6).
+4. **Log** — neue Trades dokumentieren. Die Zahl neben *Log* im Menü zeigt, wie viele Kampagnen
+   der letzten 30 Tage noch keinen Eintrag haben; **Dokumentieren** öffnet ein vorausgefülltes
+   Formular. Am wertvollsten ist der Eintrag **vor** dem Trade: Plan, Begründung und
+   Ausstiegsszenario, solange sie frisch sind. Nach dem Schließen trägst du Ergebnis und Notizen
+   nach — so stehen Plan und Ausgang nebeneinander (Rundgang, Abschnitt 7).
+5. **Psychologie** — wie kam der Trade zustande? Stimmung, Motivation, Einhaltung der eigenen
+   Regeln, Versuchungen und die Lektion. Die Regelwerke dafür legst du einmal an; die
+   Auswertung zeigt mit der Zeit, welche Muster Geld kosten (Rundgang, Abschnitt 8).
 
-## 2. Kampagnen-Lebenszyklus aus Nutzersicht
+Log und Psychologie ergänzen sich: Das **Log** hält Plan und Ergebnis **je Trade** fest, die
+**Psychologie** misst über die Zeit, wie diszipliniert du deinen Regeln folgst.
 
-Jede Position (Aktie oder Options-Strategie) je Symbol bildet eine **Kampagne**:
+> [!TIP]
+> Für den schnellen Eintrag zwischendurch gibt es oben in jeder Seite den gelben Knopf
+> **Neuer Eintrag** ([Rundgang durch die App](15-rundgang.md), Abschnitt 1).
 
+## 3. Kampagnen: offen, wartend, geschlossen
+
+Wie Kampagnen entstehen und enden, beschreibt [Überblick — vom Trade bis zur
+Auswertung](10-ueberblick.md), Abschnitt 4.2. Im Alltag heißt das:
+
+- **Aktiv** — es ist noch etwas offen (Aktien oder Optionen).
+- **Pending** — alles ist geschlossen, die Kampagne wartet aber noch 10 Tage. Ein neuer Trade
+  im selben Symbol (z. B. der nächste Put einer Wheel-Strategie oder ein Roll) setzt **dieselbe**
+  Kampagne fort.
+- **Geschlossen** — 10 Tage ohne neuen Trade. Der nächste Trade in diesem Symbol beginnt eine
+  neue Kampagne.
+
+Eine Kampagne kann also ein paar Tage *Pending* stehen, obwohl die Position längst zu ist — das
+ist gewollt. Die 10 Tage sind Kalendertage und zählen ab dem Datum des letzten Trades, nicht
+ab dem Tag, an dem der Import lief (siehe Abschnitt 1, „Muss das täglich laufen?“).
+
+> [!TIP]
+> Die Frist lässt sich ändern — in der `.env` von `TradingJournal-Weaver`, z. B.
+> `MAX_GAP_DAYS=14` (sinnvoll sind etwa 7 bis 14 Tage). Sie gilt dann für alle künftig
+> verarbeiteten Trades. Bereits geschlossene Kampagnen ändern sich dadurch nicht; wer die neue
+> Frist auch für die Vergangenheit möchte, baut das Environment neu auf (Abschnitt 4).
+
+## 4. Wenn etwas nicht stimmt
+
+Alle Befehle laufen im PowerShell-Fenster der Desktop-Verknüpfung (Ordner
+`TradingJournal-Weaver`, Arbeitsumgebung aktiv). Viele Fehlerbilder samt Lösung sammelt außerdem
+[Fehlerbehebung](90-fehlerbehebung.md).
+
+### Eine XML-Datei gefahrlos ausprobieren
+
+Für eine fragliche oder fremde Flex-Query-Datei gibt es das Environment **TEST** — es berührt
+die echten Daten nicht.
+
+1. **[Windows-Explorer]** Die Datei so benennen, dass sie mit `flex.` beginnt und auf `.xml`
+   endet (z. B. `flex.probe.xml`), und in den Ordner `C:\Trade_XML\test\<name>\incoming\`
+   legen — `<name>` wie im `[[test]]`-Block der `pipeline.toml`.
+2. **[PowerShell]** Ganz normal laufen lassen:
+
+   ```powershell
+   python run_pipeline.py
+   ```
+
+3. In der App oben auf **TEST** umschalten und das Ergebnis ansehen.
+
+Die Datei wird unabhängig von ihrer Kontonummer immer in TEST eingelesen.
+
+### Eine Position bleibt offen, obwohl sie geschlossen ist
+
+Kommt eine Eröffnung an, die passende Schließung aber nie (z. B. wegen einer Datenlücke), bleibt
+die Position offen stehen. **[PowerShell]** Erst ansehen, was entfernt würde — ohne `--execute`
+wird nichts gelöscht (Environment, eigenes Präfix und Symbol einsetzen):
+
+```powershell
+python -m tools.maintenance.cleanup_stale_positions money --prefix anna_ --symbols XYZ
 ```
-Erster Trade im Symbol           → Kampagne ACTIVE
-Position komplett glattgestellt  → Kampagne PENDING
-10 Tage ohne neue Aktivität      → Kampagne CLOSED
-Neue Aktivität innerhalb 10 Tage → zurück auf ACTIVE (z. B. Roll, Wheel-Fortsetzung)
+
+Stimmt die Anzeige, denselben Befehl mit `--execute` am Ende wiederholen. Statt `--symbols`
+geht auch `--older-than 2026-01-01` (alles vor diesem Datum).
+
+### Alles neu aufbauen
+
+Wenn die Daten eines Environments durcheinander sind — etwa weil Trades in falscher Reihenfolge
+ankamen (Abschnitt 1, „Spielt die Reihenfolge der Dateien eine Rolle?“) —, lässt es sich aus der
+Sammeldatei komplett neu aufbauen.
+
+> [!WARNING]
+> Der Neuaufbau legt die Tabellen des Environments neu an. Dabei gehen auch die Einträge im
+> **Log** und die **Kontostände** verloren. Psychologie-Einträge bleiben erhalten. Vorher ein
+> Datenbank-Backup ziehen.
+
+**[PowerShell]** Beispiel für Annas Echtgeld-Bereich:
+
+```powershell
+python -m tools.maintenance.reset_IBKR_DB money anna_
+python run_pipeline.py --steps import --from-summary --users anna --envs money
+python run_pipeline.py --steps process --users anna --envs money
 ```
 
-Das ermöglicht z. B. Wheel-Strategien (Put verkauft → Assignment → Covered Call → Call
-läuft aus → neuer Put) als **eine zusammenhängende Kampagne** statt vieler Einzeltrades.
-In der UI: `Campaigns`-Liste (offen/geschlossen), `CampaignDetail` zeigt den vollständigen
-Ledger-Verlauf inkl. P&L-Verlaufsdiagramm (kumulierter `cum_pnl` aus `campaign_ledger`).
+**[Windows-Explorer]** Die Kontostände kommen zurück, indem die verarbeiteten CSV-Dateien aus
+`C:\Trade_CSV\incoming\<name>\processed` wieder nach `C:\Trade_CSV\incoming` kopiert werden;
+der nächste normale Lauf liest sie ein.
 
-## 3. Tägliche Nutzung der UI
+## 5. Mehrere Benutzer
 
-Nach dem Import (typischerweise Vortagesdaten) ein üblicher Rundgang:
-
-1. **Dashboard** — KPIs für das gewählte Environment (Profit Factor, Max Drawdown,
-   NAV/TWRR aus `account_snapshots`, konfigurierbare Kacheln)
-2. **Aktivität** (`/stats/activity`) — Ledger-Detailansicht über alle Ticker der letzten
-   Tage (Load-more), schneller Überblick "was ist zuletzt passiert" ohne pro Symbol in die
-   Kampagne zu wechseln
-3. **Campaigns / Spreads / Symbols** — bei Bedarf Detailanalyse einzelner Positionen
-
-## 4. Trade Log — Entscheidungsjournal
-
-Route `/log`, ergänzt die reine Datenanzeige um geplante/reflektierte Entscheidungen
-(Tabelle `trade_planner`, optional per `campaign_id` mit der echten Kampagne verknüpft):
-
-- **Vor dem Trade** (`/log/neu` oder Quick-Entry `/log/schnell?env=MONEY&prefix=dein_user_`):
-  Entry-Plan erfassen — IV Percentile/Rank, Strategie, Legs (`trade_planner_legs`),
-  Mindset, Confidence, Pre-Mortem ("was könnte schiefgehen")
-- **Nach dem Trade:** Ist-Werte nachtragen — Exit-Preis, realisiertes P&L, tatsächliche
-  DTE, Plan-Einhaltung (`plan_adherence`), Lessons Learned
-- Zweck: Soll/Ist-Abgleich der eigenen Entscheidungsqualität, nicht nur der reinen Zahlen
-
-## 5. Psychology-Modul
-
-Ergänzendes Journal-System (`psychology_rulesets`/`psychology_rules`,
-`psychology_entries`, `psychology_compliance_results`):
-
-1. Eigene Handelsregeln als Regelwerk (Ruleset) hinterlegen — z. B. "keine Trades bei
-   IV Rank < 20", "max. 3 offene Positionen gleichzeitig"
-2. Zu einem Trade ein Journal-Entry anlegen
-3. System prüft den Entry automatisch gegen das aktive Regelwerk und speichert das
-   Ergebnis in `psychology_compliance_results` — sichtbar in `PsychologyAnalytics`
-
-Bewusst getrennt vom Trade Log: Trade Log ist Plan/Reflexion je Trade, Psychology-Modul
-ist die systematische Regel-Compliance über die Zeit.
-
-## 6. Manuelle Eingriffe / Wartung
-
-| Situation                                                                               | Vorgehen                                                                                                                                               |
-| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Neue/geänderte Import-Logik an einer echten XML testen, ohne Produktivdaten zu berühren | XML nach `C:\Trade_XML\test\<user>\incoming\` legen, `python run_pipeline.py` — landet automatisch in der TEST-DB (siehe `docs/handbuch/technik/30-befehlsreferenz.md` § TEST-Environment) |
-| Offene Position liegengeblieben (Open importiert, Close nie gekommen — z. B. Datenlücke) | `TradingJournal-Weaver/tools/maintenance/cleanup_stale_positions.py` (Dry-Run ist Standard, erst mit `--execute` löschen)                                            |
-| Kompletter Neuaufbau eines Environment/Prefix (z. B. nach Trades in falscher Reihenfolge, siehe Abschnitt 1) | `reset_IBKR_DB.py` (⚠️ destruktiv — löscht auch Trade Log und Kontostände) + Re-Import über `--from-summary`                                                                                   |
-
-## 7. Multi-User-Betrieb
-
-Jeder Nutzer hat einen eigenen Tabellen-Prefix und eigene IBKR-Konten (Zuordnung per
-`accountId` in `accounts.toml`). Auf einem Server meldet sich jeder mit eigenem Zugang an. Auf
-dem eigenen PC gibt es keine Anmeldung: Der Admin ist automatisch angemeldet und wechselt über
-den Benutzer-Dropdown auf dem Dashboard zu den anderen Benutzern, zurück geht es über
-**Abmelden** rechts oben (siehe [Erster Start — UI-Erstkonfiguration](60-erster-start.md)
-Abschnitt 3).
-
----
-
-## Weiterführende Dokumentation
-
-| Datei                                | Inhalt                                           |
-| ------------------------------------- | ------------------------------------------------- |
-| `docs/handbuch/technik/10-architektur-und-pipeline.md` | Technischer Datenfluss, FIFO-Logik, DB-Schema, Config-Zusammenspiel |
-| `docs/handbuch/technik/30-befehlsreferenz.md`              | Befehlsreferenz aller Scripts                    |
-| `docs/handbuch/benutzer/60-erster-start.md`         | Erstkonfiguration der UI                         |
-| `docs/handbuch/technik/70-server-betrieb.md`    | Alternative Installation: eigener Server statt lokaler PC |
+Jede Person hat eigene Daten (eigenes Präfix, eigene IBKR-Konten in `accounts.toml`). Wie man auf
+dem eigenen PC zwischen den Benutzern wechselt und wie es auf einem Server aussieht, beschreibt
+[Erster Start — UI-Erstkonfiguration](60-erster-start.md), Abschnitt 3.

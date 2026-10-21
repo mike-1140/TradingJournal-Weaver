@@ -201,7 +201,7 @@ python run_pipeline.py --config meine_pipeline.toml
 | `summary` | `src.xml_append_summary` | Einmal gesamt (intern pipeline.toml) |
 | `reset` | `tools.maintenance.reset_IBKR_DB` | User × Environment ⚠️ destruktiv |
 
-`import_ibkr_trades.py` unterstützt seit Kurzem ein CLI-Override `<env> <prefix>`
+`import_ibkr_trades.py` unterstützt ein CLI-Override `<env> <prefix>`
 (analog `process_ibkr_trades.py`) — nur Dateien dieses einen Ziels werden importiert,
 alle anderen bleiben unangetastet liegen. `run_pipeline.py` nutzt das automatisch:
 ohne `--users`/`--envs` läuft `import` einmal global (effizient, accountId routet

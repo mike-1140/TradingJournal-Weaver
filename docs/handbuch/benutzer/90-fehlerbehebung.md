@@ -143,7 +143,8 @@ Der Reihe nach prüfen:
 Der schließende Trade ist nie angekommen, etwa weil an diesem Tag weder Mail noch Web-API
 geliefert haben. Zuerst unter **Raw Data** nachsehen. Fehlt der Trade dort, den Bericht für den
 betreffenden Tag erneut abrufen. Für endgültig liegengebliebene Positionen gibt es ein
-Wartungsskript (Kapitel [Alltag](70-alltag.md), Abschnitt „Manuelle Eingriffe / Wartung“).
+Wartungsskript ([Alltag mit dem TradingJournal](70-alltag.md), Abschnitt 4 „Eine Position
+bleibt offen, obwohl sie geschlossen ist“).
 
 **Warum weichen die Gewinne vom IBKR-Kontoauszug ab?**
 

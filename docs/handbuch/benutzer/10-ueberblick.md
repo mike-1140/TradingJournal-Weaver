@@ -205,7 +205,8 @@ statt als viele Einzeltrades.
 **Lebenslauf einer Kampagne** — Der erste Trade in einem Symbol eröffnet eine Kampagne
 (*ACTIVE*). Ist nichts mehr offen, wartet sie 10 Tage (*PENDING*): Kommt in dieser Zeit ein neuer
 Trade, läuft dieselbe Kampagne weiter; sonst wird sie abgeschlossen (*CLOSED*), und der nächste
-Trade in dem Symbol beginnt eine neue.
+Trade in dem Symbol beginnt eine neue. Die 10 Tage sind der Standard; wer eine andere Frist
+möchte, stellt sie in der `.env` von `TradingJournal-Weaver` ein (`MAX_GAP_DAYS`).
 
 ```mermaid
 stateDiagram-v2

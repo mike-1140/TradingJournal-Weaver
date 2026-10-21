@@ -753,7 +753,7 @@ liefert.
 
 **Ursprung:** Die Kampagne wurde konzipiert, um die **Wheel-Strategie** (auch "Bonus-Strategie") vollständig zu dokumentieren. Bei der Wheel-Strategie werden auf dasselbe Underlying zyklisch Cash-Secured Puts und Covered Calls verkauft — oft über Wochen oder Monate. Eine Kampagne bildet genau diesen Zyklus ab: vom ersten Put bis zur letzten Aktienlieferung oder Ausübung.
 
-Die **10-Tage-Wartezeit** (PENDING-Phase) ist ebenfalls auf die Wheel-Strategie abgestimmt: Nach dem scheinbaren Ende eines Zyklus (Position = 0) kann innerhalb weniger Tage ein neuer Put auf dasselbe Underlying eröffnet werden. Die PENDING-Phase verhindert, dass dafür sofort eine neue Kampagne angelegt wird — stattdessen wird der Trade in die bestehende aufgenommen, solange das Zeitfenster noch offen ist. Der Wert ist parametrierbar (`MAX_GAP_DAYS` in der Konfiguration).
+Die **10-Tage-Wartezeit** (PENDING-Phase) ist ebenfalls auf die Wheel-Strategie abgestimmt: Nach dem scheinbaren Ende eines Zyklus (Position = 0) kann innerhalb weniger Tage ein neuer Put auf dasselbe Underlying eröffnet werden. Die PENDING-Phase verhindert, dass dafür sofort eine neue Kampagne angelegt wird — stattdessen wird der Trade in die bestehende aufgenommen, solange das Zeitfenster noch offen ist. Die Frist ist per `.env` einstellbar (`MAX_GAP_DAYS`, Kalendertage, Standard 10, empfohlen 7–14; gelesen in `src/config.py`, ungültige Werte brechen ab). Sie gilt nur für künftige Verarbeitung — bestehende Kampagnen ändern sich erst nach einem Neuaufbau.
 
 **Konzept:** Eine *Kampagne* fasst alle Trades zu einem Symbol in einem zusammenhängenden Zeitraum zusammen.
 
@@ -939,6 +939,14 @@ symbols           ← Instrument-Referenzdata (conid, ISIN, ...)
 trades_fx         ← FX-Trades (separat)
 account_snapshots ← Kontostand-Snapshots (aus CSV)
 ```
+
+Dazu die Tabellen, die nur TradingJournal schreibt (Eingaben in der Oberfläche):
+
+| Tabelle | Inhalt (UI) | Angelegt von |
+|---|---|---|
+| `trade_planner`, `trade_planner_legs` | **Log**: Plan, Begründung, Exit-Plan, Ergebnis je Eintrag bzw. dessen Legs; optional per `campaign_id` mit einer Kampagne verknüpft | `reset_IBKR_DB.py` (wird beim Neuaufbau mit geleert) |
+| `psychology_rulesets`, `psychology_rules` | **Psychologie → Regelwerke** | `tools/maintenance/setup_psychology_tables.py` (nicht durch `reset_IBKR_DB.py` berührt) |
+| `psychology_entries`, `psychology_compliance_results` | **Psychologie → Einträge**, Einhaltung je Regel und Eintrag | wie oben |
 
 ### 8.2 Schlüsseltabellen im Detail
 

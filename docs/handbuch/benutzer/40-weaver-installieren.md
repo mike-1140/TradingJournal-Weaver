@@ -222,22 +222,35 @@ Namen (ohne Unterstrich) und die in Schritt 4 angelegten Environments eintragen:
 
 ```toml
 [users.dein_name]
-environments = ["test", "money"]
+environments = ["money"]
+
+[[test]]
+user = "dein_name"
 ```
 
-**Beispiel Anna und Tom** — genau die Environments aus Schritt 4:
+Das Test-Environment steht **nicht** in der Liste `environments`, sondern in einem eigenen
+`[[test]]`-Block — die Vorlage enthält ihn schon, dort nur den Namen anpassen.
+
+**Beispiel Anna und Tom** — die Environments aus Schritt 4, TEST je Person als eigener Block:
 
 ```toml
 [users.anna]
-environments = ["test", "money", "paper"]
+environments = ["money", "paper"]
 
 [users.tom]
-environments = ["test", "paper"]
+environments = ["paper"]
+
+[[test]]
+user = "anna"
+
+[[test]]
+user = "tom"
 ```
 
-`test` in der Liste schadet im Alltag nicht: Der Bereich liest nur Dateien, die man selbst
-nach `C:\Trade_XML\test\<name>\incoming\` legt (siehe [Alltag mit dem
-TradingJournal](70-alltag.md), Abschnitt 6), und wird für den Testlauf in Schritt 6 gebraucht.
+Der `[[test]]`-Block schadet im Alltag nicht: TEST liest nur Dateien, die man selbst nach
+`C:\Trade_XML\test\<name>\incoming\` legt (siehe [Alltag mit dem
+TradingJournal](70-alltag.md), Abschnitt „Wenn etwas nicht stimmt“), und wird für den Testlauf
+in Schritt 6 gebraucht.
 
 **Wichtig:** Hier nur Environments eintragen, für die Schritt 4 auch wirklich schon gelaufen
 ist — sonst bricht die automatische Verarbeitung später mit einer Fehlermeldung ab, weil die
