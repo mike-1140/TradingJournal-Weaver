@@ -2,7 +2,10 @@
 
 Dieses Kapitel sammelt Probleme, die bei Einrichtung und Betrieb auftreten können, mit Ursache
 und Lösung. Es wächst mit den Fragen aus der Praxis — wer auf ein Problem stößt, das hier fehlt,
-meldet es gerne (siehe [Vorstellung](../vorstellung/10-vorstellung.md), Abschnitt „Status“).
+meldet es gerne: **für den Anfang im Forum**, in dem das TradingJournal vorgestellt wurde.
+Fragen, die öfter kommen, werden dort gesammelt und zu einer FAQ zusammengefasst; erst in einem
+späteren Schritt laufen Meldungen über GitHub (siehe [Vorstellung](../vorstellung/10-vorstellung.md),
+Abschnitt „Status“).
 
 > [!WARNING]
 > Bei Fragen in Foren oder auf GitHub **niemals** echte Kontonummern, Flex-Query-Dateien,

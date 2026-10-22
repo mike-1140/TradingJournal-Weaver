@@ -150,11 +150,16 @@ betreffenden Tages:
    `U1234567` bzw. bei Paper `DU1234567`) — sie steht im Kopf jedes Tagesberichts und an jedem
    Trade. Steht ein Konto-Pseudonym oder Name in der Datei, auch diesen ersetzen. Trade-IDs,
    Kurse und Mengen bitte lassen, sonst ist der Fall nicht nachvollziehbar.
-3. Ein **Issue im GitHub-Repository `TradingJournal-Weaver`** anlegen: kurz beschreiben, was
-   passiert ist (z. B. „Reverse Split 1:10 auf XYZ während offener Short-Put-Position“), was das
-   Journal anzeigt und was richtig wäre — die anonymisierte Datei anhängen.
+3. Den Fall melden: kurz beschreiben, was passiert ist (z. B. „Reverse Split 1:10 auf XYZ
+   während offener Short-Put-Position“), was das Journal anzeigt und was richtig wäre — die
+   anonymisierte Datei anhängen. **Für den Anfang** am besten im Forum, in dem das
+   TradingJournal vorgestellt wurde; wiederkehrende Fragen fließen dort in eine FAQ ein. **In
+   einem späteren Schritt** laufen solche Meldungen als Issue im GitHub-Repository
+   `TradingJournal-Weaver` (siehe [Vorstellung](../vorstellung/10-vorstellung.md), Abschnitt
+   „Status“).
 
 > [!CAUTION]
 > Die Flex-Query-XML enthält vollständige Handelsdaten. Vor dem Hochladen prüfen, dass die
 > Kontonummer wirklich überall ersetzt ist (Suchen nach den letzten vier Ziffern). Prüfcodes
-> (Tokens) stehen in der XML nicht, gehören aber auch sonst nie in ein Issue.
+> (Tokens) stehen in der XML nicht, gehören aber auch sonst nie in einen Forenbeitrag oder ein
+> Issue.

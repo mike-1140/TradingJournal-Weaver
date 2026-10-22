@@ -4,6 +4,11 @@ Dieses Kapitel beschreibt den Weg eines Trades: von der Order bei Interactive Br
 TradingJournal. Wer den Ablauf einmal verstanden hat, kann später auch einschätzen, *warum* ein Trade
 noch nicht sichtbar ist, warum eine Position offen bleibt oder woher eine Kennzahl stammt.
 
+Das TradingJournal ist eine **Webanwendung, die auf dem eigenen Rechner läuft** (oder auf einem
+eigenen Server). Bedient wird sie im Browser wie eine Internetseite — sie liegt aber nicht im
+Internet. Es ist also weder eine App aus einem App-Store noch eine Online-Plattform, auf die man
+seine Daten hochlädt.
+
 Beteiligt sind zwei Programme, die sich eine MySQL-Datenbank teilen:
 
 - **TradingJournal-Weaver** (Python) holt die Berichte von IBKR, liest sie ein und rechnet sie aus. Es *schreibt*
@@ -186,7 +191,8 @@ Wie die Tabellen dabei im Einzelnen geschrieben werden, beschreibt das technisch
 ([Architektur und Pipeline](../technik/10-architektur-und-pipeline.md), Abschnitt „FIFO-Matching: Die Fälle“).
 
 Für jeden abgeschlossenen Trade werden **P&L**, **ROI** (bezogen auf das eingesetzte Kapital) und
-**Haltedauer** berechnet, jeweils in Handelswährung und umgerechnet in Euro.
+**Haltedauer** berechnet. Die Beträge (P&L, Cashflow, Kommission) stehen in der Handelswährung und
+zusätzlich umgerechnet in Euro — mit dem Wechselkurs, den IBKR zu jedem Trade mitliefert.
 
 > [!IMPORTANT]
 > Alle gespeicherten P&L-Werte sind **brutto**, also ohne Kommissionen. Die Kommissionen werden
@@ -362,6 +368,12 @@ gelaufen ist — ein Neuladen der Seite genügt.
 | **Analyse → Raw Data**                          | Trades im Originalzustand von IBKR                                   | `trades_raw`                                       |
 | **Log**                                         | eigene Planung und Reflexion, verknüpfbar mit Kampagnen              | `trade_planner` + Kampagnen                        |
 | **Psychologie**                                 | Regelwerke und Regel-Einhaltung je Trade                             | `psychology_*` + Trades                            |
+
+**Währungen:** Angezeigt wird die Handelswährung (bei US-Werten USD). Die Euro-Werte führt
+TradingJournal-Weaver im Hintergrund mit; beide Währungen gleichzeitig zeigen derzeit nur die
+**Detailseiten geschlossener Trades**. Die Kontostand-Kacheln im Dashboard zeigen Euro, so wie
+IBKR sie im Kontoauszug liefert; das Bargeld steht getrennt in einer USD- und einer EUR-Kachel.
+Eine Umschaltung zwischen USD und EUR per Klick ist noch nicht umgesetzt.
 
 > [!TIP]
 > Die Detailseiten einzelner Trades verlinken auf den zugehörigen Eintrag in **Raw Data**. So

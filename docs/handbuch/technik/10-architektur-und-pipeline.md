@@ -25,6 +25,13 @@
 
 ### Was ist das System?
 
+Das TradingJournal ist eine **Webanwendung, die auf dem eigenen Rechner (oder einem eigenen
+Server) läuft** und im Browser bedient wird — weder eine App aus einem App-Store noch eine
+Online-Plattform. Es besteht aus zwei Programmen, die sich eine MySQL-Datenbank teilen:
+**TradingJournal-Weaver** (Python, ohne eigene Oberfläche) holt und verarbeitet die Daten,
+**TradingJournal** (Laravel) zeigt sie im Browser an. Dieses Kapitel beschreibt vor allem den
+Weaver-Teil.
+
 Das System liest automatisch **IBKR FlexQuery-Reports** (XML) und **Activity Statements** (CSV) ein und überführt die Rohdaten in ein strukturiertes Trading-Journal mit:
 
 - **FIFO-Lot-Matching** für Aktien und Optionen (Devisentausch wird separat erfasst, ohne FIFO)
@@ -362,7 +369,9 @@ aus echten Daten: EUR → USD zum Kurs 1,1686 ergibt in `trades_raw` die Zeilen
 `(quantity 1, EUR, 1,1686, netCash −498,30)` und `(quantity 2, USD, 0,8557, netCash +582,31)`,
 in `trades_fx` eine Zeile `EUR/USD, −498,30 / +582,31, Kurs 1,1686`. Ein FIFO-Matching findet
 für FX **nicht** statt (siehe § 6.2, Fall 0). Die Umrechnung von Trades in Euro hängt nicht an
-diesen Zeilen, sondern am `fxRateToBase`, das IBKR bei jedem Trade mitliefert.
+diesen Zeilen, sondern am `fxRateToBase`, das IBKR bei jedem Trade mitliefert. Die so
+mitgeführten EUR-Werte zeigt die Weboberfläche derzeit nur auf den Detailseiten geschlossener
+Trades neben dem USD-Wert (siehe § 11, Punkt H).
 
 **Kein Forex-Trading:** Erfasst wird nur der Umtausch als solcher (z. B. EUR → USD für den
 Aktienhandel). Devisenhandel als Strategie — Währungspositionen mit Gewinn/Verlust aus
@@ -1369,9 +1378,20 @@ Potential: Automatischer Export als:
 Basis: trades_close enthält alle nötigen Daten
 ```
 
+#### H) Währungsdarstellung USD/EUR in der Weboberfläche
+```
+Aktuell:   Weaver führt alle Beträge zusätzlich in EUR mit (*_EUR / *_eur-Spalten in
+           trades_close und campaign_ledger, fxRateToBase in trades_raw / trades_open).
+           Beide Währungen gleichzeitig zeigen aber nur die Detailseiten geschlossener
+           Trades; Listen, Kampagnen, Spreads und Statistiken zeigen die Handelswährung.
+Ziel:      Globaler Umschalter USD/EUR (analog zum Environment-Schalter) oder
+           EUR-Werte überall mit anzeigen.
+Basis:     Daten liegen vollständig vor — reine Erweiterung der Laravel-Oberfläche.
+```
+
 ### 11.3 Langfristige Architektur-Ideen
 
-#### H) Event-Sourcing statt FIFO-Matching on-the-fly
+#### I) Event-Sourcing statt FIFO-Matching on-the-fly
 ```
 Aktuelles Modell:
   trades_raw → FIFO-Matching → trades_open + trades_close
@@ -1386,7 +1406,7 @@ Vorteil: Zeitreise möglich (wie sah P&L am 15.03. aus?)
 Nachteil: Komplexer, langsamer Read-Pfad
 ```
 
-#### I) Plugin-System für Corporate Actions
+#### J) Plugin-System für Corporate Actions
 ```
 Aktuell:   Splits werden hardcoded behandelt
 Potential: Jeder CorporateAction-Typ = eigener Handler (Plugin)
@@ -1401,7 +1421,7 @@ class DividendHandler(CorporateActionHandler): ...
 class MergerHandler(CorporateActionHandler): ...
 ```
 
-#### J) Tagesabschluss-Snapshot
+#### K) Tagesabschluss-Snapshot
 ```
 Potential: Tägliche Bestandsaufnahme als separater DB-Eintrag:
   - Open P&L je Symbol (unrealisiert)
