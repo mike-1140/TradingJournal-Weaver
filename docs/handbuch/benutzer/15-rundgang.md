@@ -5,8 +5,9 @@ welche Kennzahlen, Tabellen und Diagramme dich dort erwarten. Die Reihenfolge fo
 links. Kurze Erklärungen zu jeder Seite gibt es auch direkt in der App unter **Hilfe**.
 
 > [!NOTE]
-> Die Bilder stammen aus der Demo-Version mit erfundenen Daten. Bei dir sehen Zahlen, Symbole
-> und Umfang natürlich anders aus.
+> Die Bilder stammen aus der Demo-Version. Sie zeigt echte, anonymisierte Trades aus zwei
+> Echtgeld- und zwei Papertrading-Konten. Bei dir sehen Zahlen, Symbole und Umfang natürlich
+> anders aus.
 
 ---
 
