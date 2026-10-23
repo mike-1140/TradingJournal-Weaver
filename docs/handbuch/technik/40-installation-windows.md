@@ -324,7 +324,7 @@ Zusatz-Ballast, dort reicht ein normaler `git clone`:
 git clone --filter=blob:none --no-checkout https://github.com/mike-1140/TradingJournal-Weaver.git
 cd TradingJournal-Weaver
 git sparse-checkout init --cone
-git sparse-checkout set sql src tools/maintenance docs
+git sparse-checkout set sql src tools/maintenance dev docs
 git checkout master
 cd ..
 
@@ -334,8 +334,16 @@ git clone https://github.com/mike-1140/TradingJournal.git
 Ergebnis:
 ```
 <gewählter Root-Ordner>\
-├── TradingJournal-Weaver\    (nur sql/, src/, tools/maintenance/, docs/ + Root-Dateien wie run_pipeline.py)
+├── TradingJournal-Weaver\    (nur sql/, src/, tools/maintenance/, dev/, docs/ + Root-Dateien wie run_pipeline.py)
 └── TradingJournal\
+```
+
+`dev/` gehört dazu, weil dort die Datenbank-Migrationen (`migrate_*.py`) liegen, die
+`update.ps1` bei jedem Update ausführt. Ein bestehender Sparse-Klon ohne `dev/` lässt sich
+nachträglich ergänzen — **[PowerShell]** im Ordner `TradingJournal-Weaver`:
+
+```powershell
+git sparse-checkout add dev
 ```
 
 Danach weiter mit [Installation: TradingJournal-Weaver](50-installation-weaver.md) (ab Schritt 2 — Repo ist ja
