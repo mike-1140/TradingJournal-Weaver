@@ -127,8 +127,8 @@ pytest
 ## Dokumentation
 
 Die ausführliche Doku ist in zwei Handbücher gegliedert — Übersicht aller Kapitel:
-[`docs/handbuch/`](docs/handbuch/README.md). Beide gibt es auch als PDF (siehe Releases des
-TradingJournal-Repos).
+[`docs/handbuch/`](docs/handbuch/README.md). Als PDF zum Herunterladen:
+[Vorstellung](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Vorstellung.pdf), [Benutzerhandbuch](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Benutzerhandbuch.pdf) und [Technisches Handbuch](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Technisches-Handbuch.pdf) (jeweils die neueste Version; ältere unter [Releases](https://github.com/mike-1140/TradingJournal/releases)).
 
 | Handbuch | Für wen | Wichtigste Kapitel |
 |---|---|---|
