@@ -7,6 +7,9 @@ Import- und Processing-Pipeline für **IBKR Flex-Query-Reports** (XML) und
 **Activity Statements** (CSV). Wandelt die IBKR-Rohdaten in ein strukturiertes
 Trading-Journal (MySQL) um.
 
+**Offizielle Quelle:** [github.com/mike-1140/TradingJournal-Weaver](https://github.com/mike-1140/TradingJournal-Weaver) —
+entwickelt und gepflegt von mike-1140. Forks sind eigenständige Kopien und werden nicht vom Autor betreut.
+
 > **Teil eines Zwei-Repo-Setups:** TradingJournal-Weaver importiert die Rohdaten und verwaltet das
 > Datenbankschema. Für eine Weboberfläche zur Auswertung siehe
 > [TradingJournal](https://github.com/mike-1140/TradingJournal) (Laravel/Livewire) —
