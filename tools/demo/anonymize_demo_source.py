@@ -3,10 +3,17 @@
 # Anonymisiert eine kuratierte Auswahl echter FlexQuery-Testdateien fuer die
 # oeffentliche TradingJournal-Demo: ersetzt jede echte accountId durch eine
 # feste Fake-ID. Datumswerte bleiben unveraendert (Nutzerentscheidung).
+# Basiswerte aus EXCLUDE_UNDERLYINGS werden komplett entfernt.
+#
+# Optional: --examples <Sammeldatei.xml> zieht zusaetzlich die Kampagnen aus
+# EXAMPLE_CAMPAIGNS (Trades, Options-Ereignisse, Kapitalmassnahmen je Basiswert
+# und Zeitfenster) aus einer Summary-XML und legt sie als eigene Quelldatei ab.
 # Siehe tools/demo/README.md fuer den vollstaendigen Ablauf.
 
+import argparse
 import sys
 import xml.etree.ElementTree as ET
+from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # TradingJournal-Weaver/ in sys.path
@@ -64,7 +71,89 @@ SOURCE_FILES = [
     "input/test/processed/flex.SOUN.xml",
 ]
 
+# Basiswerte, die in der Demo gar nicht vorkommen sollen (alle Elemente entfernt)
+EXCLUDE_UNDERLYINGS = {"TLT"}
+
+# Abgeschlossene Kampagnen 2026 fuer --examples: (Basiswert, erster Tag, letzter Tag).
+# Nur Kampagnen, die nach dem letzten Trade der SOURCE_FILES (10.02.2026) beginnen und
+# deren Basiswert dort nicht mehr offen ist - sonst mischen sie sich mit Demo-Bestand.
+EXAMPLE_CAMPAIGNS = [
+    ("ORCL", "2026-02-20", "2026-03-05"),
+    ("USO", "2026-02-26", "2026-03-06"),
+    ("SOFI", "2026-03-05", "2026-03-09"),
+    ("EEM", "2026-03-10", "2026-03-13"),
+    ("CAT", "2026-03-10", "2026-03-24"),
+    ("ALB", "2026-03-19", "2026-03-24"),
+    ("EEM", "2026-04-09", "2026-04-14"),
+    ("LRCX", "2026-04-09", "2026-04-10"),
+    ("MARA", "2026-04-10", "2026-04-17"),
+    ("JBHT", "2026-04-17", "2026-04-20"),
+    ("COIN", "2026-04-21", "2026-05-04"),
+    ("GE", "2026-05-06", "2026-05-26"),
+    ("LRCX", "2026-05-06", "2026-05-22"),
+    ("XYL", "2026-05-28", "2026-06-15"),
+    ("RBLX", "2026-06-15", "2026-06-16"),
+    ("AMD", "2026-06-15", "2026-07-14"),
+    ("TXN", "2026-06-22", "2026-07-29"),
+    ("PG", "2026-07-02", "2026-07-27"),
+    ("GS", "2026-07-22", "2026-08-21"),
+    ("CRWD", "2026-07-22", "2026-08-10"),
+    ("USO", "2026-07-23", "2026-08-06"),
+    ("CRDO", "2026-08-05", "2026-08-07"),
+    ("CSCO", "2026-08-05", "2026-08-21"),
+    ("TXN", "2026-08-18", "2026-09-01"),
+    ("CSCO", "2026-09-03", "2026-09-22"),
+    ("NKE", "2026-09-03", "2026-09-18"),
+]
+EXAMPLES_FILENAME = "flex.examples_2026.xml"
+
 OUTPUT_DIR = get_project_root() / "input" / "demo_source"
+
+
+def underlying_of(elem: ET.Element) -> str:
+    """Basiswert eines Trade/OptionEAE/CorporateAction-Elements ('' wenn keiner)."""
+    return elem.get("underlyingSymbol") or (elem.get("symbol") or "").split(" ")[0]
+
+
+def date_of(elem: ET.Element) -> date | None:
+    """Datum eines Elements aus tradeDate/date/reportDate (IBKR-Format TT/MM/JJJJ)."""
+    for attr in ("tradeDate", "date", "reportDate"):
+        value = elem.get(attr)
+        if value:
+            return datetime.strptime(value.split(";")[0], "%d/%m/%Y").date()
+    return None
+
+
+def filter_statements(root: ET.Element, keep) -> int:
+    """
+    Entfernt in allen FlexStatements jedes Eintrags-Element (Kinder von Trades,
+    OptionEAE, CorporateActions ...), fuer das keep(elem) False liefert. Danach leere
+    FlexStatements ebenfalls. Gibt die Zahl der behaltenen Eintraege zurueck.
+    """
+    kept = 0
+    for container in root.iter("FlexStatements"):
+        for stmt in list(container):
+            for section in stmt:
+                for entry in list(section):
+                    if keep(entry):
+                        kept += 1
+                    else:
+                        section.remove(entry)
+            if not any(len(section) for section in stmt):
+                container.remove(stmt)
+    return kept
+
+
+def not_excluded(elem: ET.Element) -> bool:
+    return underlying_of(elem) not in EXCLUDE_UNDERLYINGS
+
+
+def in_example_campaign(elem: ET.Element) -> bool:
+    symbol, day = underlying_of(elem), date_of(elem)
+    if day is None:
+        return False
+    return any(symbol == sym and date.fromisoformat(start) <= day <= date.fromisoformat(end)
+               for sym, start, end in EXAMPLE_CAMPAIGNS)
 
 
 def demo_filename(src_name: str) -> str:
@@ -82,14 +171,16 @@ def demo_filename(src_name: str) -> str:
     return f"flex.{stem}"
 
 
-def anonymize_file(src_path: Path, dest_path: Path) -> int:
+def anonymize_file(src_path: Path, dest_path: Path, keep=not_excluded) -> int:
     """
-    Kopiert eine FlexQuery-XML-Datei und ersetzt jedes accountId-Attribut
-    (auf jeder Elementebene, nicht nur FlexStatement) durch die Fake-ID.
-    Gibt die Anzahl ersetzter Attribute zurueck.
+    Kopiert eine FlexQuery-XML-Datei, entfernt alle Eintraege, fuer die keep()
+    False liefert (Standard: Basiswerte aus EXCLUDE_UNDERLYINGS), und ersetzt jedes
+    accountId-Attribut (auf jeder Elementebene, nicht nur FlexStatement) durch die
+    Fake-ID. Gibt die Anzahl ersetzter Attribute zurueck.
     """
     tree = ET.parse(src_path)
     root = tree.getroot()
+    filter_statements(root, keep)
 
     replaced = 0
     for elem in root.iter():
@@ -103,6 +194,11 @@ def anonymize_file(src_path: Path, dest_path: Path) -> int:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Demo-Quelldateien anonymisieren")
+    parser.add_argument("--examples", type=Path, metavar="SUMMARY_XML",
+                        help="Summary-XML, aus der die EXAMPLE_CAMPAIGNS gezogen werden")
+    args = parser.parse_args()
+
     project_root = get_project_root()
     total_replaced = 0
     total_size = 0
@@ -119,6 +215,16 @@ def main() -> None:
         total_replaced += replaced
         total_size += dest_path.stat().st_size
         print(f"  {src_path.name}: {replaced} accountId-Attribut(e) ersetzt")
+
+    if args.examples:
+        dest_path = OUTPUT_DIR / EXAMPLES_FILENAME
+        replaced = anonymize_file(args.examples, dest_path,
+                                  keep=lambda e: not_excluded(e) and in_example_campaign(e))
+        kept = sum(len(section) for section in ET.parse(dest_path).getroot().iter()
+                   if section.tag in ("Trades", "OptionEAE", "CorporateActions"))
+        total_replaced += replaced
+        print(f"  {EXAMPLES_FILENAME}: {kept} Eintraege aus {len(EXAMPLE_CAMPAIGNS)} Kampagnen, "
+              f"{replaced} accountId-Attribut(e) ersetzt")
 
     print()
     print(f"{len(SOURCE_FILES) - len(missing)}/{len(SOURCE_FILES)} Dateien anonymisiert "

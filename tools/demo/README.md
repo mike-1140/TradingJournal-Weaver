@@ -40,10 +40,28 @@ cd $HOME\trading\TradingJournal-Weaver
 .venv\Scripts\python -m tools.demo.anonymize_demo_source
 ```
 
-Erzeugt `input/demo_source/*.xml` (19 Dateien, echte accountId überall durch
+Erzeugt `input/demo_source/*.xml` (echte accountId überall durch
 `DU0009999` ersetzt, Datumswerte unverändert, alle Dateinamen auf `flex.*.xml`
 normalisiert — Voraussetzung für den TEST-Modus-Import). Der Ordner liegt bereits
-unter der bestehenden `.gitignore`-Regel `input/`.
+unter der bestehenden `.gitignore`-Regel `input/`. Basiswerte aus `EXCLUDE_UNDERLYINGS`
+(derzeit `TLT`) werden dabei aus allen Dateien entfernt.
+
+**Beispiele aus einer eigenen Sammeldatei (optional):** `--examples <Sammeldatei.xml>` zieht
+die Kampagnen aus `EXAMPLE_CAMPAIGNS` (Basiswert + Zeitfenster) aus einer Summary-XML und legt
+sie als `input/demo_source/flex.examples_2026.xml` ab. Der Pfad wird bewusst nicht im Code
+hinterlegt:
+
+```powershell
+.venv\Scripts\python -m tools.demo.anonymize_demo_source --examples <Pfad zur summary_<prefix>money.xml>
+```
+
+Diese Datei **nicht** mit den übrigen Quellen importieren, sondern erst in Schritt 3c (siehe
+dort) — vorher in einen eigenen Ordner legen:
+
+```powershell
+New-Item -ItemType Directory -Force input\demo_examples | Out-Null
+Move-Item input\demo_source\flex.examples_2026.xml input\demo_examples\ -Force
+```
 
 **Hinweis:** Die ursprünglich kuratierten `OMEX_1/2/3`-Tages-Ausschnitte wurden
 durch die volle `flex.OMEX.xml`-Historie ersetzt — die isolierten Ausschnitte
@@ -67,11 +85,47 @@ Legt `ibkr_demo` frisch an, alle Trading-Tabellen mit Prefix `demo_`.
 
 ## 3. Import + Verarbeitung (TEST-Modus, kein accountId-Routing)
 
+**Reihenfolge ist wichtig — drei Durchgänge:** Die Verfalls-Abschlüsse aus 3b gehören zeitlich
+vor die Beispiele aus 3c. Kommen die Beispiele zuerst, landen ihre Trades in einer noch
+„offenen“ alten Kampagne desselben Basiswerts statt in einer eigenen (2026-10-23 so bei MARA und
+SOFI passiert).
+
+**3a — bisherige Demo-Quellen:**
+
 ```powershell
 Copy-Item input\demo_source\*.xml C:\Trade_XML\incoming_mail\
 .venv\Scripts\python -m src.import_ibkr_trades test demo_
 .venv\Scripts\python -m src.process_ibkr_trades test demo_
 ```
+
+**3b — kalendarisch verfallene Optionen schließen** (erzeugt
+`input/demo_source/flex.demo_close_expired_options.xml` aus dem aktuellen DB-Stand):
+
+```powershell
+.venv\Scripts\python -m tools.demo.close_expired_open_options
+Copy-Item input\demo_source\flex.demo_close_expired_options.xml C:\Trade_XML\incoming_mail\
+.venv\Scripts\python -m src.import_ibkr_trades test demo_
+.venv\Scripts\python -m src.process_ibkr_trades test demo_
+```
+
+**3c — Beispiele aus Schritt 1** (nur falls erzeugt):
+
+```powershell
+Copy-Item input\demo_examples\flex.examples_2026.xml C:\Trade_XML\incoming_mail\
+.venv\Scripts\python -m src.import_ibkr_trades test demo_
+.venv\Scripts\python -m src.process_ibkr_trades test demo_
+```
+
+**3d — Trade Log und Psychologie** passend zu den neuen Kampagnen erzeugen (löscht vorher alle
+`TEST`-Einträge der Demo-Tabellen; ohne gesetztes `DB_NAME_TEST` aus Schritt 2 würde es die
+echte `ibkr_test` treffen):
+
+```powershell
+.venv\Scripts\python -m tools.demo.seed_log_and_psychology
+```
+
+**Ergebnis 2026-10-23:** 555 Rohzeilen (2024: 38, 2025: 375, 2026: 142), 90 Kampagnen
+(15 ACTIVE / 2 PENDING / 73 CLOSED), 82 Log- und 27 Psychologie-Einträge, kein TLT.
 
 Erwartete Größenordnung: ~210 Trades über alle 19 Dateien, keine Fehler im Log.
 Die Quelldateien werden dabei aus `incoming_mail\` nach `C:\Trade_XML\test\demo_\processed\`
