@@ -32,7 +32,7 @@ Online-Plattform. Es besteht aus zwei Programmen, die sich eine MySQL-Datenbank 
 **TradingJournal** (Laravel) zeigt sie im Browser an. Dieses Kapitel beschreibt vor allem den
 Weaver-Teil.
 
-Das System liest automatisch **IBKR FlexQuery-Reports** (XML) und **Activity Statements** (CSV) ein und überführt die Rohdaten in ein strukturiertes Trading-Journal mit:
+Das System liest automatisch **IBKR Flex-Query-Reports** (XML) und **Activity Statements** (CSV) ein und überführt die Rohdaten in ein strukturiertes Trading-Journal mit:
 
 - **FIFO-Lot-Matching** für Aktien und Optionen (Devisentausch wird separat erfasst, ohne FIFO)
 - **Kampagnen-Tracking** (gebündelte Trades je Symbol/Zeitraum)
@@ -55,9 +55,9 @@ Die Trennung in **Import** (XML → `trades_raw`) und **Processing** (Matching +
 
 ## 2. Datenquellen
 
-### 2.1 FlexQuery XML
+### 2.1 Flex-Query-XML
 
-IBKR generiert **täglich** einen FlexQuery-Report als XML. Die Datei enthält alle Aktivitäten des Kontos für den gewählten Zeitraum.
+IBKR generiert **täglich** einen Flex-Query-Report als XML. Die Datei enthält alle Aktivitäten des Kontos für den gewählten Zeitraum.
 
 **Struktur:**
 ```xml
@@ -94,7 +94,7 @@ IBKR liefert täglich auch ein **Activity Statement CSV** — ein mehrteiliges D
 Die CSV landet in einem **separaten Verzeichnis**: `C:\Trade_CSV\incoming\`
 (nur per Mail — kein API-Äquivalent für Activity Statements, siehe Phase 0).
 XML-Files kommen nach `C:\Trade_XML\incoming_mail\` (Mail) bzw. `C:\Trade_XML\incoming_api\`
-(FlexQuery Web-API, zweiter gleichwertiger Kanal für Trades).
+(Flex-Query-Web-API, zweiter gleichwertiger Kanal für Trades).
 
 `C:\Trade_XML\incoming_mail\` und `C:\Trade_CSV\incoming\` werden über
 `get_flexquery_emails.py` befüllt, `C:\Trade_XML\incoming_api\` über `get_flexquery_api.py`
@@ -119,8 +119,8 @@ IBKR erzeugt bei **automatischen Schließungsereignissen** (Verfall, Ausübung, 
 ┌──────────────────────────────────────────────────────────┐
 │  PHASE 0: E-MAIL-ABRUF + FLEXQUERY-API (zwei Kanäle)     │
 │  get_flexquery_emails.py               get_flexquery_api.py│
-│  ├── IMAP-Postfach (IBKR-Mails)        ├── FlexQuery Web-API│
-│  ├── FlexQuery-XML → incoming_mail\    └── FlexQuery-XML → │
+│  ├── IMAP-Postfach (IBKR-Mails)        ├── Flex-Query-Web-API│
+│  ├── Flex-Query-XML → incoming_mail\  └── Flex-Query-XML → │
 │  └── Activity-CSV  → C:\Trade_CSV\         incoming_api\   │
 │        incoming\                                          │
 └──────────────────────────────────────────────────────────┘
@@ -129,7 +129,7 @@ IBKR erzeugt bei **automatischen Schließungsereignissen** (Verfall, Ausübung, 
 ┌──────────────────────────────────────────────────────────┐
 │                    DATENQUELLEN                          │
 │   C:\Trade_XML\incoming_mail\  + incoming_api\           │
-│   └── *.xml  ← FlexQuery: Trades, OptionEAE,             │
+│   └── *.xml  ← Flex Query: Trades, OptionEAE,             │
 │                 CorporateActions (in beiden Ordnern,     │
 │                 sofern die API-Query gleich konfiguriert)│
 │   C:\Trade_CSV\incoming\                                 │
@@ -216,7 +216,7 @@ Task pro passendem User × Environment und nutzt dafür das CLI-Override
 
 ## 4. Phase 0 — E-Mail-Abruf (`get_flexquery_emails.py`)
 
-IBKR stellt FlexQuery-Reports und Activity Statements **automatisiert per E-Mail** zu. `get_flexquery_emails.py` übernimmt den Abruf und die Verteilung in die richtigen Eingangsverzeichnisse.
+IBKR stellt Flex-Query-Reports und Activity Statements **automatisiert per E-Mail** zu. `get_flexquery_emails.py` übernimmt den Abruf und die Verteilung in die richtigen Eingangsverzeichnisse.
 
 ```
 get_flexquery_emails.py
@@ -224,7 +224,7 @@ get_flexquery_emails.py
 ├── Verbindet sich per IMAP mit dem konfigurierten Postfach (.env)
 ├── Durchsucht Inbox nach IBKR-Report-Mails (Betreff-Filter)
 │
-├── Für XML-Anhänge (FlexQuery-Report):
+├── Für XML-Anhänge (Flex-Query-Report):
 │   └── Speichert in C:\Trade_XML\incoming_mail\
 │       (enthält Trades, OptionEAE, CorporateActions)
 │
@@ -246,7 +246,7 @@ IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 
 **Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Ein Namensmuster ist im Normalbetrieb **nicht** erforderlich (siehe Phase 1) — nur der dedizierte TEST-Modus verlangt `flex.*.xml`.
 
-**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der FlexQuery-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` als zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Ist die API-Query mit denselben Sektionen eingerichtet wie die Mail-Query (Trades, Option Exercises/Assignments/Expirations, Corporate Actions), liefert sie auch `OptionEAE`/BookTrades und CorporateActions. Timing: Der Report wird bei Anfrage on-demand generiert, es gibt kein festes Tages-Zeitfenster — die Daten des Vortags stehen in der Regel schon am frühen Morgen bereit. Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
+**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der Flex-Query-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` als zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Ist die API-Query mit denselben Sektionen eingerichtet wie die Mail-Query (Trades, Option Exercises/Assignments/Expirations, Corporate Actions), liefert sie auch `OptionEAE`/BookTrades und CorporateActions. Timing: Der Report wird bei Anfrage on-demand generiert, es gibt kein festes Tages-Zeitfenster — die Daten des Vortags stehen in der Regel schon am frühen Morgen bereit. Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
 
 ---
 
@@ -398,7 +398,7 @@ Kursbewegungen — ist nicht umgesetzt: keine Tranchen, kein P&L, keine Kampagne
 
 ### 5.4 Options-Strategie-Erkennung: `option_strategies.py`
 
-IBKR liefert in den FlexQuery-Daten **keine Information über synthetische Produkte** wie Spreads oder andere Multi-Leg-Konstrukte — jedes Leg erscheint als eigenständiger, isolierter Trade ohne Verweis auf eine übergeordnete Strategie. Das System muss daher **heuristisch** erkennen, welche Einzeltrades zusammengehören.
+IBKR liefert in den Flex-Query-Daten **keine Information über synthetische Produkte** wie Spreads oder andere Multi-Leg-Konstrukte — jedes Leg erscheint als eigenständiger, isolierter Trade ohne Verweis auf eine übergeordnete Strategie. Das System muss daher **heuristisch** erkennen, welche Einzeltrades zusammengehören.
 
 `detect_strategies()` läuft beim Import je FlexStatement (also je Handelstag), nachdem
 Teilausführungen zusammengefasst sind, und betrachtet nur echte Börsen-Trades
@@ -588,7 +588,7 @@ dagegen nach Trade-Datum (`reference_date` = erster Trade des Laufs), nicht nach
 **Korrektur:** Neuaufbau per `reset_IBKR_DB.py` + `--from-summary` (Summary ist nach `fromDate`
 sortiert). `reset_IBKR_DB.py` legt dabei u. a. auch `trade_planner`, `trade_planner_legs` und
 `account_snapshots` neu an — Trade-Log-Einträge vorher sichern, Snapshots durch Zurücklegen der
-CSVs aus `C:\Trade_CSV\incoming\<user>\processed\` neu importieren. `account_snapshots` selbst sind
+CSVs aus `C:\Trade_CSV\incoming\<benutzer>\processed\` neu importieren. `account_snapshots` selbst sind
 reihenfolgeunabhängig (ein Datensatz je `snapshot_date`, Dedup).
 
 ### 6.2 FIFO-Matching: Die Fälle
@@ -1057,7 +1057,7 @@ imported_at
 Befüllt **ausschließlich** von `import_csv_snapshots.py` (`activity_csv_parser.py`,
 `snapshot_csv`-Step, TWRR exakt von IBKR) aus dem **Kontoauszug (Activity Statement, CSV)**,
 den IBKR nur per Mail zustellt — eine Abfrage per Web-API gibt es dafür nicht, und die
-FlexQueries (Mail wie API) enthalten keine Snapshot-Sektionen. Bleibt die Mail an einem Tag
+Flex Queries (Mail wie API) enthalten keine Snapshot-Sektionen. Bleibt die Mail an einem Tag
 aus, fehlt der Snapshot dieses Tages.
 
 **⚠️ Limitierung: fest auf EUR + USD verdrahtet, nicht generisch.**
@@ -1154,7 +1154,7 @@ accounts.toml     → WEM gehört diese XML-Datei (accountId → User + Environm
 pipeline.toml     → WAS läuft auf DIESER Maschine (welche User/Environments werden verarbeitet)
 ```
 
-**Ablauf beim Import einer neuen FlexQuery-XML:**
+**Ablauf beim Import einer neuen Flex-Query-XML:**
 
 1. `.env` liefert die DB-Zugangsdaten für die Verbindung selbst — unabhängig davon, welchem
    User/Environment die Datei am Ende zugeordnet wird.
@@ -1214,7 +1214,7 @@ environment = "paper"
 environments = ["money", "paper"]
 ```
 
-**Was passiert, wenn eine neue FlexQuery-XML von Annas Live-Konto ankommt** (`accountId`
+**Was passiert, wenn eine neue Flex-Query-XML von Annas Live-Konto ankommt** (`accountId`
 in der XML z.B. `U11114321`, maskiert oder voll — nur die letzten 4 Ziffern zählen):
 
 1. `import_ibkr_trades.py` öffnet die XML, liest `accountId = U11114321` aus dem
@@ -1335,7 +1335,7 @@ Verbesserung:
 
 #### D) Broker-Agnostik: Weitere Datenquellen
 ```
-Problem:   System ist auf IBKR FlexQuery fixiert
+Problem:   System ist auf IBKR Flex Query fixiert
 Potential: Andere Broker (Tastyworks, TD Ameritrade) über Adapter anbinden
 
 Ansatz: BrokerAdapter-Interface
@@ -1459,7 +1459,7 @@ TradingJournal-Weaver/
 ├── README.md                    ← Projekt-Kurzbeschreibung
 ├── src/
 │   ├── get_flexquery_emails.py  ← Phase 0: IMAP-Abruf → incoming_mail/ + Trade_CSV/incoming
-│   ├── get_flexquery_api.py     ← Phase 0 zweiter Kanal: FlexQuery via Web-API → incoming_api/
+│   ├── get_flexquery_api.py     ← Phase 0 zweiter Kanal: Flex Query via Web-API → incoming_api/
 │   ├── import_ibkr_trades.py    ← Phase 1: XML/CSV-Import → trades_raw
 │   ├── process_ibkr_trades.py   ← Phase 2: FIFO-Processing → Endtabellen
 │   ├── xml_append_summary.py    ← Phase 3: Summary-XML für DB-Rebuild

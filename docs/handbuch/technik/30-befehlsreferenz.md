@@ -45,7 +45,7 @@ Unbekannte accountIds werden übersprungen (Warnung im Log). Neue Konten müssen
 in `accounts.toml` ergänzt werden.
 
 **Kein Dateinamen-Filter mehr (Normalbetrieb):** Der Importer verarbeitet alle `*.xml`-Dateien
-in `incoming_mail\` und `incoming_api\` gleichwertig — die Quelle (Mail vs. FlexQuery-API)
+in `incoming_mail\` und `incoming_api\` gleichwertig — die Quelle (Mail vs. Flex-Query-API)
 ist irrelevant, Checksum-Dedup (tradeID+dateTime+symbol+qty+price) verhindert doppelte Trades,
 falls dieselben Daten über beide Kanäle ankommen. Einzige Ausnahme: der dedizierte
 **TEST-Modus** verlangt weiterhin das Muster `flex.*.xml` (siehe [TEST-Environment](#test-environment--manuelle-xmls-automatisch-erkennen)).
@@ -55,7 +55,7 @@ falls dieselben Daten über beide Kanäle ankommen. Einzige Ausnahme: der dedizi
 ```
 C:\Trade_XML\
   incoming_mail\                ← eingehende XML-Dateien per E-Mail (accountId-Routing)
-  incoming_api\                 ← eingehende XML-Dateien per FlexQuery Web-API (accountId-Routing)
+  incoming_api\                 ← eingehende XML-Dateien per Flex-Query-Web-API (accountId-Routing)
   <env>\
     <user>\
       processed\               ← erfolgreich importierte Dateien (aus beiden Quellen)
@@ -116,7 +116,7 @@ python -m src.process_ibkr_trades
 ```
 
 `import_ibkr_trades.py` scannt bei jedem Auto-Lauf zusätzlich zum normalen
-accountId-Routing alle `[[test]]`-Ordner (`C:\Trade_XML\test\<user>\incoming\`) und
+accountId-Routing alle `[[test]]`-Ordner (`C:\Trade_XML\test\<benutzer>\incoming\`) und
 importiert sie direkt mit dem konfigurierten Prefix in die TEST-DB. `process_ibkr_trades.py`
 verarbeitet TEST im Auto-Modus automatisch mit, da es ebenfalls `load_active_targets()`
 aus `pipeline.toml` liest.
@@ -208,14 +208,14 @@ ohne `--users`/`--envs` läuft `import` einmal global (effizient, accountId rout
 intern), mit gesetztem Filter läuft es pro passendem User × Environment.
 
 **`account_snapshots` kommt ausschließlich aus dem Kontoauszug (Activity Statement, CSV per
-Mail) über `snapshot_csv`.** Den Kontoauszug gibt es nicht per Web-API, und die FlexQueries
+Mail) über `snapshot_csv`.** Den Kontoauszug gibt es nicht per Web-API, und die Flex Queries
 (Mail wie API) enthalten keine Snapshot-Sektionen (EquitySummary, CashReport, MTM).
 
 ---
 
 ## get_flexquery_emails.py — E-Mails abrufen
 
-Lädt IBKR FlexQuery XML- und Activity-CSV-Anhänge aus dem Mail-Postfach und speichert
+Lädt IBKR Flex-Query-XML- und Activity-CSV-Anhänge aus dem Mail-Postfach und speichert
 sie in `C:\Trade_XML\incoming_mail\` bzw. `C:\Trade_CSV\incoming\`. Routing (welcher User /
 welches Environment) erfolgt erst beim Import per accountId.
 
@@ -235,9 +235,9 @@ Keine Argumente. Relevante `.env`-Variablen:
 
 ---
 
-## get_flexquery_api.py — FlexQuery per Web-API abrufen
+## get_flexquery_api.py — Flex Query per Web-API abrufen
 
-Holt FlexQuery-XMLs direkt über die IBKR-Web-API, **parallel** zur Mail-Pipeline
+Holt Flex-Query-XMLs direkt über die IBKR-Web-API, **parallel** zur Mail-Pipeline
 (`get_flexquery_emails.py`) — beide Kanäle sind gleichwertig aktiv. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von
 `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben). Der
 `import`-Step scannt **beide** Ordner und importiert daraus `trades_raw` — die
@@ -289,7 +289,7 @@ dritten Währung wird stillschweigend nicht importiert. Details + Begründung: `
 Scannt `C:\Trade_XML\incoming_mail\` **und** `C:\Trade_XML\incoming_api\` nach
 `*.xml`-Dateien (kein Dateinamen-Filter im Normalbetrieb). Routing erfolgt automatisch
 per `accountId` aus der XML → `accounts.toml` (via `src/config.py::get_account_config()`) → Environment + User +
-Prefix. Verarbeitete Dateien landen in `C:\Trade_XML\<env>\<user>\processed\` (aus
+Prefix. Verarbeitete Dateien landen in `C:\Trade_XML\<environment>\<benutzer>\processed\` (aus
 beiden Quellordnern gleichermaßen).
 
 ```bash
@@ -348,7 +348,7 @@ Liest neue `*.xml`-Dateien aus `<env>/<user>/processed/` (Mail- und API-Dateien
 gleichermaßen, kein Dateinamen-Filter) und aktualisiert `summary_<prefix><env>.xml`.
 Keine Duplikate (fromDate eindeutig), leere FlexStatements werden übersprungen,
 aufsteigende Reihenfolge, Performance-Cache (`summary_<prefix><env>_cache.json`: bereits
-verarbeitete Dateinamen). Enthält nur FlexQuery-Daten, keine Kontoauszüge (CSV) —
+verarbeitete Dateinamen). Enthält nur Flex-Query-Daten, keine Kontoauszüge (CSV) —
 `account_snapshots` lässt sich daraus nicht wiederherstellen.
 
 ```bash
@@ -398,6 +398,40 @@ Tabellen zu löschen).
 
 ---
 
+## db-backup.ps1 — Datenbanken sichern und wiederherstellen
+
+PowerShell-Skript im Ordner `TradingJournal-Weaver`. Sichert alle Datenbanken (die fünf
+Environments aus `DB_NAME_*` der Weaver-`.env` plus `DB_DATABASE` aus der TradingJournal-`.env`,
+Standard `ibkr_laravel`); Datenbanken, die es auf dem Server nicht gibt, werden übersprungen.
+
+```powershell
+.\db-backup.ps1                                  # Backup -> database\db\<db>_backup_JJJJMMTT_HHMM.sql
+.\db-backup.ps1 -UsbLabel "NAME"                 # zusaetzlich auf USB-Laufwerk (Datentraegerbezeichnung) kopieren
+.\db-backup.ps1 -Restore -DryRun                 # zeigt die je Datenbank neueste Sicherung
+.\db-backup.ps1 -Restore                         # einspielen, Rueckfrage je Datenbank
+.\db-backup.ps1 -MysqlBin "C:\xampp\mysql\bin"   # Ordner mit mysqldump.exe/mysql.exe vorgeben
+```
+
+| Parameter | Bedeutung |
+|---|---|
+| `-Restore` | statt sichern: neueste Sicherung je Datenbank einspielen |
+| `-DryRun` | nur mit `-Restore`: nichts einspielen, nur anzeigen |
+| `-UsbLabel` | Datenträgerbezeichnung eines USB-Laufwerks; Backup kopiert nach `<Laufwerk>:\db`, Restore sucht dort mit |
+| `-BackupDir` | anderer Sicherungsordner (Standard `database\db`, gitignored) |
+| `-MysqlBin` | Ordner mit `mysqldump.exe`/`mysql.exe`; sonst PATH, `C:\xampp\mysql\bin`, `C:\Program Files\MySQL\MySQL Server *\bin` |
+
+- Zugangsdaten (`DB_USER`, `DB_PASS`, `DB_HOST`, `DB_PORT`) kommen aus der Weaver-`.env` und
+  werden nur in eine temporäre MySQL-Optionsdatei geschrieben (nicht auf die Kommandozeile),
+  die danach gelöscht wird.
+- Dumps entstehen über `--result-file`, nicht über PowerShells `>` (das in Windows PowerShell
+  5.1 UTF-16 schreibt und den Dump unbrauchbar macht); das Einspielen liest die Datei
+  unverändert über `Start-Process -RedirectStandardInput`.
+- Vor dem Überschreiben einer Datenbank sichert `-Restore` deren aktuellen Stand als
+  `<db>_prerestore_JJJJMMTT_HHMMSS.sql`; diese Dateien zählen bei der Suche nach der neuesten
+  Sicherung nicht mit.
+
+---
+
 ## Typischer Ablauf
 
 ### Erster Setup (einmalig)
@@ -415,7 +449,7 @@ python run_pipeline.py
 ### Täglicher Lauf (manuell, Schritt für Schritt)
 ```bash
 python -m src.get_flexquery_emails       # Mails holen → incoming_mail/
-python -m src.get_flexquery_api          # FlexQuery-API holen → incoming_api/
+python -m src.get_flexquery_api          # Flex-Query-API holen → incoming_api/
 python -m src.import_ibkr_trades         # XML importieren (auto-routing per accountId, beide Ordner)
 python -m src.process_ibkr_trades        # FIFO-Verarbeitung (alle Targets)
 python -m src.xml_append_summary         # Summary aktualisieren (alle Targets)

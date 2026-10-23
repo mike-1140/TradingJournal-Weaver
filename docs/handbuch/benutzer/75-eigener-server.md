@@ -18,9 +18,9 @@ erklärt, was dabei gleich bleibt und was anders ist.
 
 Die Installation ist im Grunde dieselbe wie auf dem eigenen PC — nur dass du sie per
 Fernzugriff (Remote Desktop/RDP oder ein ähnliches Programm) direkt auf dem Server ausführst:
-dieselben Programme ([Windows vorbereiten](30-windows-vorbereiten.md)), dieselbe Einrichtung von
-[TradingJournal-Weaver](40-weaver-installieren.md) und [TradingJournal](50-tradingjournal-installieren.md),
-dieselben Einstellungsdateien. Auch der Alltag ist derselbe: ein Lauf von `run_pipeline.py`
+dieselben Programme ([Windows vorbereiten](30-windows-vorbereiten.md)), dieselbe Einrichtung
+([TradingJournal-Weaver installieren](40-weaver-installieren.md),
+[TradingJournal installieren](50-tradingjournal-installieren.md)), dieselben Einstellungsdateien. Auch der Alltag ist derselbe: ein Lauf von `run_pipeline.py`
 holt und verarbeitet die Daten ([Alltag mit dem TradingJournal](70-alltag.md)).
 
 ## 2. Was anders ist

@@ -92,7 +92,7 @@ Datenbank-Zugangsdaten.
 "Testlauf" ist deshalb ein echter Lauf — die XMLs liegen danach nur lokal in
 `C:\Trade_XML\incoming_mail` und müssen mit dem Push-Skript (Schritt 7) zum Server.
 
-**Vorsicht beim FlexQuery-API-Kanal:** Wiederholte fehlgeschlagene Abrufversuche können bei
+**Vorsicht beim Flex-Query-API-Kanal:** Wiederholte fehlgeschlagene Abrufversuche können bei
 IBKR zu einer temporären Sperre führen ("Too many failed attempts"). Nicht wiederholt
 manuell testen, falls ein Abruf einmal fehlschlägt — meist löst sich das von selbst
 innerhalb von Stunden.

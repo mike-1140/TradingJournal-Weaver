@@ -22,7 +22,8 @@ if (-not (Test-Path $VenvActivate)) {
     Write-Warning "Keine .venv gefunden unter $VenvActivate - siehe docs/handbuch/technik/50-installation-weaver.md Schritt 2 (python -m venv .venv). Verknuepfung wird trotzdem angelegt."
 }
 
-$InnerCommand = "Set-Location '$WeaverDir'; . '$VenvActivate'"
+# Apostroph im Pfad (z.B. Benutzerordner "O'Brien") verdoppeln, sonst endet der String zu frueh
+$InnerCommand = "Set-Location '$($WeaverDir.Replace("'", "''"))'; . '$($VenvActivate.Replace("'", "''"))'"
 
 $WshShell = New-Object -ComObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut($ShortcutPath)

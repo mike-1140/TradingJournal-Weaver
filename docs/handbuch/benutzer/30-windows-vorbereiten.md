@@ -107,6 +107,12 @@ installieren](50-tradingjournal-installieren.md), Abschnitt „Starten und öffn
 Für dieses Projekt wird **PHP Version 8.2 oder neuer** gebraucht — also die
 **"8.2.x"-Version** (oder eine neuere Zahl) auswählen, nicht blind irgendeine.
 
+> [!NOTE]
+> Das PHP in XAMPP veraltet mit der Zeit: XAMPP liefert neue PHP-Versionen oft erst Wochen nach
+> einem Sicherheitsupdate aus. Bei einer bekannt gewordenen PHP-Sicherheitslücke lässt sich PHP
+> auch selbst austauschen — siehe [Updates einspielen](80-updates.md), Abschnitt
+> „Sicherheitsupdates für PHP“.
+
 ### Installieren
 
 1. Seite öffnen: [apachefriends.org](https://www.apachefriends.org/)

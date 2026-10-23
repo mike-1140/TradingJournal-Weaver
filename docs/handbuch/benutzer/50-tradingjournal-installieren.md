@@ -4,9 +4,9 @@ Diese Anleitung richtet die Weboberfläche (TradingJournal) auf einem Rechner ei
 [Technisches Handbuch: Installation: TradingJournal](../technik/60-installation-tradingjournal.md). Beide führen zum selben Ergebnis.
 
 **Bevor du hier startest:** Die Grundausstattung (XAMPP, Composer, Node.js, ...) muss
-bereits installiert sein — siehe [Windows-Grundausstattung für Einsteiger](30-windows-vorbereiten.md). Und die
+bereits installiert sein — siehe [Windows vorbereiten](30-windows-vorbereiten.md). Und die
 Datenimport-Pipeline sollte schon eingerichtet sein — siehe
-[TradingJournal-Weaver-Setup für Einsteiger](40-weaver-installieren.md).
+[TradingJournal-Weaver installieren](40-weaver-installieren.md).
 
 ---
 
@@ -44,7 +44,7 @@ composer install
 npm install
 ```
 
-**Falls bei `composer install` eine Fehlermeldung mit dem Wort "zip" erscheint:** Das bedeutet, eine PHP-Einstellung namens `zip` ist noch nicht aktiviert. Wie man das behebt, steht in [Windows-Grundausstattung für Einsteiger](30-windows-vorbereiten.md)
+**Falls bei `composer install` eine Fehlermeldung mit dem Wort "zip" erscheint:** Das bedeutet, eine PHP-Einstellung namens `zip` ist noch nicht aktiviert. Wie man das behebt, steht in [Windows vorbereiten](30-windows-vorbereiten.md)
 im Abschnitt "Eine PHP-Einstellung anpassen". Danach diesen Schritt hier einfach nochmal ausführen.
 
 ---
@@ -183,4 +183,4 @@ Nach der Ersteinrichtung, für den täglichen Gebrauch:
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | [Technisches Handbuch: Installation: TradingJournal](../technik/60-installation-tradingjournal.md) | Dieselben Schritte, technischer/kompakter, plus fortgeschrittene Themen (Apache-VirtualHost) |
 | [Erster Start — UI-Erstkonfiguration](60-erster-start.md)                 | Was nach dem ersten Start einzustellen ist                                                   |
-| [TradingJournal-Weaver-Setup](../technik/50-installation-weaver.md) | Setup der Datenimport-Pipeline |
+| [Installation: TradingJournal-Weaver](../technik/50-installation-weaver.md) | Setup der Datenimport-Pipeline |

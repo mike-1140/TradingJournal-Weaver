@@ -3,12 +3,12 @@
 Der Name: Der *Weaver* („Weber“) verwebt die einzelnen Trades aus den IBKR-Berichten zu
 Kampagnen, Spreads und P&L-Verläufen.
 
-Import- und Processing-Pipeline für **IBKR FlexQuery-Reports** (XML) und
+Import- und Processing-Pipeline für **IBKR Flex-Query-Reports** (XML) und
 **Activity Statements** (CSV). Wandelt die IBKR-Rohdaten in ein strukturiertes
 Trading-Journal (MySQL) um.
 
 > **Teil eines Zwei-Repo-Setups:** TradingJournal-Weaver importiert die Rohdaten und verwaltet das
-> Datenbankschema. Für eine Web-Oberfläche zur Auswertung siehe
+> Datenbankschema. Für eine Weboberfläche zur Auswertung siehe
 > [TradingJournal](https://github.com/mike-1140/TradingJournal) (Laravel/Livewire) —
 > **TradingJournal-Weaver muss zuerst eingerichtet werden**, TradingJournal zeigt nur an, was hier
 > bereits in der Datenbank steht.
@@ -30,9 +30,11 @@ Trading-Journal (MySQL) um.
 
 ## Voraussetzungen
 
+- **Windows** — andere Betriebssysteme werden derzeit nicht unterstützt (Anleitungen, Hilfsskripte
+  und die Ablageordner `C:\Trade_XML\`/`C:\Trade_CSV\` sind auf Windows zugeschnitten)
 - Python 3.14
 - MySQL (lokal, Port 3306)
-- IBKR-Konto mit FlexQuery-Zugriff für echten Datenimport — das `test`-Environment
+- IBKR-Konto mit Flex-Query-Zugriff für echten Datenimport — das `test`-Environment
   funktioniert auch ohne (XML-Dateien manuell einspielen, siehe `pipeline.toml.example`)
 
 > Diese Anleitung beschreibt die lokale Installation. Für einen eigenen Server (Remote-
@@ -46,7 +48,7 @@ git clone https://github.com/mike-1140/TradingJournal-Weaver.git
 cd TradingJournal-Weaver
 
 python -m venv .venv
-.venv\Scripts\activate       # Windows; unter Linux/macOS: source .venv/bin/activate
+.venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env
@@ -70,7 +72,7 @@ python -m tools.maintenance.reset_IBKR_DB money dein_user_
 
 Destruktiv — legt das Schema aus `sql/` neu an. Pro benötigtem Environment einmal
 ausführen (`money`/`paper`/`test`/`autom_money`/`autom_paper`); `test` immer, weil die
-Web-App dort startet.
+Weboberfläche dort startet.
 
 ### users.toml konfigurieren
 
@@ -93,7 +95,7 @@ kopierten Vorlage. Enthält reale Kontodaten, daher wie `pipeline.toml` nicht ve
 
 ```
 get_flexquery_emails.py   IBKR-Mails abrufen → C:\Trade_XML\incoming_mail\ + C:\Trade_CSV\incoming\
-get_flexquery_api.py      FlexQuery Web-API abrufen → C:\Trade_XML\incoming_api\ (zweiter, gleichwertiger Kanal)
+get_flexquery_api.py      Flex-Query-Web-API abrufen → C:\Trade_XML\incoming_api\ (zweiter, gleichwertiger Kanal)
 import_ibkr_trades.py     incoming_mail\ + incoming_api\ → trades_raw (Routing per accountId → User/Environment)
 process_ibkr_trades.py    FIFO-Matching → trades_open / trades_close / trading_campaigns / campaign_ledger
 xml_append_summary.py     Summary-XML je User/Environment (für DB-Rebuild)
@@ -103,6 +105,14 @@ Alles zusammen über den Pipeline-Runner:
 
 ```bash
 python run_pipeline.py            # Konfiguration: pipeline.toml
+```
+
+Datenbanken sichern und wiederherstellen (alle Environments + Laravel-DB, siehe
+[Befehlsreferenz](docs/handbuch/technik/30-befehlsreferenz.md)):
+
+```powershell
+.\db-backup.ps1                   # Backup nach database\db\
+.\db-backup.ps1 -Restore -DryRun  # zeigt die neueste Sicherung je Datenbank
 ```
 
 ## Tests
@@ -120,7 +130,7 @@ TradingJournal-Repos).
 | Handbuch | Für wen | Wichtigste Kapitel |
 |---|---|---|
 | [Benutzerhandbuch](docs/handbuch/README.md#benutzerhandbuch) | Anwender, auch ohne Programmierkenntnisse | [IBKR einrichten](docs/handbuch/benutzer/20-ibkr-einrichten.md), [Windows vorbereiten](docs/handbuch/benutzer/30-windows-vorbereiten.md), [TradingJournal-Weaver installieren](docs/handbuch/benutzer/40-weaver-installieren.md) |
-| [Technisches Handbuch](docs/handbuch/README.md#technisches-handbuch) | Technisch Interessierte, Betrieb, Mitwirkende | [Architektur und Pipeline](docs/handbuch/technik/10-architektur-und-pipeline.md), [Aufbau einer Flex Query](docs/handbuch/technik/20-aufbau-flexquery.md), [Befehlsreferenz](docs/handbuch/technik/30-befehlsreferenz.md), [Installation (technisch)](docs/handbuch/technik/50-installation-weaver.md) |
+| [Technisches Handbuch](docs/handbuch/README.md#technisches-handbuch) | Technisch Interessierte, Betrieb, Mitwirkende | [Architektur und Import-Pipeline](docs/handbuch/technik/10-architektur-und-pipeline.md), [Aufbau einer Flex Query](docs/handbuch/technik/20-aufbau-flexquery.md), [Befehlsreferenz](docs/handbuch/technik/30-befehlsreferenz.md), [Installation: TradingJournal-Weaver](docs/handbuch/technik/50-installation-weaver.md) |
 
 Weitere Dateien in diesem Repo:
 
@@ -170,4 +180,4 @@ ausgeschlossen.
 - **Kein Support-Anspruch:** Hobbyprojekt, best effort — keine SLA, keine Garantie auf Reaktionszeit bei Issues oder PRs.
 - **Keine Finanzberatung:** Dieses Tool dient ausschließlich der Auswertung und Dokumentation eigener Trades. Es stellt keine Anlage- oder Steuerberatung dar und ersetzt keine professionelle Beratung.
 - **Keine Gewährleistung:** Für die Korrektheit der berechneten P&L-, ROI- oder sonstigen Kennzahlen wird keine Haftung übernommen. Vor jeder Nutzung für reale Entscheidungen die Zahlen gegen die eigenen Broker-Unterlagen prüfen.
-- **Kein IBKR-Bezug:** Dieses Projekt steht in keiner Verbindung zu und ist nicht autorisiert durch Interactive Brokers LLC. Es verarbeitet lediglich von IBKR bereitgestellte Exportformate (FlexQuery/Activity-Statements) sowie die öffentlich dokumentierte FlexQuery-Web-API über die dafür vorgesehenen, offiziellen Schnittstellen.
+- **Kein IBKR-Bezug:** Dieses Projekt steht in keiner Verbindung zu und ist nicht autorisiert durch Interactive Brokers LLC. Es verarbeitet lediglich von IBKR bereitgestellte Exportformate (Flex Query/Activity-Statements) sowie die öffentlich dokumentierte Flex-Query-Web-API über die dafür vorgesehenen, offiziellen Schnittstellen.

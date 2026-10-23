@@ -106,7 +106,7 @@ gemeinsame `linkID` (siehe [Architektur und Import-Pipeline](10-architektur-und-
 `fxRateToBase`, `multiplier`, `underlyingConid`, `underlyingSymbol`.
 
 Aus Splits passt die Verarbeitung Menge und Einstandspreis aller offenen Tranchen an (siehe
-[Architektur und Pipeline](10-architektur-und-pipeline.md), Fall SPLIT).
+[Architektur und Import-Pipeline](10-architektur-und-pipeline.md), Fall SPLIT).
 
 ## 3. Mail- und API-Query
 
@@ -117,4 +117,4 @@ Prüfsumme (`tradeID`, `dateTime`, `symbol`, `quantity`, `tradePrice`).
 
 Snapshot-Daten (Kontostand, Cash, Rendite) enthalten die Flex Queries nicht — sie kommen
 ausschließlich aus dem täglichen Kontoauszug (CSV per Mail), siehe
-[Architektur und Pipeline](10-architektur-und-pipeline.md), § 8.2 `account_snapshots`.
+[Architektur und Import-Pipeline](10-architektur-und-pipeline.md), § 8.2 `account_snapshots`.

@@ -6,7 +6,7 @@ links. Kurze Erklärungen zu jeder Seite gibt es auch direkt in der App unter **
 
 > [!NOTE]
 > Die Bilder stammen aus der Demo-Version. Sie zeigt echte, anonymisierte Trades aus zwei
-> Echtgeld- und zwei Papertrading-Konten. Bei dir sehen Zahlen, Symbole und Umfang natürlich
+> Echtgeld- und zwei Paper-Trading-Konten. Bei dir sehen Zahlen, Symbole und Umfang natürlich
 > anders aus.
 
 ---

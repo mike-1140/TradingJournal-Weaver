@@ -5,8 +5,14 @@
 
 Diese Seite deckt die **Basis-Software** ab, die auf einem neuen Windows-Rechner installiert
 sein muss, bevor die projektspezifischen Setup-Anleitungen ([Installation: TradingJournal-Weaver](50-installation-weaver.md),
-[TradingJournal-Setup](60-installation-tradingjournal.md))
+[Installation: TradingJournal](60-installation-tradingjournal.md))
 funktionieren. Beschreibt lokale Entwicklungsrechner.
+
+> [!IMPORTANT]
+> **Läuft nur unter Windows.** Die gesamte Installation ist auf Windows zugeschnitten: die
+> Schritt-für-Schritt-Anleitungen, die Hilfsskripte (PowerShell) und die Ablageordner für die
+> IBKR-Berichte (`C:\Trade_XML\`, `C:\Trade_CSV\`), die im Code fest vorgegeben sind. Andere
+> Betriebssysteme werden derzeit nicht unterstützt.
 
 ---
 
@@ -378,5 +384,5 @@ Sowie XAMPP Control Panel: Apache und MySQL zeigen "Running" (grün), und Abschn
 (Repos geklont, Ordnerstruktur stimmt).
 
 Danach weiter mit [Installation: TradingJournal-Weaver](50-installation-weaver.md) und der
-[TradingJournal-Setup-Anleitung](60-installation-tradingjournal.md)
+[Installation: TradingJournal](60-installation-tradingjournal.md)
 für die projektspezifische Einrichtung.

@@ -1,7 +1,7 @@
 # Demo-Seed-Runbook
 
 Erzeugt einen einmaligen, portablen `demo_seed.sql`-Dump aus anonymisierten echten
-FlexQuery-Testdateien — für die öffentliche TradingJournal-Demo (Coolify-Deployment,
+Flex-Query-Testdateien — für die öffentliche TradingJournal-Demo (Coolify-Deployment,
 siehe Projekt-Memory `project_demo_hosting_plan.md`).
 
 **Wichtig:** Alle Schritte laufen gegen eine **neue, isolierte** lokale Datenbank
@@ -29,7 +29,7 @@ Der TEST-Modus scannt denselben Ordner wie der produktive Import und verschiebt
 Get-ChildItem C:\Trade_XML\incoming_mail\*.xml
 ```
 
-Falls dort echte, noch nicht importierte FlexQuery-Dateien liegen: **abbrechen**,
+Falls dort echte, noch nicht importierte Flex-Query-Dateien liegen: **abbrechen**,
 zuerst den normalen Produktions-Import laufen lassen oder die Dateien vorübergehend
 wegverschieben. Nur mit leerem Ordner weitermachen.
 
@@ -143,7 +143,7 @@ Für eine echte UI-Stichprobe, ohne `config/database.php` dauerhaft zu ändern, 
 config(['database.connections.trading_test.database' => 'ibkr_demo', 'database.connections.trading_test.prefix' => 'demo_']);
 DB::purge('trading_test');
 ```
-Danach lokalen Dev-Server starten, als Demo-User einloggen, TEST-Umgebung prüfen
+Danach lokalen Dev-Server starten, als Demo-User einloggen, TEST-Environment prüfen
 (Dashboard, 2-3 Kampagnen-Details aus den kuratierten Szenarien).
 
 ## 7. Aufräumen

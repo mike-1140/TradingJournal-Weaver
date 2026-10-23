@@ -6,12 +6,12 @@
 Installations- und Erstinitialisierungs-Anleitung für `TradingJournal` auf einem neuen Rechner.
 
 **Voraussetzung:** [`TradingJournal-Weaver`](https://github.com/mike-1140/TradingJournal-Weaver) ist bereits eingerichtet
-(siehe [TradingJournal-Weaver-Setup](50-installation-weaver.md))
+(siehe [Installation: TradingJournal-Weaver](50-installation-weaver.md))
 — TradingJournal zeigt nur Daten an, das Trading-Datenbankschema wird ausschließlich über
 `TradingJournal-Weaver` verwaltet.
 
 **Grundlegende Software** (XAMPP für PHP/Apache/MariaDB, Composer, Node.js) muss vorher
-installiert sein — siehe [Windows-Grundausstattung](40-installation-windows.md).
+installiert sein — siehe [Installation: Windows-Grundausstattung](40-installation-windows.md).
 Diese Seite setzt das voraus und beschreibt nur noch die projektspezifische Einrichtung.
 
 ---
@@ -121,7 +121,7 @@ python -m tools.maintenance.reset_IBKR_DB test dein_user_
 python -m tools.maintenance.reset_IBKR_DB money dein_user_
 ```
 
-`test` immer anlegen: Ohne `TRADING_DEFAULT_ENV` in der `.env` startet die Web-App im
+`test` immer anlegen: Ohne `TRADING_DEFAULT_ENV` in der `.env` startet die Weboberfläche im
 Environment TEST. Prefix (`dein_user_` etc.) muss zu dem Prefix passen, der beim Anlegen des Users in Schritt 5
 verwendet wird.
 
@@ -184,7 +184,7 @@ erneut manuell ausführen.
 ### Variante B: Apache-VirtualHost (dauerhaft, kein manueller Start nötig)
 
 Voraussetzung: XAMPPs Apache läuft (idealerweise als Windows-Dienst, siehe
-[Windows-Grundausstattung](40-installation-windows.md)).
+[Installation: Windows-Grundausstattung](40-installation-windows.md)).
 Dann liefert Apache die Seite automatisch mit Windows — kein `php artisan serve` mehr nötig. 
 
 Zwei Teile:
@@ -233,4 +233,4 @@ Konfigurationsfehler prüfen, danach `C:\xampp\apache\bin\httpd.exe -t` (testet 
 | Datei                                                | Inhalt                                                                   |
 | ---------------------------------------------------- | ------------------------------------------------------------------------ |
 | `CLAUDE.md`                                          | Entwickler-Notizen, Architektur-Patterns (Environment/Zeitfilter-Traits) |
-| [TradingJournal-Weaver-Setup](50-installation-weaver.md) | Setup der Datenimport-Pipeline (Python) |
+| [Installation: TradingJournal-Weaver](50-installation-weaver.md) | Setup der Datenimport-Pipeline (Python) |

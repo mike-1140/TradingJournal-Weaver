@@ -9,18 +9,24 @@ eigenen Server). Bedient wird sie im Browser wie eine Internetseite — sie lieg
 Internet. Es ist also weder eine App aus einem App-Store noch eine Online-Plattform, auf die man
 seine Daten hochlädt.
 
+> [!IMPORTANT]
+> **Läuft nur unter Windows.** Die gesamte Installation ist auf Windows zugeschnitten: die
+> Schritt-für-Schritt-Anleitungen, die Hilfsskripte (PowerShell) und die Ablageordner für die
+> IBKR-Berichte (`C:\Trade_XML\`, `C:\Trade_CSV\`), die im Code fest vorgegeben sind. Andere
+> Betriebssysteme werden derzeit nicht unterstützt.
+
 Beteiligt sind zwei Programme, die sich eine MySQL-Datenbank teilen:
 
 - **TradingJournal-Weaver** (Python) holt die Berichte von IBKR, liest sie ein und rechnet sie aus. Es *schreibt*
   die Trading-Daten.
-- **TradingJournal** (Laravel-Web-App) zeigt diese Daten an. Es *liest* die Trading-Daten und
+- **TradingJournal** (Weboberfläche) zeigt diese Daten an. Es *liest* die Trading-Daten und
   schreibt nur seine eigenen Einträge (Trade Log, Psychologie, Benutzer).
 
 ```mermaid
 flowchart TB
     subgraph IB["Interactive Brokers"]
         A["1 · Trading<br/>Orders in TWS, IBKR-App oder per Automatisierung"]
-        B["2 · IBKR-Berichte<br/>FlexQuery (XML) + Kontoauszug (CSV)"]
+        B["2 · IBKR-Berichte<br/>Flex Query (XML) + Kontoauszug (CSV)"]
     end
     subgraph WV["TradingJournal-Weaver"]
         C["3 · Einlesen<br/>Abholen, Konto zuordnen, Strategien erkennen, Duplikate filtern"]
@@ -30,7 +36,7 @@ flowchart TB
     subgraph DB["MySQL-Datenbank"]
         E[("6 · Daten<br/>Tabellen je Benutzer und Environment")]
     end
-    subgraph TJ["TradingJournal (Web-App)"]
+    subgraph TJ["TradingJournal (Weboberfläche)"]
         F["7 · Darstellung<br/>Auswertung im Browser"]
     end
     A -->|IBKR erstellt täglich Berichte| B
@@ -47,7 +53,7 @@ flowchart TB
 
 Die Farben zeigen, wer zuständig ist: **Interactive Brokers** (grau) erzeugt die Daten,
 **TradingJournal-Weaver** (blau, Python) holt, liest und verarbeitet sie, die **MySQL-Datenbank**
-(violett) speichert sie, und das **TradingJournal** (grün, Web-App) stellt sie dar. Die Nummern
+(violett) speichert sie, und das **TradingJournal** (grün, Weboberfläche) stellt sie dar. Die Nummern
 entsprechen den Abschnitten dieses Kapitels.
 
 > [!NOTE]
@@ -75,7 +81,7 @@ automatisiertes Handelssystem. Für das Journal muss **nichts** am Handel geänd
 | `AUTOM_PAPER` | Paper-Konto für automatisierten Handel                |
 | `TEST`        | Ausprobieren und Testen, ohne echte Daten zu berühren |
 
-## 2. IBKR liefert die Daten: FlexQuery und Kontoauszug
+## 2. IBKR liefert die Daten: Flex Query und Kontoauszug
 
 IBKR bietet mit **Flex Queries** frei konfigurierbare Berichte an, die automatisch erstellt und per
 E-Mail zugestellt oder über eine Web-Schnittstelle abgerufen werden können. Das Journal nutzt
@@ -83,8 +89,8 @@ drei Arten von Berichten:
 
 | Bericht                              | Format | Zustellung                   | Inhalt                                                                     | Wofür                                                   |
 | ------------------------------------ | ------ | ---------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- |
-| **FlexQuery**                        | XML    | täglich per E-Mail           | Trades, Verfall/Ausübung/Zuteilung von Optionen, Kapitalmaßnahmen (Splits) | Hauptquelle für alle Trades                             |
-| **FlexQuery per Web-API**            | XML    | auf Abruf (Token + Query-ID) | Trades, Verfall/Ausübung/Zuteilung von Optionen, Kapitalmaßnahmen (Splits) | Zweiter, unabhängiger Kanal — falls eine Mail ausbleibt |
+| **Flex Query**                        | XML    | täglich per E-Mail           | Trades, Verfall/Ausübung/Zuteilung von Optionen, Kapitalmaßnahmen (Splits) | Hauptquelle für alle Trades                             |
+| **Flex Query per Web-API**            | XML    | auf Abruf (Token + Query-ID) | Trades, Verfall/Ausübung/Zuteilung von Optionen, Kapitalmaßnahmen (Splits) | Zweiter, unabhängiger Kanal — falls eine Mail ausbleibt |
 | **Kontoauszug** (Activity Statement) | CSV    | täglich per E-Mail           | Kontostand, Cash, Tagesperformance (TWRR)                                  | Kontoverlauf und Rendite auf dem Dashboard              |
 
 > [!WARNING]
@@ -188,7 +194,7 @@ Daneben gibt es einige Sonderfälle:
 > Journal **nicht** aus: Es gibt dafür weder Positionen noch Gewinn/Verlust oder Kampagnen.
 
 Wie die Tabellen dabei im Einzelnen geschrieben werden, beschreibt das technische Handbuch
-([Architektur und Pipeline](../technik/10-architektur-und-pipeline.md), Abschnitt „FIFO-Matching: Die Fälle“).
+([Architektur und Import-Pipeline](../technik/10-architektur-und-pipeline.md), Abschnitt „FIFO-Matching: Die Fälle“).
 
 Für jeden abgeschlossenen Trade werden **P&L**, **ROI** (bezogen auf das eingesetzte Kapital) und
 **Haltedauer** berechnet. Die Beträge (P&L, Cashflow, Kommission) stehen in der Handelswährung und
@@ -293,7 +299,7 @@ auf Paper.
 ```
 MySQL-Server
 │
-├── ibkr_laravel                 Web-App: Benutzerkonten (gemeinsam für alle)
+├── ibkr_laravel                 Weboberfläche: Benutzerkonten (gemeinsam für alle)
 │   └── users                      Anna → Präfix anna_,  Tom → Präfix tom_
 │
 ├── ibkr_money                   Environment MONEY
@@ -318,11 +324,11 @@ MySQL-Server
   [TradingJournal-Weaver installieren](40-weaver-installieren.md), Schritt „Datenbank-Tabellen
   anlegen“).
 - Das Präfix muss an zwei Stellen gleich sein: in `users.toml` von TradingJournal-Weaver
-  (dorthin schreibt der Import) und beim Benutzerkonto der Web-App (von dort liest das Journal).
+  (dorthin schreibt der Import) und beim Benutzerkonto der Weboberfläche (von dort liest das Journal).
 - Beim Anmelden bestimmt das Benutzerkonto das Präfix, der **Environment-Schalter** wählt die
   Datenbank. Anna sieht in *PAPER* also `ibkr_paper` mit den Tabellen `anna_…`, nicht die von
   Tom. Einzige Ausnahme: Ein Administrator kann bewusst auf einen anderen
-  Benutzer wechseln — aber nur, wenn die Web-App im lokalen Modus läuft (`APP_ENV=local`).
+  Benutzer wechseln — aber nur, wenn die Weboberfläche im lokalen Modus läuft (`APP_ENV=local`).
 
 Je Benutzer und Environment gibt es folgende Tabellen:
 
@@ -337,10 +343,10 @@ Je Benutzer und Environment gibt es folgende Tabellen:
 | `trading_campaigns` | Kampagnen je Symbol mit Status ACTIVE / PENDING / CLOSED        | Verarbeitung             |
 | `campaign_ledger`   | Jede Buchung einer Kampagne mit laufendem P&L                   | Verarbeitung             |
 
-Die Tabellen oben schreibt ausschließlich TradingJournal-Weaver; die Web-App liest sie nur. Die
+Die Tabellen oben schreibt ausschließlich TradingJournal-Weaver; die Weboberfläche liest sie nur. Die
 folgenden Tabellen gehören genauso jedem Benutzer und Environment einzeln (z. B.
 `anna_trade_planner` in `ibkr_paper`). Der Unterschied: Ihr Inhalt stammt nicht von IBKR,
-sondern aus den eigenen Eingaben — es sind die **einzigen Tabellen, die du selbst in der Web-App
+sondern aus den eigenen Eingaben — es sind die **einzigen Tabellen, die du selbst in der Weboberfläche
 anlegst, änderst und löschst**:
 
 | Tabelle                               | Inhalt                                                            |

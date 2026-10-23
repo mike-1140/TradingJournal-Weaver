@@ -248,7 +248,7 @@ user = "tom"
 ```
 
 Der `[[test]]`-Block schadet im Alltag nicht: TEST liest nur Dateien, die man selbst nach
-`C:\Trade_XML\test\<name>\incoming\` legt (siehe [Alltag mit dem
+`C:\Trade_XML\test\<benutzer>\incoming\` legt (siehe [Alltag mit dem
 TradingJournal](70-alltag.md), Abschnitt „Wenn etwas nicht stimmt“), und wird für den Testlauf
 in Schritt 6 gebraucht.
 
@@ -425,4 +425,4 @@ Nach der Ersteinrichtung, für den täglichen Gebrauch:
 |---|---|
 | [Technisches Handbuch: Installation: TradingJournal-Weaver](../technik/50-installation-weaver.md) | Dieselben Schritte, technischer/kompakter |
 | `docs/handbuch/technik/30-befehlsreferenz.md` (im `TradingJournal-Weaver`-Ordner) | Vollständige Befehlsreferenz aller Scripts |
-| [TradingJournal-Setup für Einsteiger](50-tradingjournal-installieren.md) | Einrichtung der Weboberfläche (nächster Schritt) |
+| [TradingJournal installieren](50-tradingjournal-installieren.md) | Einrichtung der Weboberfläche (nächster Schritt) |

@@ -114,7 +114,8 @@ neuere Trades verarbeitet waren.
 > Neuaufbau legt die Tabellen dieses Environments neu an — neben Trades und Kampagnen gehen
 > dabei auch die Einträge im **Trade Log** und die **Kontostände** verloren. Die Kontostände lassen sich wiederherstellen, indem die
 > verarbeiteten CSV-Dateien aus `C:\Trade_CSV\incoming\<benutzer>\processed` zurück nach
-> `C:\Trade_CSV\incoming` kopiert werden; Trade-Log-Einträge vorher sichern (Datenbank-Backup).
+> `C:\Trade_CSV\incoming` kopiert werden; Trade-Log-Einträge vorher sichern (Abschnitt 4,
+> „Datenbank sichern und wiederherstellen“).
 
 ### So sieht ein Abruf aus
 
@@ -175,7 +176,7 @@ So ist das zu lesen:
 > [!WARNING]
 > **Die Web-API höchstens einmal am Tag abrufen.** IBKR geht streng gegen vermeintliche Bots vor:
 > Zu viele Anfragen kurz hintereinander — besonders fehlgeschlagene — führen zu einer
-> vorübergehenden Sperre (Fehler 1025, siehe [Fehlerbehebung](90-fehlerbehebung.md)).
+> vorübergehenden Sperre (Fehler 1025, siehe [Fehlerbehebung und häufige Fragen](90-fehlerbehebung.md)).
 > `TradingJournal-Weaver` schützt sich selbst: Ein zweiter Aufruf am selben Tag fragt IBKR nicht
 > erneut, sondern meldet nur `Heute bereits geholt, übersprungen`. Trotzdem nicht mit
 > wiederholten Aufrufen herumprobieren — neue Daten gibt es ohnehin erst nach dem nächsten
@@ -279,7 +280,7 @@ ab dem Tag, an dem der Import lief (siehe Abschnitt 1, „Muss das täglich lauf
 
 Alle Befehle laufen im PowerShell-Fenster der Desktop-Verknüpfung (Ordner
 `TradingJournal-Weaver`, Arbeitsumgebung aktiv). Viele Fehlerbilder samt Lösung sammelt außerdem
-[Fehlerbehebung](90-fehlerbehebung.md).
+[Fehlerbehebung und häufige Fragen](90-fehlerbehebung.md).
 
 ### Eine XML-Datei gefahrlos ausprobieren
 
@@ -287,7 +288,7 @@ Für eine fragliche oder fremde Flex-Query-Datei gibt es das Environment **TEST*
 die echten Daten nicht.
 
 1. **[Windows-Explorer]** Die Datei so benennen, dass sie mit `flex.` beginnt und auf `.xml`
-   endet (z. B. `flex.probe.xml`), und in den Ordner `C:\Trade_XML\test\<name>\incoming\`
+   endet (z. B. `flex.probe.xml`), und in den Ordner `C:\Trade_XML\test\<benutzer>\incoming\`
    legen — `<name>` wie im `[[test]]`-Block der `pipeline.toml`.
 2. **[PowerShell]** Ganz normal laufen lassen:
 
@@ -312,6 +313,40 @@ python -m tools.maintenance.cleanup_stale_positions money --prefix anna_ --symbo
 Stimmt die Anzeige, denselben Befehl mit `--execute` am Ende wiederholen. Statt `--symbols`
 geht auch `--older-than 2026-01-01` (alles vor diesem Datum).
 
+### Datenbank sichern und wiederherstellen
+
+Das Skript `db-backup.ps1` sichert **alle** Datenbanken auf einmal: die fünf Environments (mit
+Trades, Kampagnen, Kontoständen, Trade Log und Psychologie) und die Datenbank der Weboberfläche
+(Benutzerkonten). Es liest die Zugangsdaten aus der `.env` von TradingJournal-Weaver; MySQL muss
+laufen.
+
+**Sichern — [PowerShell]** im Ordner `TradingJournal-Weaver`:
+
+```powershell
+.\db-backup.ps1
+```
+
+Die Sicherungen landen in `TradingJournal-Weaver\database\db\`, je Datenbank eine Datei
+`<datenbank>_backup_JJJJMMTT_HHMM.sql`. Mit `-UsbLabel "NAME"` wird zusätzlich auf das
+USB-Laufwerk mit diesem Namen kopiert (der Name, der im Explorer beim Laufwerk steht).
+
+**Wiederherstellen — [PowerShell]** im selben Ordner, zuerst als Trockenlauf:
+
+```powershell
+.\db-backup.ps1 -Restore -DryRun
+.\db-backup.ps1 -Restore
+```
+
+Der Trockenlauf zeigt nur, welche Sicherung je Datenbank eingespielt würde — immer die neueste.
+Ohne `-DryRun` fragt das Skript für jede Datenbank einzeln nach. Bevor es eine Datenbank
+überschreibt, sichert es deren aktuellen Stand zusätzlich als
+`<datenbank>_prerestore_JJJJMMTT_HHMMSS.sql` — ein versehentliches Wiederherstellen lässt sich
+so rückgängig machen.
+
+> [!CAUTION]
+> Die Sicherungen enthalten alle Handelsdaten. Nicht weitergeben und nicht in Foren oder auf
+> GitHub hochladen.
+
 ### Alles neu aufbauen
 
 Wenn die Daten eines Environments durcheinander sind — etwa weil Trades in falscher Reihenfolge
@@ -320,8 +355,8 @@ Sammeldatei komplett neu aufbauen.
 
 > [!WARNING]
 > Der Neuaufbau legt die Tabellen des Environments neu an. Dabei gehen auch die Einträge im
-> **Log** und die **Kontostände** verloren. Psychologie-Einträge bleiben erhalten. Vorher ein
-> Datenbank-Backup ziehen.
+> **Log** und die **Kontostände** verloren. Psychologie-Einträge bleiben erhalten. Vorher die
+> Datenbank sichern (siehe „Datenbank sichern und wiederherstellen“ oben).
 
 **[PowerShell]** Beispiel für Annas Echtgeld-Bereich:
 
@@ -332,7 +367,7 @@ python run_pipeline.py --steps process --users anna --envs money
 ```
 
 **[Windows-Explorer]** Die Kontostände kommen zurück, indem die verarbeiteten CSV-Dateien aus
-`C:\Trade_CSV\incoming\<name>\processed` wieder nach `C:\Trade_CSV\incoming` kopiert werden;
+`C:\Trade_CSV\incoming\<benutzer>\processed` wieder nach `C:\Trade_CSV\incoming` kopiert werden;
 der nächste normale Lauf liest sie ein.
 
 ## 5. Mehrere Benutzer

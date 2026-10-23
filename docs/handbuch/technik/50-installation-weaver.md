@@ -101,7 +101,7 @@ in gleicher Form erwartet.
 des jeweiligen Environment/Prefix-Paars. Nur beim ersten Setup bzw. bewusstem Reset ausführen.
 
 Für jede benötigte Kombination aus Environment × Nutzer-Prefix einmal ausführen — `test` immer
-(Start-Environment der Web-App, solange `TRADING_DEFAULT_ENV` nicht gesetzt ist):
+(Start-Environment der Weboberfläche, solange `TRADING_DEFAULT_ENV` nicht gesetzt ist):
 
 ```bash
 python -m tools.maintenance.reset_IBKR_DB test dein_user_
@@ -186,4 +186,4 @@ Einzeldatum → *Kein Datum im CSV — übersprungen*, Datei bleibt in `incoming
 |---|---|
 | `docs/handbuch/technik/30-befehlsreferenz.md` | Vollständige Befehlsreferenz aller Scripts |
 | `docs/handbuch/technik/10-architektur-und-pipeline.md` | Architektur, FIFO-Logik, DB-Schema im Detail |
-| [TradingJournal-Setup](60-installation-tradingjournal.md) | Setup der Laravel-UI (liest dieselben Datenbanken) |
+| [Installation: TradingJournal](60-installation-tradingjournal.md) | Setup der Weboberfläche (liest dieselben Datenbanken) |

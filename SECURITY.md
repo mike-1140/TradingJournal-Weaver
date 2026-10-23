@@ -19,7 +19,7 @@ werden aber priorisiert vor normalen Feature-Issues behandelt.
 - Wege, an fremde Trading-/Kontodaten anderer User (Multi-User/Multi-Environment via
   Tabellen-Prefix) zu gelangen
 - SQL-Injection oder unsichere Deserialisierung beim Verarbeiten von IBKR-XML/-CSV-Importen
-- Schwachstellen im FlexQuery-API-Zugriff (`get_flexquery_api.py`), z.B. Token-/Credential-Leaks
+- Schwachstellen im Flex-Query-API-Zugriff (`get_flexquery_api.py`), z.B. Token-/Credential-Leaks
 - Offenlegung von Secrets aus `.env`/`pipeline.toml`/`accounts.toml` durch das Anwendungsverhalten selbst
 
 **Kein Sicherheitsproblem im Sinne dieser Policy:** Themen, die ausschließlich die eigene

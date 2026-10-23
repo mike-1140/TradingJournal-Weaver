@@ -19,7 +19,7 @@ Die meisten Probleme lassen sich an einer Meldung in den Protokolldateien erkenn
 | Programm                | Protokolldatei                                 |
 | ----------------------- | ---------------------------------------------- |
 | TradingJournal-Weaver   | `TradingJournal-Weaver\log\app.log`             |
-| TradingJournal (Web-App) | `TradingJournal\storage\logs\laravel.log`      |
+| TradingJournal (Weboberfläche) | `TradingJournal\storage\logs\laravel.log`      |
 
 Dazu kommt im Journal selbst die Seite **Raw Data** (unter *Analyse*): Steht ein Trade dort,
 ist er angekommen und das Problem liegt in Verarbeitung oder Anzeige. Fehlt er, liegt es vor
@@ -58,7 +58,7 @@ unpassenden Kodierung gespeichert — typischerweise, wenn sie per PowerShell
 
 **Nach dem Login: „Diese Seite funktioniert nicht — zu oft weitergeleitet“**
 
-Meist kann die Web-App die Trading-Datenbank nicht erreichen. In `storage\logs\laravel.log`
+Meist kann die Weboberfläche die Trading-Datenbank nicht erreichen. In `storage\logs\laravel.log`
 nach `ERROR` suchen. Häufige Auslöser: `TRADING_DB_USERNAME` oder `TRADING_DB_PASSWORD` in der
 `.env` falsch, oder für den Benutzer gibt es in keinem Environment Tabellen — dann
 `reset_IBKR_DB.py` mit genau dem Präfix ausführen, der beim Anlegen des Benutzers angegeben wurde
