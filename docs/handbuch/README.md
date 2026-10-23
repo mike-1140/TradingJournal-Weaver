@@ -2,8 +2,15 @@
 
 Die Dokumentation von TradingJournal und TradingJournal-Weaver ist in zwei Handbücher gegliedert,
 dazu kommt eine kurze Vorstellung. Jede Datei ist ein Kapitel; die Nummer im Dateinamen gibt die
-Reihenfolge vor. Alle drei gibt es auch als gesetztes PDF zum Herunterladen:
-[Vorstellung](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Vorstellung.pdf), [Benutzerhandbuch](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Benutzerhandbuch.pdf) und [Technisches Handbuch](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Technisches-Handbuch.pdf) (jeweils die neueste Version; ältere unter [Releases](https://github.com/mike-1140/TradingJournal/releases)).
+Reihenfolge vor. Alle drei gibt es auch als gesetztes PDF:
+
+| Handbuch | Im Browser ansehen | Herunterladen |
+|---|---|---|
+| Vorstellung | [ansehen](https://mike-1140.github.io/TradingJournal/TradingJournal-Vorstellung.pdf) | [PDF](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Vorstellung.pdf) |
+| Benutzerhandbuch | [ansehen](https://mike-1140.github.io/TradingJournal/TradingJournal-Benutzerhandbuch.pdf) | [PDF](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Benutzerhandbuch.pdf) |
+| Technisches Handbuch | [ansehen](https://mike-1140.github.io/TradingJournal/TradingJournal-Technisches-Handbuch.pdf) | [PDF](https://github.com/mike-1140/TradingJournal/releases/latest/download/TradingJournal-Technisches-Handbuch.pdf) |
+
+Übersichtsseite: [mike-1140.github.io/TradingJournal](https://mike-1140.github.io/TradingJournal/) · ältere Versionen unter [Releases](https://github.com/mike-1140/TradingJournal/releases)
 
 ## Vorstellung
 
