@@ -146,6 +146,8 @@ Weitere Dateien in diesem Repo:
 
 | Datei | Inhalt |
 |---|---|
+| [`ROADMAP.md`](ROADMAP.md) | Was als Nächstes geplant ist (ohne Termine) |
+| [`BEISPIELE-GESUCHT.md`](BEISPIELE-GESUCHT.md) | Sonderfälle, die noch niemand prüfen konnte — Fragen an die Gemeinschaft |
 | `CLAUDE.md` | Entwickler-Notizen (Module, Konventionen, bekannte Fixes) |
 | `CONTRIBUTING.md` | Wie beitragen — Konventionen, Test-Erwartung, PR-Ablauf |
 | `SECURITY.md` | Meldeweg für Sicherheitslücken |

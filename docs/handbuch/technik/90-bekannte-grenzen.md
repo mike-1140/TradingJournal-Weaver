@@ -123,25 +123,23 @@ Abschnitt 8, und [Alltag mit dem TradingJournal](../benutzer/70-alltag.md), Absc
 
 ## 2. Ungetestet — Beispiele gesucht
 
-Für diese Fälle gibt es im Code eine Behandlung oder eine naheliegende Erwartung, aber keine
-echten Daten, an denen sie geprüft wurde:
+Für einige Fälle gibt es im Code eine Behandlung oder eine naheliegende Erwartung, aber keine
+echten Daten, an denen sie geprüft wurde — etwa ein Aktiensplit während einer offenen Option,
+Forward Splits, Teil- und vorzeitige Zuteilungen, die Ausübung eigener Optionen, Fusionen und
+Spin-offs, Futures oder ein Konto mit anderer Basiswährung als EUR.
 
-| Fall | Was unklar ist |
-|---|---|
-| **Forward Split** (`FS`) und **`SS`** bei Aktien | Geprüft ist nur der Reverse Split. Der Code rechnet für alle drei Typen gleich (Faktor = neue ÷ alte Menge). Ob IBKR dabei dasselbe Paar aus alter (`.OLD`) und neuer Zeile liefert und was `SS` genau bedeutet, ist offen. |
-| **Split während einer offenen Option** | Siehe Grenze 1.3 — wie IBKR die alten und neuen Kontrakte in der Flex Query meldet, ist nur an einem Fall ohne offene Position gesehen. |
-| **Teil-Zuteilung** (z. B. 1 von 2 Kontrakten) | Siehe Grenze 1.2 — erwartet wird *Closed* statt *Assigned*; noch nie in echten Daten. |
-| **Ausübung eigener Optionen mit Aktienlieferung** | Wie Weaver die gelieferten Aktien einbucht, ist nur aus dem Code abgeleitet. |
-| **Fusion, Spin-off, Symbolwechsel** | Siehe Grenze 1.1 — wie IBKR sie meldet und was dabei herauskommt. |
-| **Futures und Optionen auf Futures** | Der Import ist für Aktien, Aktien-/Indexoptionen und Devisentausch gebaut und mit solchen Daten geprüft. |
-| **Konto in anderer Basiswährung als EUR** | Alle Umrechnungen und Auswertungen sind mit EUR als Basiswährung geprüft. |
+Die vollständige Liste mit dem, was jeweils schon bekannt ist, konkreten Fragen und den
+hilfreichen Daten steht in einem eigenen Dokument im Repository:
+[Beispiele gesucht](https://github.com/mike-1140/TradingJournal/blob/master/BEISPIELE-GESUCHT.md).
+Was davon als Nächstes umgesetzt wird, zeigt die
+[Roadmap](https://github.com/mike-1140/TradingJournal/blob/master/ROADMAP.md).
 
 ---
 
 ## 3. Mithelfen
 
-Wer einen dieser Fälle im eigenen Konto hat, kann sehr helfen — mit der **Flex-Query-XML** des
-betreffenden Tages:
+Wer einen der Fälle aus [Beispiele gesucht](https://github.com/mike-1140/TradingJournal/blob/master/BEISPIELE-GESUCHT.md)
+im eigenen Konto hat, kann sehr helfen — mit der **Flex-Query-XML** des betreffenden Tages:
 
 1. Im Kundenportal die Flex Query für den Tag des Ereignisses starten (siehe Benutzerhandbuch
    [TradingJournal-Weaver installieren](../benutzer/40-weaver-installieren.md), Abschnitt 8) oder
