@@ -15,7 +15,8 @@ Aufruf (aus dem TradingJournal-Weaver-Ordner):
 Zugangsdaten: DB_USER/DB_PASS/DB_HOST/DB_PORT und DB_NAME_* aus der .env dieses Ordners,
 der Name der Laravel-Datenbank aus ..\TradingJournal\.env (DB_DATABASE, Standard ibkr_laravel).
 Das Passwort landet nur in einer temporaeren MySQL-Optionsdatei (nicht auf der
-Kommandozeile) und wird danach geloescht.
+Kommandozeile) und wird danach geloescht. --no-tablespaces: noetig fuer Benutzer ohne globales
+PROCESS-Recht (z. B. eigener App-Benutzer unter MySQL 8.4), sonst bricht mysqldump ab.
 
 Sicherungen: database\db\<datenbank>_backup_JJJJMMTT_HHMM.sql (database\ ist gitignored).
 Vor jedem Einspielen wird der aktuelle Stand der Datenbank zusaetzlich als
@@ -130,7 +131,7 @@ try {
                 continue
             }
             $File = Join-Path $BackupDir "${Db}_backup_$Stamp.sql"
-            $Code = Invoke-Mysql $MysqlDump @($DefaultsArg, "--single-transaction", "--routines", "--triggers",
+            $Code = Invoke-Mysql $MysqlDump @($DefaultsArg, "--single-transaction", "--no-tablespaces", "--triggers",
                 "--result-file=`"$File`"", $Db)
             if ($Code -ne 0) { throw "Backup von $Db fehlgeschlagen (Exit $Code)." }
             Write-Host ("gesichert      {0,-20} {1:N0} KB  {2}" -f $Db, ((Get-Item $File).Length / 1KB), $File) -ForegroundColor Green
@@ -173,7 +174,7 @@ try {
         }
         if ($Existing -contains $Db) {
             $SafetyFile = Join-Path $BackupDir ("${Db}_prerestore_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".sql")
-            $Code = Invoke-Mysql $MysqlDump @($DefaultsArg, "--single-transaction", "--routines", "--triggers",
+            $Code = Invoke-Mysql $MysqlDump @($DefaultsArg, "--single-transaction", "--no-tablespaces", "--triggers",
                 "--result-file=`"$SafetyFile`"", $Db)
             if ($Code -ne 0) { throw "Sicherung des aktuellen Stands von $Db fehlgeschlagen (Exit $Code) - Restore abgebrochen." }
             Write-Host "  aktueller Stand gesichert: $SafetyFile" -ForegroundColor DarkGray
