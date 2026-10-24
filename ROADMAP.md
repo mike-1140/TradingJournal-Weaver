@@ -44,6 +44,12 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 - **Strategien von Hand zusammenfassen** — Nicht erkannte Spreads (Legs einzeln oder an
   verschiedenen Tagen eingegeben, Ratio Spreads) in der Oberfläche zu einer Strategie
   zusammenfassen; falsche Zuordnungen auflösen.
+- **Aufbereitung für die Steuererklärung (Österreich)** — Realisierte Gewinne und Verluste je
+  Kalenderjahr so zusammenstellen, dass sie sich für die Beilage zur Einkommensteuer (E1kv)
+  übernehmen lassen: getrennt nach Aktien, Optionen (inkl. Stillhalterprämien) und
+  Devisentausch, in EUR zum Kurs je Geschäftsfall, mit Export als Tabelle. Alle Daten dafür liegen
+  bereits vor. Das Ergebnis ist eine Arbeitshilfe, **keine Steuerberatung** — die Zahlen sind vor
+  der Abgabe zu prüfen, im Zweifel mit einer Steuerberaterin oder einem Steuerberater.
 - **Zeitraumfilter auf allen Seiten** — Der globale Zeitraumfilter gilt noch nicht überall.
 - **Python 3.15** — Heute ist Python 3.14 vorgeschrieben, weil nicht alle benötigten Pakete für
   3.15 bereitstehen.
