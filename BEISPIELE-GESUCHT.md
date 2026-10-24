@@ -29,8 +29,8 @@ laufen solche Beispiele als Issue im Repository
 |---|---|---|---|
 | 1 | Aktiensplit während einer offenen Option oder eines Spreads | einmal, ohne offene Position | **hoch** — verfälscht Positionen |
 | 2 | Forward Split und `SS`-Split bei Aktien | nur Reverse Splits | mittel |
-| 3 | Teil-Zuteilung (z. B. 1 von 2 Kontrakten) | nie | mittel |
-| 4 | Vorzeitige Zuteilung des verkauften Beins eines Spreads | nie | mittel |
+| 3 | Teil-Zuteilung (z. B. 2 von 5 verkauften Puts) | nie | mittel |
+| 4 | Vorzeitige Zuteilung des verkauften Beins eines Spreads | bei einer einzelnen Option ja, bei einem Spread nie | mittel |
 | 5 | Ausübung eigener Optionen mit Aktienlieferung | nie | mittel |
 | 6 | Fusion, Spin-off, Symbolwechsel, Delisting | nie | **hoch** — verfälscht Positionen |
 | 7 | Rolls und schließende Combo-Orders: Feld `openCloseIndicator` | ja, aber Feld ungeprüft | mittel |
@@ -43,7 +43,8 @@ laufen solche Beispiele als Issue im Repository
 
 **Worum es geht:** Bei einem Split passt die Börse laufende Optionen an — je nach Verhältnis
 ändern sich Anzahl, Ausübungspreis, Multiplikator oder Symbol des Kontrakts (bei krummen
-Verhältnissen entstehen oft „angepasste“ Kontrakte mit Sondersymbol wie `XYZ1`). Das Journal
+Verhältnissen entstehen oft „angepasste“ Kontrakte mit Sondersymbol wie `XYZ1`, die z. B. nur
+noch 50 statt 100 Aktien liefern, oder 50 Aktien plus Bargeld). Das Journal
 erkennt den Split, stellt aber **offene Options-Positionen nicht auf den neuen Kontrakt um**. Ein
 späterer Verfall oder Rückkauf unter dem neuen Kontrakt würde dann eine falsche Gegenposition
 eröffnen.
@@ -108,9 +109,16 @@ und `SS` gleich: Faktor = neue Menge ÷ alte Menge.
 
 ## 3. Teil-Zuteilung
 
-**Worum es geht:** Bei einer Zuteilung (Assignment) verbindet das Journal die Option mit dem
-gelieferten Aktien-Trade. Ist nur **ein Teil** einer Position betroffen (z. B. 1 von 2 verkauften
-Puts), steht nach heutigem Code-Stand *Closed* statt *Assigned* im abgeschlossenen Trade.
+**Worum es geht:** Ein einzelner Kontrakt wird immer **ganz** zugeteilt — bei normalen
+US-Aktienoptionen also immer 100 Aktien je Kontrakt, nie 50. Gemeint ist hier, dass von einer
+**Position aus mehreren Kontrakten** nur ein Teil zugeteilt wird. Beispiel: 5 Puts verkauft, nur 2
+werden zugeteilt — es kommen 200 Aktien ins Depot, die übrigen 3 Puts bleiben offen bzw. verfallen.
+Die Börse lost kontraktweise aus; es kann also jeden beliebigen Teil der Kontrakte treffen.
+(Kontrakte mit z. B. 50 Aktien gibt es nur nach einer Kapitalmaßnahme, siehe Fall 1.)
+
+Bei einer Zuteilung verbindet das Journal die Option mit dem gelieferten Aktien-Trade. Ist nur ein
+Teil der Kontrakte einer Position betroffen, steht nach heutigem Code-Stand *Closed* statt
+*Assigned* im abgeschlossenen Trade.
 
 **Fragen:**
 
@@ -127,11 +135,33 @@ Puts), steht nach heutigem Code-Stand *Closed* statt *Assigned* im abgeschlossen
 
 **Worum es geht:** Bei einem Credit-Spread kann das verkaufte Bein **vor dem Verfall** zugeteilt
 werden (bei Calls oft vor einem Dividendentermin). Dann liegen plötzlich Aktien im Depot, während
-das gekaufte Bein noch läuft. Zuteilungen am Verfallstag sind geprüft, vorzeitige nicht.
+das gekaufte Bein noch läuft. Zuteilungen am Verfallstag sind geprüft, vorzeitige nur bei einer
+einzelnen Option (siehe unten), nicht bei einem Spread.
+
+**Bisher gesehen** — vorzeitige Zuteilung eines **Covered Calls** (kein Spread): OMEX, Call mit
+Ausübungspreis 2 und Verfall 17.10.2025, zugeteilt am **14.10.2025**; ein zweiter Call (Ausübungspreis
+3, Verfall 21.11.2025) lief weiter und verfiel später. In der XML sieht das genauso aus wie eine
+Zuteilung am Verfallstag — je zwei Zeilen in zwei Abschnitten:
+
+```xml
+<!-- Abschnitt Optionsausübungen, -zuteilungen und -fälligkeiten -->
+<OptionEAE date="14/10/2025" transactionType="Assignment" symbol="OMEX  251017C00002000" quantity="1" ... />
+<OptionEAE date="14/10/2025" transactionType="Sell"       symbol="OMEX"                  quantity="-100" tradePrice="2" ... />
+
+<!-- Abschnitt Trades: automatische Buchungen, Kennzeichen notes="A" -->
+<Trade transactionType="BookTrade" assetCategory="OPT" symbol="OMEX  251017C00002000" buySell="BUY"
+       quantity="1"    tradePrice="0" openCloseIndicator="C" notes="A" ... />
+<Trade transactionType="BookTrade" assetCategory="STK" symbol="OMEX" buySell="SELL"
+       quantity="-100" tradePrice="2" openCloseIndicator="C" notes="A" ... />
+```
+
+Das Journal hat das richtig verarbeitet: Option als zugeteilt (*Assigned*), Aktien zum
+Ausübungspreis verkauft, der zweite Call blieb als eigene Position offen.
 
 **Fragen:**
 
-1. Unterscheidet sich die Darstellung in der XML von einer Zuteilung am Verfallstag?
+1. Ist die Darstellung bei einem **Spread** dieselbe — und wie meldet IBKR das gekaufte Bein, das
+   danach noch läuft?
 2. Was zeigt das Journal danach in der Spreads-Ansicht und in der Kampagne — ist der Spread noch
    offen, und wird das verbliebene Bein richtig weitergeführt?
 

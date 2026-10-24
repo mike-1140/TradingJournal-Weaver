@@ -44,6 +44,11 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 - **Strategien von Hand zusammenfassen** — Nicht erkannte Spreads (Legs einzeln oder an
   verschiedenen Tagen eingegeben, Ratio Spreads) in der Oberfläche zu einer Strategie
   zusammenfassen; falsche Zuordnungen auflösen.
+- **Kampagnen nach Art sortieren und filtern** — Kampagnen-Liste nach *reine Aktien*, *Wheel*
+  (Option zugeteilt, danach Aktien bzw. Covered Calls), *reine Optionen* und *Spreads* trennen.
+  Die heutige Einteilung richtet sich nur nach dem ersten Trade einer Kampagne (ein Bull Put
+  Spread gilt dadurch als „Absicherung/Spekulation“); die Art soll künftig aus allen Buchungen
+  der Kampagne bestimmt werden.
 - **Aufbereitung für die Steuererklärung (Österreich)** — Realisierte Gewinne und Verluste je
   Kalenderjahr so zusammenstellen, dass sie sich für die Beilage zur Einkommensteuer (E1kv)
   übernehmen lassen: getrennt nach Aktien, Optionen (inkl. Stillhalterprämien) und
