@@ -7,13 +7,15 @@ from email.header import decode_header
 from dotenv import load_dotenv
 
 from src.logger_setup import setup_logging
+from src.utils.data_dirs import CSV_INCOMING, XML_INCOMING_MAIL
 from src.utils.path_utils import get_project_root
 
 load_dotenv()
 
 # --- Eingangsordner — Routing erfolgt beim Import per accountId ---
-IN_FOLDER_XML_INCOMING = r'C:\Trade_XML\incoming_mail'
-IN_FOLDER_CSV_INCOMING = r'C:\Trade_CSV\incoming'
+# Basisordner per .env (TRADE_XML_DIR / TRADE_CSV_DIR), siehe src/utils/data_dirs.py.
+IN_FOLDER_XML_INCOMING = str(XML_INCOMING_MAIL)
+IN_FOLDER_CSV_INCOMING = str(CSV_INCOMING)
 
 # IMAP-Credentials aus .env
 username             = os.getenv("IMAP_USERNAME")

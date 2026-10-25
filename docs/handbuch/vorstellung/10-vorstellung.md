@@ -30,7 +30,7 @@ Quellcode öffentlich (PolyForm Noncommercial).
 > [!IMPORTANT]
 > **Läuft nur unter Windows.** Die gesamte Installation ist auf Windows zugeschnitten: die
 > Schritt-für-Schritt-Anleitungen, die Hilfsskripte (PowerShell) und die Ablageordner für die
-> IBKR-Berichte (`C:\Trade_XML\`, `C:\Trade_CSV\`), die im Code fest vorgegeben sind. Andere
+> IBKR-Berichte (standardmäßig `C:\Trade_XML\`, `C:\Trade_CSV\`). Andere
 > Betriebssysteme unterstütze ich derzeit nicht.
 
 ## Ausprobieren ohne Installation

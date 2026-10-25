@@ -33,6 +33,15 @@ def read_positive_int_env(name: str, default: int) -> int:
 MAX_GAP_DAYS = read_positive_int_env("MAX_GAP_DAYS", 10)
 
 
+# === Ablageordner für IBKR-Berichte ===
+# Definiert in src/utils/data_dirs.py (schlank, auch für den Minimal-Abruf-Client) und hier nur
+# durchgereicht: TRADE_XML_DIR / TRADE_CSV_DIR per .env, sonst C:\Trade_XML / C:\Trade_CSV
+# (Windows) bzw. ~/Trade_XML / ~/Trade_CSV (Linux/macOS).
+from src.utils.data_dirs import (  # noqa: E402
+    TRADE_XML_DIR, TRADE_CSV_DIR, XML_INCOMING_MAIL, XML_INCOMING_API, CSV_INCOMING,
+)
+
+
 # === Zentrale User-Registry (users.toml) ===
 # Einzige Quelle fuer den Zusammenhang User <-> Tabellen-Prefix. Wie accounts.toml und
 # pipeline.toml lokal und nicht versioniert (enthaelt die echten Benutzernamen) — Vorlage:

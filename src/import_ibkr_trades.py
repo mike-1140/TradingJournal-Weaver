@@ -5,7 +5,10 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
-from src.config import TABLE_PREFIX, get_account_config, is_environment_active, load_active_targets
+from src.config import (
+    CSV_INCOMING, TABLE_PREFIX, TRADE_XML_DIR, XML_INCOMING_API, XML_INCOMING_MAIL,
+    get_account_config, is_environment_active, load_active_targets,
+)
 from src.db.db_access import DBAccess, TradeRepository
 from src.import_activity_statement import import_activity_statement
 from src.logger_setup import setup_logging, print_log
@@ -17,11 +20,12 @@ from src.utils.progress import ProgressLine
 # Eingangsordner — alle eingehenden Dateien landen hier, Routing per accountId.
 # Zwei Quellen (Mail + API), fuer den Import gleichwertig behandelt (siehe _import_xml_files):
 # gleiches Routing, gleiche processed/deleted-Ablage, kein Filename-Unterschied noetig.
-BASE_XML_INCOMING_MAIL   = r'C:\Trade_XML\incoming_mail'
-BASE_XML_INCOMING_API    = r'C:\Trade_XML\incoming_api'
-BASE_CSV_INCOMING        = r'C:\Trade_CSV\incoming'
+# Basisordner per .env (TRADE_XML_DIR / TRADE_CSV_DIR), siehe src/utils/data_dirs.py.
+BASE_XML_INCOMING_MAIL   = str(XML_INCOMING_MAIL)
+BASE_XML_INCOMING_API    = str(XML_INCOMING_API)
+BASE_CSV_INCOMING        = str(CSV_INCOMING)
 # Produktions-Basis für processed/ und deleted/ nach dem Import
-BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
+BASE_XML_FILE_PATH_PROD = str(TRADE_XML_DIR)
 
 log_file = get_project_root() / "log/app.log"
 logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
@@ -224,7 +228,7 @@ def _import_xml_to_test(prefix: str, incoming: Path, target_base: Path) -> int:
 
 def _import_test_files(prefix: str, user: str) -> int:
     """
-    Scannt C:\\Trade_XML\\test\\<user>\\incoming\\ nach flex.*.xml-Dateien.
+    Scannt <TRADE_XML_DIR>\\test\\<user>\\incoming\\ nach flex.*.xml-Dateien.
     Kein accountId-Routing — Environment und User sind durch das Verzeichnis fixiert
     (eigener Ordner je [[test]]-Eintrag aus pipeline.toml, damit mehrere User nicht
     dieselben Dateien wegschnappen).
@@ -241,7 +245,7 @@ def _import_test_files(prefix: str, user: str) -> int:
 
 def _import_activity_csvs(target_environment: str | None = None, target_table_prefix: str | None = None) -> int:
     """
-    Scannt C:\\Trade_CSV\\incoming\\ nach Activity Statement CSVs.
+    Scannt <TRADE_CSV_DIR>\\incoming\\ nach Activity Statement CSVs.
     Routing: accountId aus Dateiinhalt -> accounts.toml (get_account_config()) -> environment + user + table_prefix.
     Verarbeitete Dateien werden nach incoming/<user>/processed/ verschoben.
 

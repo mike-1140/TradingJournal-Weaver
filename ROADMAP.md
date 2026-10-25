@@ -44,11 +44,6 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 - **Strategien von Hand zusammenfassen** — Nicht erkannte Spreads (Legs einzeln oder an
   verschiedenen Tagen eingegeben, Ratio Spreads) in der Oberfläche zu einer Strategie
   zusammenfassen; falsche Zuordnungen auflösen.
-- **Kampagnen nach Art sortieren und filtern** — Kampagnen-Liste nach *reine Aktien*, *Wheel*
-  (Option zugeteilt, danach Aktien bzw. Covered Calls), *reine Optionen* und *Spreads* trennen.
-  Die heutige Einteilung richtet sich nur nach dem ersten Trade einer Kampagne (ein Bull Put
-  Spread gilt dadurch als „Absicherung/Spekulation“); die Art soll künftig aus allen Buchungen
-  der Kampagne bestimmt werden.
 - **Aufbereitung für die Steuererklärung (Österreich)** — Realisierte Gewinne und Verluste je
   Kalenderjahr so zusammenstellen, dass sie sich für die Beilage zur Einkommensteuer (E1kv)
   übernehmen lassen: getrennt nach Aktien, Optionen (inkl. Stillhalterprämien) und
@@ -58,9 +53,11 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 - **Zeitraumfilter auf allen Seiten** — Der globale Zeitraumfilter gilt noch nicht überall.
 - **Python 3.15** — Heute ist Python 3.14 vorgeschrieben, weil nicht alle benötigten Pakete für
   3.15 bereitstehen.
-- **Linux und macOS** — Heute läuft alles nur unter Windows. Erster Schritt: die fest
-  eingetragenen Ablageordner (`C:\Trade_XML`, `C:\Trade_CSV`) einstellbar machen. Hilfsskripte,
-  Handbuch und Tests für andere Systeme folgen nur, wenn genug Nachfrage besteht.
+- **Linux und macOS** — Offiziell unterstützt ist nur Windows. Erster Schritt erledigt: Die
+  Ablageordner sind per `.env` einstellbar (`TRADE_XML_DIR`, `TRADE_CSV_DIR`, Standard unter
+  Linux/macOS `~/Trade_XML` und `~/Trade_CSV`), und die Tests laufen automatisch auf Windows,
+  Linux und macOS. Hilfsskripte, Handbuch und automatischer Lauf (cron/launchd) für andere
+  Systeme folgen nur, wenn genug Nachfrage besteht.
 
 ## Ideen — noch nicht entschieden
 
@@ -75,6 +72,8 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 
 ## Erledigt (Auswahl)
 
+- Kampagnen nach Art filtern: *Aktien*, *Wheel* (Aktien und Optionen), *Optionen*, *Spreads*;
+  die Art wird aus allen Buchungen der Kampagne bestimmt.
 - **v1.1.0 — öffentliche Freigabe:** Quellcode öffentlich (PolyForm Noncommercial), Handbücher
   als PDF, öffentliche Demo mit echten, anonymisierten Trades bis September 2026.
 - `db-backup.ps1`: alle Datenbanken sichern und wiederherstellen, mit automatischer Sicherung vor

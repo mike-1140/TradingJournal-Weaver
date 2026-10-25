@@ -33,8 +33,9 @@ entwickelt und gepflegt von mike-1140. Forks sind eigenständige Kopien und werd
 
 ## Voraussetzungen
 
-- **Windows** — andere Betriebssysteme werden derzeit nicht unterstützt (Anleitungen, Hilfsskripte
-  und die Ablageordner `C:\Trade_XML\`/`C:\Trade_CSV\` sind auf Windows zugeschnitten)
+- **Windows** — andere Betriebssysteme werden derzeit nicht offiziell unterstützt (Anleitungen und
+  Hilfsskripte sind auf Windows zugeschnitten). Der Datenimport ist für Linux/macOS vorbereitet:
+  Ablageordner per `.env` (`TRADE_XML_DIR`, `TRADE_CSV_DIR`), Tests laufen auf allen drei Systemen
 - Python 3.14
 - MySQL (lokal, Port 3306)
 - IBKR-Konto mit Flex-Query-Zugriff für echten Datenimport — das `test`-Environment

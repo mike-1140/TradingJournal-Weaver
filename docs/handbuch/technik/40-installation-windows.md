@@ -11,8 +11,13 @@ funktionieren. Beschreibt lokale Entwicklungsrechner.
 > [!IMPORTANT]
 > **Läuft nur unter Windows.** Die gesamte Installation ist auf Windows zugeschnitten: die
 > Schritt-für-Schritt-Anleitungen, die Hilfsskripte (PowerShell) und die Ablageordner für die
-> IBKR-Berichte (`C:\Trade_XML\`, `C:\Trade_CSV\`), die im Code fest vorgegeben sind. Andere
+> IBKR-Berichte (standardmäßig `C:\Trade_XML\`, `C:\Trade_CSV\`). Andere
 > Betriebssysteme werden derzeit nicht unterstützt.
+>
+> Der Datenimport (TradingJournal-Weaver) ist für Linux und macOS **vorbereitet**: Die
+> Ablageordner lassen sich in der `.env` einstellen (`TRADE_XML_DIR`, `TRADE_CSV_DIR`, sonst
+> `~/Trade_XML` und `~/Trade_CSV`), und die automatischen Tests laufen unter Windows, Linux und
+> macOS. Offiziell unterstützt — mit Anleitungen und Hilfsskripten — wird bisher nur Windows.
 
 ---
 

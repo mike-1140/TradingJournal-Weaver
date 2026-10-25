@@ -41,7 +41,9 @@ Die erste Seite nach dem Start: Hier siehst du auf einen Blick, wie es um das Po
   Cash und Kontostand mit Rendite. Welche Kacheln erscheinen, stellst du über das Zahnrad ein.
 - **Diagramme:** kumulierter P&L-Verlauf, P&L nach Strategie und nach Option/Aktie, monatlicher
   P&L der letzten 12 Monate und der Kontostand-Verlauf.
-- **Optionen, die diese Woche verfallen**, und **aktuelle offene Positionen** ganz unten.
+- **Optionen, die diese Woche verfallen**, und **aktuelle offene Positionen** ganz unten. Die
+  Positionstabelle zeigt alle offenen Positionen (Anzahl im Kopf, bei vielen Einträgen
+  scrollbar) und verlinkt auf *Offene Aktien* und *Offene Optionen*.
 
 ![Dashboard: Diagramme](img/15-rundgang/03-dashboard-diagramme.png)
 
@@ -94,6 +96,10 @@ beschreibt [Überblick — vom Trade bis zur Auswertung](10-ueberblick.md)).
 *Geschlossen*), Brutto- und Netto-P&L, Bestand, Erlösen (Proceeds) und Kommission. Das
 **Log-Badge** zeigt, ob die Kampagne schon im Log dokumentiert ist (grün hinterlegt = ja). Oben
 umschalten zwischen offenen, geschlossenen und allen Kampagnen; das Suchfeld durchsucht alle.
+Daneben filtert eine zweite Knopfreihe nach **Art**: *Aktien* (nur Aktien), *Wheel* (Aktien und
+Optionen, mit oder ohne Zuteilung), *Optionen* (nur Einzeloptionen) und *Spreads* (mindestens ein
+Leg gehört zu einem Spread). Die Art wird aus allen Buchungen der Kampagne bestimmt und steht als
+Etikett auf jeder Karte.
 
 **Detailseite** (Klick auf eine Karte):
 

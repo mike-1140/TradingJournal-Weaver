@@ -11,12 +11,12 @@ import xml.dom.minidom
 from datetime import datetime
 from pathlib import Path
 
-from src.config import DB_MAP, load_active_targets
+from src.config import DB_MAP, TRADE_XML_DIR, load_active_targets
 from src.logger_setup import setup_logging
 from src.utils.path_utils import get_project_root
 
 # Konstanten – analog zu import_ibkr_trades.py
-BASE_XML_FILE_PATH_PROD = r'C:\Trade_XML'
+BASE_XML_FILE_PATH_PROD = str(TRADE_XML_DIR)   # per .env (TRADE_XML_DIR)
 
 # Dateinamen werden dynamisch aus table_prefix + environment gebildet:
 # summary_{table_prefix}{environment}.xml  z.B. summary_mike_money.xml

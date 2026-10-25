@@ -80,6 +80,7 @@ Werte ausfüllen (siehe `.env.example` für alle Felder):
 | `IMAP_USERNAME` / `IMAP_PASSWORD` / `IMAP_SERVER` | Nur nötig, falls `get_flexquery_emails.py` genutzt wird |
 | `IBKR_FLEX_QUERIES` | Optional — nur für den zweiten Import-Kanal `get_flexquery_api.py` |
 | `MAX_GAP_DAYS` | Optional — Tage, die eine glattgestellte Kampagne *PENDING* bleibt, bevor sie *CLOSED* wird (Standard `10`, ganze Zahl ≥ 1) |
+| `TRADE_XML_DIR` / `TRADE_CSV_DIR` | Optional — Ablageordner für die IBKR-Berichte (XML bzw. Kontoauszug-CSV). Standard: Windows `C:\Trade_XML` / `C:\Trade_CSV`, Linux/macOS `~/Trade_XML` / `~/Trade_CSV`. Alle Unterordner werden darunter angelegt |
 
 **Sicherheit:** `.env` ist in `.gitignore` — niemals committen.
 

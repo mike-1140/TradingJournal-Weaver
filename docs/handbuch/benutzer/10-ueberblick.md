@@ -12,7 +12,7 @@ seine Daten hochlädt.
 > [!IMPORTANT]
 > **Läuft nur unter Windows.** Die gesamte Installation ist auf Windows zugeschnitten: die
 > Schritt-für-Schritt-Anleitungen, die Hilfsskripte (PowerShell) und die Ablageordner für die
-> IBKR-Berichte (`C:\Trade_XML\`, `C:\Trade_CSV\`), die im Code fest vorgegeben sind. Andere
+> IBKR-Berichte (standardmäßig `C:\Trade_XML\`, `C:\Trade_CSV\`). Andere
 > Betriebssysteme werden derzeit nicht unterstützt.
 
 Beteiligt sind zwei Programme, die sich eine MySQL-Datenbank teilen:

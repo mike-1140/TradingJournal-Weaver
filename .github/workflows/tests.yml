@@ -2,12 +2,18 @@ name: Tests
 
 on:
   push:
-    branches: [master]
+    branches: [master, entwicklung]
   pull_request:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    # Ablageordner und Pfade sind plattformneutral (src/utils/data_dirs.py) - auf allen drei
+    # Systemen pruefen. fail-fast aus, damit ein Fehler auf einem System die anderen nicht abbricht.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Repo auschecken

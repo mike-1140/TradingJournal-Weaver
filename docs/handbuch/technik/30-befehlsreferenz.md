@@ -52,6 +52,10 @@ falls dieselben Daten über beide Kanäle ankommen. Einzige Ausnahme: der dedizi
 
 ## Verzeichnisstruktur (XML-Dateien)
 
+Gezeigt mit den Standardordnern unter Windows. Die Basisordner lassen sich in der `.env`
+ändern (`TRADE_XML_DIR`, `TRADE_CSV_DIR`; unter Linux/macOS standardmäßig `~/Trade_XML` und
+`~/Trade_CSV`), die Unterordner bleiben gleich.
+
 ```
 C:\Trade_XML\
   incoming_mail\                ← eingehende XML-Dateien per E-Mail (accountId-Routing)

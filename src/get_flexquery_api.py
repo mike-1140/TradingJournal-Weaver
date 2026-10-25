@@ -13,8 +13,8 @@ genauso konfiguriert wie die Mail-Query: Trades + OptionEAE + CorporateActions.
     (Activity Statement, CSV nur per Mail) ueber snapshot_csv. Die FlexQueries enthalten
     keine EquitySummary/CashReport-Sektionen.
 
-Schreibt nach OUT_FOLDER_XML_API (C:\\Trade_XML\\incoming_api\\), getrennt von
-get_flexquery_emails.py's C:\\Trade_XML\\incoming_mail\\ — beide Ordner werden vom
+Schreibt nach OUT_FOLDER_XML_API (<TRADE_XML_DIR>\\incoming_api\\, Standard C:\\Trade_XML), getrennt
+von get_flexquery_emails.py's <TRADE_XML_DIR>\\incoming_mail\\ — beide Ordner werden vom
 import-Step gleichwertig gescannt (siehe import_ibkr_trades.py).
 
 Unterstützt mehrere Konten/Logins (money, paper, autom_money, autom_paper, mehrere User ...).
@@ -55,14 +55,16 @@ from xml.etree import ElementTree as ET
 from dotenv import load_dotenv
 
 from src.logger_setup import setup_logging
+from src.utils.data_dirs import XML_INCOMING_API
 from src.utils.path_utils import get_project_root
 
 load_dotenv()
 
 _session = requests.Session()
 
-# Bewusst getrennt von get_flexquery_emails.py's C:\Trade_XML\incoming_mail\ (siehe Docstring oben).
-OUT_FOLDER_XML_API = r'C:\Trade_XML\incoming_api'
+# Bewusst getrennt von get_flexquery_emails.py's incoming_mail (siehe Docstring oben).
+# Basisordner per .env (TRADE_XML_DIR), siehe src/utils/data_dirs.py.
+OUT_FOLDER_XML_API = str(XML_INCOMING_API)
 
 # Persistenter "heute schon geholt"-Merker, unabhaengig vom Ordnerinhalt.
 # Liegt bewusst NICHT in incoming_api\ (kein *.xml, wird vom XML-Scan in

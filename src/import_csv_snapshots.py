@@ -1,7 +1,7 @@
 """
-Scannt C:\\Trade_CSV\\incoming\\ nach neuen Activity-Statement-CSVs,
+Scannt <TRADE_CSV_DIR>\\incoming\\ (Standard C:\\Trade_CSV) nach neuen Activity-Statement-CSVs,
 importiert jeden als account_snapshots-Eintrag und verschiebt die Datei
-nach C:\\Trade_CSV\\incoming\\{user}\\processed\\.
+nach <TRADE_CSV_DIR>\\incoming\\{user}\\processed\\.
 
 Routing: accountId aus dem CSV-Inhalt → accounts.toml (via config.py::get_account_config())
          (funktioniert mit maskierten IDs wie U***1234)
@@ -18,12 +18,12 @@ from datetime import datetime
 from pathlib import Path
 from sqlalchemy import text
 
-from src.config import TABLE_ACCOUNT_SNAPSHOTS, get_account_config, get_engine
+from src.config import CSV_INCOMING, TABLE_ACCOUNT_SNAPSHOTS, get_account_config, get_engine
 from src.logger_setup import setup_logging
 from src.parsers.activity_csv_parser import ActivityCsvParser
 from src.utils.path_utils import get_project_root
 
-IN_FOLDER_CSV_INCOMING = Path(r'C:\Trade_CSV\incoming')
+IN_FOLDER_CSV_INCOMING = CSV_INCOMING   # Basisordner per .env (TRADE_CSV_DIR)
 
 log_file = get_project_root() / "log/app.log"
 logger, _ = setup_logging('my_app', level="simple", log_file=log_file)
