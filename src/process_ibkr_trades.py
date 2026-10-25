@@ -386,9 +386,15 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         new_id = repo.insert_open_trade(new_trade)
         OpenTradeSchema.log_open_trade(new_trade, "Open", False)
 
-        # Assignment-linkID konsumieren (falls dieser STK-Open durch ein Assignment ausgelöst wurde)
+        # Assignment-linkID konsumieren (falls dieser STK-Open durch ein Assignment ausgelöst wurde).
+        # Nur gültig für dieselbe Zuteilung (gleicher Zeitpunkt): wurde der STK-Open vor dem
+        # Options-Close verarbeitet, bliebe die gemerkte ID sonst liegen und landete beim
+        # nächsten STK-Open des Symbols. Eine eigene linkID aus trades_raw hat immer Vorrang.
         h_open = tracker.holdings.get(symbol, {})
         pending_link_id = h_open.pop('pending_link_id', None) if h_open else None
+        pending_link_time = h_open.pop('pending_link_time', None) if h_open else None
+        if pending_link_id and str(pending_link_time) != str(new_trade.get("dateTime")):
+            pending_link_id = None
 
         tracker.link_to_campaign_new(
             assetCategory=new_trade.get("assetCategory"),
@@ -412,7 +418,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             multiplier=new_trade.get("multiplier"),
             put_call=new_trade.get("putCall"),
             buy_sell=new_trade.get("buySell"),
-            link_id=pending_link_id or new_trade.get("linkID")
+            link_id=new_trade.get("linkID") or pending_link_id
         )
         repo.mark_trade_processed(TABLE_TRADES_RAW, raw_trade_id)
         return
@@ -462,6 +468,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                     underlying = cl_trade.get("underlyingSymbol") or cl_trade.get("symbol")
                     if underlying in tracker.holdings:
                         tracker.holdings[underlying]['pending_link_id'] = link_id_2c
+                        tracker.holdings[underlying]['pending_link_time'] = new_trade.get("dateTime")
                 elif cl_trade["status"] == TradeStatus.CASH_SETTLED:
                     action = LedgerAction.CASH_SETTLEMENT
                     # das bewegte Cash ist im proceedsClose gespeichert!!

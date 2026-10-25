@@ -240,3 +240,67 @@ class TestBug2OptNormalCloseBuchtNetcash:
         assert ledger_call["netcash"] == Decimal("-100")
         assert ledger_call["proceeds"] == Decimal("-100")
         assert ledger_call["commission"] == Decimal("-0.65")
+
+
+class TestAssignmentLinkIdNichtVerschleppen:
+    """Regressionstest (gefunden 2026-10-25, OMEX in zwei Datenbestaenden): Beim Assignment
+    merkt sich Case 2c die linkID als pending_link_id fuer den folgenden STK-Open. Wird der
+    STK-Open derselben Zuteilung VOR dem Options-Close verarbeitet, bleibt die gemerkte ID
+    liegen und landete beim naechsten STK-Open des Symbols -- sogar vor dessen eigener
+    IBKR-linkID. Jetzt gilt: eigene linkID hat Vorrang, die gemerkte nur bei gleichem
+    Zeitpunkt (dieselbe Zuteilung)."""
+
+    SEPT = datetime(2024, 9, 20, 16, 20)
+    OKT = datetime(2024, 10, 18, 16, 20)
+
+    def _stk_buy(self, raw_id, dt, link_id):
+        return _raw_trade(id=raw_id, symbol="OMEX", dateTime=dt, tradeID=f"S{raw_id}",
+                          linkID=link_id, conid=111)
+
+    def _assign_put(self, fake_repo, raw_id, dt, link_id):
+        fake_repo.seed_open_trade(
+            symbol=f"OMEX P{raw_id}", assetCategory="OPT", quantity=Decimal("-1"),
+            putCall="P", strike=Decimal("3"), expiry=dt, multiplier=Decimal("100"),
+            tradePrice=Decimal("0.20"), netCash=Decimal("20"), proceeds=Decimal("20"),
+            ibCommission=Decimal("-0.65"), dateTime=datetime(2024, 8, 1), buySell="SELL",
+            currency="USD", fxRateToBase=Decimal("1"), tradeID=f"O{raw_id}",
+            underlyingSymbol="OMEX",
+        )
+        return _raw_trade(
+            id=raw_id, symbol=f"OMEX P{raw_id}", assetCategory="OPT", quantity=Decimal("1"),
+            putCall="P", strike=Decimal("3"), expiry=dt, multiplier=Decimal("100"),
+            buySell="BUY", tradePrice=Decimal("0"), netCash=Decimal("0"), proceeds=Decimal("0"),
+            ibCommission=Decimal("0"), dateTime=dt, tradeID=f"T{raw_id}", status="Assigned",
+            underlyingSymbol="OMEX", linkID=link_id, conid=222,
+        )
+
+    def test_naechste_zuteilung_behaelt_eigene_linkid(self, dummy_logger, fake_repo, fake_tracker):
+        fake_tracker.holdings["OMEX"] = {}
+        # Sept: Aktie vor Option verarbeitet (gleicher Zeitstempel)
+        process_raw_trade(dummy_logger, self._stk_buy(801, self.SEPT, "L-SEPT"), fake_repo, fake_tracker, campaign_id=1)
+        process_raw_trade(dummy_logger, self._assign_put(fake_repo, 802, self.SEPT, "L-SEPT"), fake_repo, fake_tracker, campaign_id=1)
+        # Okt: naechste Zuteilung, wieder Aktie zuerst
+        process_raw_trade(dummy_logger, self._stk_buy(803, self.OKT, "L-OKT"), fake_repo, fake_tracker, campaign_id=1)
+
+        stk_links = [c["link_id"] for c in fake_tracker.ledger_calls if c["action"] == LedgerAction.STK_BUY]
+        assert stk_links == ["L-SEPT", "L-OKT"]
+
+    def test_liegengebliebene_id_landet_nicht_bei_spaeterem_normalkauf(self, dummy_logger, fake_repo, fake_tracker):
+        fake_tracker.holdings["OMEX"] = {}
+        process_raw_trade(dummy_logger, self._stk_buy(811, self.SEPT, "L-SEPT"), fake_repo, fake_tracker, campaign_id=1)
+        process_raw_trade(dummy_logger, self._assign_put(fake_repo, 812, self.SEPT, "L-SEPT"), fake_repo, fake_tracker, campaign_id=1)
+        # spaeterer normaler Kauf ohne linkID
+        process_raw_trade(dummy_logger, self._stk_buy(813, self.OKT, None), fake_repo, fake_tracker, campaign_id=1)
+
+        last_buy = [c for c in fake_tracker.ledger_calls if c["action"] == LedgerAction.STK_BUY][-1]
+        assert not last_buy["link_id"]
+
+    def test_option_vor_aktie_verknuepft_weiterhin(self, dummy_logger, fake_repo, fake_tracker):
+        """Normalfall: Option zuerst, Aktie ohne eigene linkID -> bekommt die gemerkte ID."""
+        fake_tracker.holdings["OMEX"] = {}
+        process_raw_trade(dummy_logger, self._assign_put(fake_repo, 821, self.SEPT, None), fake_repo, fake_tracker, campaign_id=1)
+        process_raw_trade(dummy_logger, self._stk_buy(822, self.SEPT, None), fake_repo, fake_tracker, campaign_id=1)
+
+        opt_call, stk_call = fake_tracker.ledger_calls
+        assert opt_call["action"] == LedgerAction.OPTION_EXERCISE
+        assert opt_call["link_id"] and stk_call["link_id"] == opt_call["link_id"]

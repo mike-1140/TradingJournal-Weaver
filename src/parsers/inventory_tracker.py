@@ -72,7 +72,8 @@ class InventoryTracker:
                 'options': inventory['options'],
                 'status': row['status'],
                 'closed_at': row['end_date'],
-                'pending_link_id': None
+                'pending_link_id': None,
+                'pending_link_time': None
             }
         return active_camps
 
@@ -219,7 +220,8 @@ class InventoryTracker:
             # Falls das Script gerade erst gestartet ist, wird hier initialisiert
             self.holdings[symbol] = {
                 'shares': 0, 'options': 0, 'campaign_id': None,
-                'closed_at': None, 'status': None, 'pending_link_id': None
+                'closed_at': None, 'status': None, 'pending_link_id': None,
+                'pending_link_time': None
             }
 
         h = self.holdings[symbol]
