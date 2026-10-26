@@ -91,6 +91,18 @@ ipconfig /flushdns
 
 Rückgängig machen mit `Set-DnsClientServerAddress -InterfaceAlias "WLAN" -ResetServerAddresses`.
 
+Die Einstellung bleibt bei Netzwechsel und Neustart erhalten, gilt aber nur für diese eine
+Netzwerkverbindung (WLAN und Netzwerkkabel getrennt). Kommt der Fehler wieder, zuerst prüfen, ob
+sie noch gesetzt ist — PowerShell (ohne Administrator):
+
+```powershell
+Get-DnsClientServerAddress -InterfaceAlias "WLAN" -AddressFamily IPv4
+```
+
+Steht dort nicht `1.1.1.1, 8.8.8.8`, die Einstellung erneut setzen. Erscheint in einem offenen
+WLAN (Hotel, Bahn) die Anmeldeseite nicht, die Einstellung kurz zurücksetzen, anmelden und danach
+wieder setzen.
+
 **Web-API: Fehler 1025 („Too many failed attempts“)**
 
 IBKR sperrt den Abruf vorübergehend, wenn kurz hintereinander zu viele fehlgeschlagene

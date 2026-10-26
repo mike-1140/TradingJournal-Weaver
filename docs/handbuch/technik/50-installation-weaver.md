@@ -179,6 +179,46 @@ Datum → CSV) nach `C:\Trade_CSV\incoming\`, Routing über die `accountId` in d
 Reihenfolge egal (Dedup je `snapshot_date`). Monats-/Zeitraumauszüge haben kein parsebares
 Einzeldatum → *Kein Datum im CSV — übersprungen*, Datei bleibt in `incoming\` liegen.
 
+## 8. Web-API: DNS-Auflösung des IBKR-Hosts
+
+`get_flexquery_api.py` ruft `gdcdyn.interactivebrokers.com` auf. Der Name ist kein einfacher
+A-Eintrag, sondern eine Akamai-CNAME-Kette:
+
+```
+gdcdyn.interactivebrokers.com
+  → www.interactivebrokers.com.edgekey.net
+    → e72360.a.akamaiedge.net → A-Records (wechselnd)
+```
+
+DNS-Forwarder in Handy-Hotspots (Android: `192.168.43.x`) und manchen kleinen Routern bzw. der
+DNS des Mobilfunkanbieters dahinter scheitern an dieser Kette (`nslookup` → `Server failed`),
+während kurze Namen weiter aufgelöst werden. Folge im Log: `NameResolutionError … [Errno 11002]
+getaddrinfo failed`. Die Anfrage erreicht IBKR nicht — kein Token-/Query-Fehler und kein
+fehlgeschlagener Versuch im Sinne der Sperre 1025. Der Mail-Abruf (`get_flexquery_emails.py`)
+nutzt andere Hostnamen und ist nicht betroffen.
+
+Behebung: feste DNS-Server (1.1.1.1, 8.8.8.8) auf dem Netzwerkadapter, Schritte in
+[Fehlerbehebung und häufige Fragen](../benutzer/90-fehlerbehebung.md). Hintergrund dazu:
+
+- Windows speichert die Einstellung **je Adapter** in der Registry
+  (`HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{Adapter-GUID}`):
+  `NameServer` = feste Server, `DhcpNameServer` = Vorschlag des Routers/Hotspots. Ist
+  `NameServer` gesetzt, hat er Vorrang.
+- Sie gilt unabhängig vom verbundenen Netz und übersteht Netzwechsel, Neustart und
+  Neustart des Hotspot-Handys. Sie gilt aber **nur für diesen Adapter** — WLAN, Ethernet und
+  USB-Tethering haben jeweils eigene Einträge.
+- Tritt der Fehler trotz Fix wieder auf, zuerst prüfen, ob die Einstellung noch gesetzt ist
+  (PowerShell, ohne Administrator):
+
+  ```powershell
+  Get-DnsClientServerAddress -InterfaceAlias "WLAN" -AddressFamily IPv4
+  ```
+
+  Steht dort die Adresse des Routers/Hotspots statt `1.1.1.1, 8.8.8.8`, wurde sie zurückgesetzt
+  (z. B. durch Netzwerk-Reset oder Windows-Update) und muss neu gesetzt werden.
+- Offene WLANs mit Anmeldeseite (Hotel, Bahn) zeigen diese mit festen DNS-Servern teils nicht an.
+  Dann vorübergehend `-ResetServerAddresses`, anmelden, danach wieder setzen.
+
 ---
 
 ## Weiterführende Dokumentation
