@@ -131,9 +131,13 @@ vier Blickwinkel: offene und geschlossene Spreads, Vertical Spreads, Iron Condor
 
 **Detailseite:** Kennzahlen (Ergebnis, erhaltene/gezahlte Prämie, Haltedauer, Kommission), alle
 Beine in einer Tabelle, ein Performance-Block (ROI, Gewinn pro Tag) und die Verknüpfung zum
-Psychologie-Eintrag — fehlt er noch, lässt er sich hier direkt anlegen.
+Psychologie-Eintrag — fehlt er noch, lässt er sich hier direkt anlegen. Bei einem **Iron Condor**
+zeigt eine Strukturgrafik Put- und Call-Spread nebeneinander, je mit Strikes, Breite und — bei
+geschlossenen — Ergebnis.
 
 ![Spread-Detailseite](img/15-rundgang/10-spread-detail.png)
+
+![Iron Condor: Strukturgrafik](img/15-rundgang/10-iron-condor-struktur.png)
 
 ## 7. Log — das Entscheidungsjournal
 

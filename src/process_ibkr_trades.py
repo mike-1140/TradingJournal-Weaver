@@ -336,36 +336,9 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         log.warning(f"dateTime fehlt für Trade ID {raw_trade_id} ({symbol}) — Trade übersprungen")
         return
 
-    # Beim Umstausch werden 2 Trades erzeugt:
-    # die quantity gibt die Reihenfolge an 1, bzw. 2
-    # -> Eintrag in Ledger und Raw-Trade als processed markieren
+    # Devisentausch (CASH): kein FIFO, keine Kampagne, kein Ledger-Eintrag — die Tausche stehen
+    # bereits seit dem Import in trades_fx. Raw-Trade nur als verarbeitet markieren.
     if new_trade['assetCategory'] == AssetCategory.CASH:
-        if remaining_qty == 1 or remaining_qty == 2:
-            base, quote = new_trade.get("symbol").split(".")
-            if remaining_qty == 1:
-                action = f"FX_EXCHANGE_FROM_{base}"
-            else:
-                action = f"FX_EXCHANGE_TO_{quote}"
-            if campaign_id:
-                tracker.link_to_campaign_new(
-                    assetCategory=new_trade.get("assetCategory"),
-                    campaign_id=campaign_id,
-                    source_table="TRADES_RAW",
-                    source_id=raw_trade_id,
-                    netcash=to_decimal(new_trade['netCash']),
-                    proceeds=Decimal('0'),
-                    commission=to_decimal(new_trade['ibCommission']),
-                    pnl=Decimal(new_trade['tradePrice']),  # der Umrechnungsfaktor
-                    quantity=Decimal('0'),
-                    action=action,
-                    dateTime=new_trade.get("dateTime"),
-                    conid=new_trade.get("conid"),
-                    currency=new_trade.get("currency", "USD"),
-                    fxRateToBase=new_trade.get("fxRateToBase", 1),
-                    symbol=new_trade.get("symbol"),
-                    trade_price=new_trade.get("tradePrice"),
-                    link_id=new_trade.get("linkID")
-                )
         repo.mark_trade_processed(TABLE_TRADES_RAW, raw_trade_id)
         return
 
@@ -440,13 +413,11 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         # CASE 2c: EXACT MATCH (Mengen heben sich genau auf)
         # ------------------------------------------------------
         if open_abs == new_abs:
-            # realized_pnl = (tr['netCash'] + (new_trade['netCash'] * (new_abs / abs(new_trade['quantity']))))
             ratio = new_abs / abs(new_trade['quantity'])
             # Nur die Schließ-Kommission ans Ledger — Opening-Kommission wurde beim TRADE_OPEN bereits gebucht
             close_commission_2c = to_decimal(new_trade.get('ibCommission')) * to_decimal(ratio)
 
             cl_trade = OpenTradeSchema.to_closed_trade(tr, new_trade, ratio)
-            #                 "netCashOpen", "tradePriceClose", "netCashClose", "ibCommission"])
 
 
             ClosedTradeSchema.log_closed_trade(cl_trade, "Close", False)
@@ -523,13 +494,11 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             # Wie viel Prozent des neuen Trades verbrauchen wir? (Hier 100% des Rests)
             close_ratio_of_new = new_abs / abs(new_trade['quantity'])
 
-            # realized_pnl = ((tr['netCash'] * close_ratio_of_open) + (new_trade['netCash'] * close_ratio_of_new))
-            # → nicht mehr verwendet; cl_trade['profit'] (= fifoPnlRealized) wird direkt übergeben (konsistent mit Case 2c)
+            # P&L: cl_trade['profit'] (= fifoPnlRealized) wird direkt übergeben (konsistent mit Case 2c)
 
             # 1. Alte Tranche schließen
             # new_trade muss ich schließen
             cl_trade = OpenTradeSchema.partial_close_new_open(tr, new_trade, close_ratio_of_open)
-            #                 "netCashOpen", "tradePriceClose", "netCashClose", "ibCommission"])
 
             ClosedTradeSchema.log_closed_trade(cl_trade, "Close", False)
 
@@ -546,7 +515,6 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             tr['proceeds'] = tr['proceeds'] * rem_factor
             tr['ibCommission'] = tr['ibCommission'] * rem_factor
             tr['status'] = TradeStatus.SPLIT_REST
-            #                 "ibCommission"])
             repo.insert_open_trade(tr)
 
             OpenTradeSchema.log_open_trade(tr, "Open", False)
@@ -589,11 +557,9 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             # Nur die anteilige Schließ-Kommission — Opening-Kommission bereits beim TRADE_OPEN gebucht
             close_commission_2b = to_decimal(new_trade.get('ibCommission')) * to_decimal(close_ratio_of_new)
 
-            # realized_pnl = -(tr['netCash'] + (new_trade['netCash'] * close_ratio_of_new))
 
             # 1. Tranche schließen
             cl_trade = OpenTradeSchema.to_closed_trade(tr, new_trade, close_ratio_of_new)
-            #                 "tradePriceClose", "netCashOpen", "netCashClose", "ibCommission"])
 
             ClosedTradeSchema.log_closed_trade(cl_trade, "Close", False)
             # das muss überprüft werden !!
@@ -631,7 +597,6 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             new_trade['netCash'] = new_trade['netCash'] * rem_factor
             new_trade['proceeds'] = new_trade['proceeds'] * rem_factor
             new_trade['ibCommission'] = new_trade['ibCommission'] * rem_factor
-            #                 "ibCommission"])
 
 
             repo.mark_trade_processed(TABLE_TRADES_OPEN, tr['id'])
@@ -648,7 +613,6 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
         new_trade['proceeds'] = new_trade['proceeds'] * rev_ratio
         new_trade['ibCommission'] = new_trade['ibCommission'] * rev_ratio
         new_trade['status'] = TradeStatus.REV_OPEN
-        #                 "ibCommission"])
         new_id = repo.insert_open_trade(new_trade)
         OpenTradeSchema.log_open_trade(new_trade, "Open", False)
 

@@ -34,7 +34,6 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 - **Rolls nicht als Spread erkennen** — Ein Roll per Combo-Order erscheint heute als Calendar-
   bzw. Diagonal-Spread mit nur einem Bein. Schließende Combo-Orders sollen vor der
   Strategie-Erkennung herausgefiltert werden. *Braucht Beispieldaten* (Fall 7).
-- **Iron-Condor-Grafik** — Die Strukturgrafik auf der Detailseite eines Iron Condors bleibt leer.
 
 ## Später — Komfort und Auswertung
 
@@ -72,6 +71,8 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 
 ## Erledigt (Auswahl)
 
+- Iron-Condor-Strukturgrafik auf der Spread-Detailseite gefüllt; Put/Call-Filter in den
+  Options-Listen und Farben (Call grün, Put rot) korrigiert.
 - Kampagnen nach Art filtern: *Aktien*, *Wheel* (Aktien und Optionen), *Optionen*, *Spreads*;
   die Art wird aus allen Buchungen der Kampagne bestimmt.
 - **v1.1.0 — öffentliche Freigabe:** Quellcode öffentlich (PolyForm Noncommercial), Handbücher

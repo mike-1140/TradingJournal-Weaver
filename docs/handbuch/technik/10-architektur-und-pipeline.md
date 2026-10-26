@@ -616,11 +616,6 @@ assetCategory = "CASH"   (die beiden „von“/„nach“-Zeilen aus § 5.3)
   (trades_fx wird bereits beim Import befüllt, nicht hier)
 ```
 
-Im Code steht zusätzlich ein Zweig, der für die Zeile „von“ `FX_EXCHANGE_FROM_<Basis>` und für
-„nach“ `FX_EXCHANGE_TO_<Quote>` ins Ledger schreiben würde — aber nur mit `campaign_id`. Da
-CASH-Trades vor der Verarbeitung nie einer Kampagne zugeordnet werden (`campaign_id = None`),
-läuft dieser Zweig derzeit nie; in den Echtdaten gibt es keinen einzigen `FX_*`-Ledger-Eintrag.
-
 #### Fall 1: Gleiche Richtung (Positionsaufbau)
 ```
 Bedingung: current_qty * new_qty > 0  ODER  current_qty = 0
@@ -796,7 +791,6 @@ Seit 2026-05 werden **feingranulare Actions** geschrieben — statt generischem 
 | Optionen: Schließung | `OPT_PUT_BUY_CLOSE`, `OPT_PUT_SELL_CLOSE`, `OPT_CALL_BUY_CLOSE`, `OPT_CALL_SELL_CLOSE` + `*_PARTIAL`-Varianten | Fall 2c bzw. 2a |
 | Options-Events | `OPTION_EXPIRATION`, `OPTION_EXERCISE`, `CASH_SETTLEMENT` | OptionEAE (Verfall / Ausübung+Assignment / Barausgleich) |
 | Sonstiges | `TRADE_REVERSAL_OPEN`, `STOCK_SPLIT` | Fall 2b Remainder / CorporateAction |
-| (vorgesehen, derzeit nie geschrieben) | `FX_EXCHANGE_FROM_<Währung>`, `FX_EXCHANGE_TO_<Währung>` | CASH-Trade mit Kampagne — siehe Fall 0 |
 
 **Hinweis:** Die generischen Bezeichnungen `TRADE_OPEN`, `TRADE_CLOSE_FULL`, `TRADE_CLOSE_PARTIAL` in den Fallbeschreibungen oben (Abschnitt 6.2) stehen stellvertretend für die jeweilige feingranulare Action. Ältere Datenbestände können noch die generischen Actions enthalten; TradingJournal kennt beide Varianten, ein Neuaufbau per Summary-Re-Import schreibt die feingranularen.
 

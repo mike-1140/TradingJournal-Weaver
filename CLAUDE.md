@@ -92,7 +92,7 @@ IBKR sign convention: **BUY → netCash negative, SELL → netCash positive**
 
 | Case | Condition | Action |
 |---|---|---|
-| CASH | assetCategory == 'CASH' | Nur `processed=1` (kein FIFO, keine Kampagne); der `FX_EXCHANGE_FROM_/TO_`-Ledger-Zweig braucht `campaign_id` und läuft daher nie (CASH bekommt `campaign_id=None`). Die zwei `trades_raw`-Zeilen je Tausch haben `quantity` 1 = „von“ / 2 = „nach“ (Kennung, keine Menge); `trades_fx` (1 Zeile je Tausch) wird schon beim Import befüllt |
+| CASH | assetCategory == 'CASH' | Nur `processed=1` (kein FIFO, keine Kampagne, kein Ledger-Eintrag; der nie laufende `FX_EXCHANGE_FROM_/TO_`-Zweig wurde 2026-10-26 entfernt). Die zwei `trades_raw`-Zeilen je Tausch haben `quantity` 1 = „von“ / 2 = „nach“ (Kennung, keine Menge); `trades_fx` (1 Zeile je Tausch) wird schon beim Import befüllt |
 | Case 1 | Same direction or flat | INSERT `trades_open`, action=TRADE_OPEN |
 | Case 2c | `open_abs == new_abs` | Full close → `trades_close` |
 | Case 2a | `open_abs > new_abs` | Partial close → `trades_close` + re-insert remainder as SPLIT_REST |
@@ -158,8 +158,6 @@ in `to_closed_trade()` Open vollständig + Close anteilig (`close_portion`), in
 - `clean_trade_dict()` in `process_ibkr_trades.py` normalizes Decimal fields before processing
 - Checksums (MD5) prevent duplicate imports — based on tradeID+datetime+symbol+qty+price
 - Tests live in `tests/` — uses `DummyLogger` and `DummyDBAccess` mocks from `conftest.py`
-- The large commented-out block at the bottom of `process_ibkr_trades.py` is the old schema-delegation
-  approach — it can be ignored/removed eventually
 
 ### Linter-Warnung: `open_trade.py`
 Der Linter (PyCharm/Ruff) hat `closed_trade['status'] = status` in `to_closed_trade()` in den

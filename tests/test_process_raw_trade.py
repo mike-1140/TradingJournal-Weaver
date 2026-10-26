@@ -304,3 +304,21 @@ class TestAssignmentLinkIdNichtVerschleppen:
         opt_call, stk_call = fake_tracker.ledger_calls
         assert opt_call["action"] == LedgerAction.OPTION_EXERCISE
         assert opt_call["link_id"] and stk_call["link_id"] == opt_call["link_id"]
+
+
+class TestCashDevisentauschOhneLedger:
+    """Der FX-Ledger-Zweig (FX_EXCHANGE_FROM_/TO_) wurde 2026-10-26 entfernt: er buchte nur mit
+    campaign_id, CASH-Trades bekommen aber nie eine -- lief also nie. Devisentausche stehen in
+    trades_fx. Ein CASH-Raw-Trade wird nur als verarbeitet markiert, auch wenn (theoretisch)
+    eine campaign_id mitkaeme."""
+
+    def test_cash_trade_wird_nur_als_verarbeitet_markiert(self, dummy_logger, fake_repo, fake_tracker):
+        for qty in (Decimal("1"), Decimal("2")):  # 1 = "von"-Seite, 2 = "nach"-Seite
+            raw = _raw_trade(id=900 + int(qty), symbol="EUR.USD", assetCategory="CASH",
+                             quantity=qty, tradePrice=Decimal("1.08"), tradeID=f"FX{qty}")
+            process_raw_trade(dummy_logger, raw, fake_repo, fake_tracker, campaign_id=5)
+
+        assert fake_tracker.ledger_calls == []
+        assert fake_repo._open_trades == []
+        assert (TABLE_TRADES_RAW, 901) in fake_repo.processed
+        assert (TABLE_TRADES_RAW, 902) in fake_repo.processed
