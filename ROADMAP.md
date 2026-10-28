@@ -21,13 +21,8 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
   Options-Positionen heute nicht auf den neuen Kontrakt umgestellt; ein späterer Verfall oder
   Rückkauf eröffnet dann eine falsche Gegenposition. *Braucht Beispieldaten* (siehe
   [Beispiele gesucht](BEISPIELE-GESUCHT.md), Fall 1).
-- **Status bei Teilschließung** — Wird nur ein Teil einer Option zugeteilt oder verfällt eine in
-  mehreren Tranchen eröffnete Option, steht *Closed* statt *Assigned*/*Expired*. Ergebnis und
-  Abschlussart stimmen bereits.
 - **Ausübung eigener Optionen** — Bei einer Zuteilung werden Option und gelieferte Aktien
   verknüpft, bei der Ausübung eigener Long-Optionen noch nicht.
-- **Warnung bei Trades in falscher Reihenfolge** — Kommen ältere Trades nach jüngeren an (etwa
-  beim Nachholen alter Berichte), soll der Import deutlich warnen statt still falsch zu buchen.
 - **Andere Kapitalmaßnahmen erkennen** — Fusionen, Spin-offs oder Symbolwechsel werden heute wie
   normale Trades zum Preis 0 verarbeitet. Erster Schritt: erkennen und warnen. *Braucht
   Beispieldaten* (Fall 6).
@@ -71,6 +66,11 @@ Fehler oder Lücken, die Positionen, Kampagnen oder Ergebnisse verfälschen kön
 
 ## Erledigt (Auswahl)
 
+- Trades in falscher Reihenfolge: Kommen ältere Trades nach jüngeren an (etwa beim Nachholen alter
+  Berichte), hält die Verarbeitung für dieses Environment an und meldet den Fall, statt still
+  falsch zu buchen.
+- Status bei Teilschließung: Verfällt oder wird nur ein Teil einer Option zugeteilt bzw. schließt
+  ein Verfall mehrere Tranchen, steht jetzt *Expired*/*Assigned*/*CashSettled* statt *Closed*.
 - Iron-Condor-Strukturgrafik auf der Spread-Detailseite gefüllt; Put/Call-Filter in den
   Options-Listen und Farben (Call grün, Put rot) korrigiert.
 - Kampagnen nach Art filtern: *Aktien*, *Wheel* (Aktien und Optionen), *Optionen*, *Spreads*;

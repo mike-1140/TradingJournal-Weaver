@@ -17,9 +17,10 @@ viel bewirken. Schon eine Antwort auf eine einzelne Frage unten hilft.
 > [Bekannte Grenzen und offene Fragen](docs/handbuch/technik/90-bekannte-grenzen.md), Abschnitt
 > „Mithelfen“.
 
-**Wohin?** Für den Anfang bitte ins Forum, in dem das TradingJournal vorgestellt wurde. Später
-laufen solche Beispiele als Issue im Repository
-[TradingJournal-Weaver](https://github.com/mike-1140/TradingJournal-Weaver).
+**Wohin?** Am besten ins Forum, in dem das TradingJournal vorgestellt wurde. Mit GitHub-Konto geht
+es auch als Issue im Repository
+[TradingJournal-Weaver](https://github.com/mike-1140/TradingJournal-Weaver) — dafür gibt es die
+Vorlage [„Beispiel für ungetesteten Fall“](https://github.com/mike-1140/TradingJournal-Weaver/issues/new?template=beispiel.yml).
 
 ---
 
@@ -29,7 +30,7 @@ laufen solche Beispiele als Issue im Repository
 |---|---|---|---|
 | 1 | Aktiensplit während einer offenen Option oder eines Spreads | einmal, ohne offene Position | **hoch** — verfälscht Positionen |
 | 2 | Forward Split und `SS`-Split bei Aktien | nur Reverse Splits | mittel |
-| 3 | Teil-Zuteilung (z. B. 2 von 5 verkauften Puts) | nie | mittel |
+| 3 | Teil-Zuteilung (z. B. 2 von 5 verkauften Puts) | nie | niedrig — Code angepasst, Bestätigung mit echten Daten fehlt |
 | 4 | Vorzeitige Zuteilung des verkauften Beins eines Spreads | bei einer einzelnen Option ja, bei einem Spread nie | mittel |
 | 5 | Ausübung eigener Optionen mit Aktienlieferung | nie | mittel |
 | 6 | Fusion, Spin-off, Symbolwechsel, Delisting | nie | **hoch** — verfälscht Positionen |
@@ -117,8 +118,9 @@ Die Börse lost kontraktweise aus; es kann also jeden beliebigen Teil der Kontra
 (Kontrakte mit z. B. 50 Aktien gibt es nur nach einer Kapitalmaßnahme, siehe Fall 1.)
 
 Bei einer Zuteilung verbindet das Journal die Option mit dem gelieferten Aktien-Trade. Ist nur ein
-Teil der Kontrakte einer Position betroffen, steht nach heutigem Code-Stand *Closed* statt
-*Assigned* im abgeschlossenen Trade.
+Teil der Kontrakte einer Position betroffen, übernimmt der Code den Status *Assigned* inzwischen
+auch für die Teilmenge (vorher stand dort *Closed*) — mit echten IBKR-Daten einer
+Teil-Zuteilung ist das aber noch nicht geprüft.
 
 **Fragen:**
 

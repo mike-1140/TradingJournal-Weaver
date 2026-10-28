@@ -1,0 +1,59 @@
+name: Beispiel für ungetesteten Fall
+description: Ein Sonderfall aus „Beispiele gesucht“ ist in deinem Konto vorgekommen
+labels: ["beispiel"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke! Solche Beispiele helfen, Fälle zu prüfen, die im eigenen Konto noch nie vorkamen —
+        die Liste steht in [Beispiele gesucht](https://github.com/mike-1140/TradingJournal-Weaver/blob/master/BEISPIELE-GESUCHT.md).
+        Schon eine Antwort auf eine einzelne Frage dort hilft. Ohne GitHub-Konto geht das genauso
+        im Forum, in dem das TradingJournal vorgestellt wurde.
+
+        **Wichtig:** Flex-Query-Dateien enthalten vollständige Handelsdaten. Vor dem Anhängen die
+        **Kontonummer überall ersetzen** (z. B. durch `U1234567`, bei Paper-Konten `DU1234567`).
+        Trade-IDs, Kurse und Mengen bitte lassen. Anleitung: technisches Handbuch,
+        [Bekannte Grenzen und offene Fragen](https://github.com/mike-1140/TradingJournal-Weaver/blob/master/docs/handbuch/technik/90-bekannte-grenzen.md),
+        Abschnitt „Mithelfen“.
+  - type: dropdown
+    id: fall
+    attributes:
+      label: Welcher Fall?
+      description: Nummer aus „Beispiele gesucht“
+      options:
+        - "1 – Aktiensplit während einer offenen Option oder eines Spreads"
+        - "2 – Forward Split und SS-Split bei Aktien"
+        - "3 – Teil-Zuteilung"
+        - "4 – Vorzeitige Zuteilung des verkauften Beins eines Spreads"
+        - "5 – Ausübung eigener Optionen mit Aktienlieferung"
+        - "6 – Fusion, Spin-off, Symbolwechsel, Delisting"
+        - "7 – Rolls und schließende Combo-Orders (openCloseIndicator)"
+        - "8 – Futures und Optionen auf Futures"
+        - "9 – Konto mit anderer Basiswährung als EUR"
+        - "anderer Fall"
+    validations:
+      required: true
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Was ist passiert?
+      description: Kurz der Ablauf im Konto (Datum, Instrument, was IBKR gemacht hat) und — falls bekannt — Antworten auf die Fragen zum Fall.
+    validations:
+      required: true
+  - type: textarea
+    id: anhang
+    attributes:
+      label: Anonymisierte XML-Datei des Tages (optional)
+      description: Datei hierher ziehen oder einen Ausschnitt einfügen. Nur nach dem Ersetzen der Kontonummer!
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`git describe --tags` im Projektordner, oder die Build-Nummer unten in der Seitenleiste (falls du das Journal nutzt)"
+  - type: checkboxes
+    id: anonymisiert
+    attributes:
+      label: Datenschutz
+      options:
+        - label: Ich habe die Kontonummer überall ersetzt (oder hänge keine Datei an).
+          required: true

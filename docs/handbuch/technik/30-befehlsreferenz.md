@@ -336,6 +336,9 @@ python -m src.process_ibkr_trades
 python -m src.process_ibkr_trades money
 python -m src.process_ibkr_trades money dein_user_
 python -m src.process_ibkr_trades money zweiter_user_
+
+# Trotz Trades in falscher Reihenfolge verarbeiten (siehe unten)
+python -m src.process_ibkr_trades money dein_user_ --reihenfolge-ignorieren
 ```
 
 **Argumente (CLI-Override):**
@@ -343,6 +346,12 @@ python -m src.process_ibkr_trades money zweiter_user_
 |---|---|---|
 | 1 | Environment | Ja (für CLI-Override) |
 | 2 | Table-Prefix | Nein (Standard aus `.env`) |
+| beliebig | `--reihenfolge-ignorieren` | Nein |
+
+**Reihenfolge-Prüfung:** Liegt ein unverarbeiteter Trade zeitlich vor dem zuletzt verarbeiteten
+desselben Environments, wird dieses Environment nicht verarbeitet (Exit-Code 1, die übrigen
+laufen weiter). Ausgenommen: Verfall/Zuteilung/Barausgleich von Optionen. Hintergrund:
+[Architektur und Import-Pipeline](10-architektur-und-pipeline.md), § 6.1.
 
 ---
 

@@ -2,10 +2,11 @@
 
 Dieses Kapitel sammelt Probleme, die bei Einrichtung und Betrieb auftreten können, mit Ursache
 und Lösung. Es wächst mit den Fragen aus der Praxis — wer auf ein Problem stößt, das hier fehlt,
-meldet es gerne: **für den Anfang im Forum**, in dem das TradingJournal vorgestellt wurde.
-Fragen, die öfter kommen, werden dort gesammelt und zu einer FAQ zusammengefasst; erst in einem
-späteren Schritt laufen Meldungen über GitHub (siehe [Vorstellung](../vorstellung/10-vorstellung.md),
-Abschnitt „Status“).
+meldet es gerne: am besten **im Forum**, in dem das TradingJournal vorgestellt wurde. Fragen,
+die öfter kommen, werden dort gesammelt und zu einer FAQ zusammengefasst. Wer ein GitHub-Konto
+hat, kann stattdessen ein Issue anlegen — mit den Vorlagen „Fehler melden“ bzw. „Idee / Wunsch“
+im Repository [TradingJournal](https://github.com/mike-1140/TradingJournal/issues/new/choose)
+oder [TradingJournal-Weaver](https://github.com/mike-1140/TradingJournal-Weaver/issues/new/choose).
 
 > [!WARNING]
 > Bei Fragen in Foren oder auf GitHub **niemals** echte Kontonummern, Flex-Query-Dateien,

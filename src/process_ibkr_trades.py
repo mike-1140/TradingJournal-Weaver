@@ -5,6 +5,8 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any
 
+import pandas as pd
+
 from src.config import TABLE_PREFIX, TABLE_TRADES_RAW, TABLE_TRADES_OPEN, load_active_targets
 from src.db.db_access import DBAccess, TradeRepository
 from src.logger_setup import setup_logging, print_log
@@ -91,7 +93,67 @@ def _close_action(asset: str, put_call, buy_sell: str, partial: bool = False) ->
     return LedgerAction.STK_BUY_PARTIAL if partial else LedgerAction.STK_BUY_CLOSE
 
 
-def process_trades(environment: str, table_pref: str, table_trades_raw):
+def _close_booking(cl_trade, new_trade, tracker, close_commission, partial: bool = False):
+    """
+    Ledger-Buchung beim Schließen einer Tranche (Fälle 2a/2b/2c gemeinsam).
+    Optionen werten den Status des schließenden Events aus (Verfall/Zuteilung/Barausgleich) —
+    auch wenn nur ein Teil der Tranche oder mehrere Tranchen geschlossen werden.
+    Rückgabe: (action, netcash, proceeds, commission, link_id)
+    """
+    action = _close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"),
+                           cl_trade.get("buySellClose"), partial=partial)
+    netcash = to_decimal(cl_trade.get("netCashClose"))
+    proceeds = to_decimal(cl_trade.get("proceedsClose"))
+    commission = close_commission
+    link_id = cl_trade.get("linkID")
+
+    if cl_trade["assetCategory"] == AssetCategory.OPTION:
+        status = cl_trade.get("status")
+        if status == TradeStatus.EXPIRED:
+            action = LedgerAction.OPTION_EXPIRATION
+            netcash = proceeds = commission = Decimal('0')
+        elif status == TradeStatus.ASSIGNED:
+            action = LedgerAction.OPTION_EXERCISE
+            netcash = proceeds = commission = Decimal('0')
+            # linkID im Tracker merken, damit der folgende STK-Open (aus dem Assignment)
+            # denselben linkID bekommt
+            link_id = link_id or str(uuid.uuid4())
+            underlying = cl_trade.get("underlyingSymbol") or cl_trade.get("symbol")
+            if underlying in tracker.holdings:
+                tracker.holdings[underlying]['pending_link_id'] = link_id
+                tracker.holdings[underlying]['pending_link_time'] = new_trade.get("dateTime")
+        elif status == TradeStatus.CASH_SETTLED:
+            # das bewegte Cash steht in netCashClose/proceedsClose (BookTrade, Kommission 0)
+            action = LedgerAction.CASH_SETTLEMENT
+
+    return action, netcash, proceeds, commission, link_id
+
+
+OPTION_EVENT_STATUSES = (TradeStatus.EXPIRED, TradeStatus.ASSIGNED, TradeStatus.CASH_SETTLED)
+IGNORE_ORDER_FLAG = "--reihenfolge-ignorieren"
+
+
+def find_out_of_order_trades(df_raw, last_processed_dt):
+    """
+    Unverarbeitete Trades, die zeitlich VOR dem jüngsten bereits verarbeiteten liegen
+    (z. B. alte Berichte nachgeholt). Sie würden gegen den aktuellen Stand laufen —
+    etwa ein Verkauf ohne Bestand, der eine falsche Short-Tranche eröffnet.
+    Rückgabe: (blockierend, toleriert) als DataFrames.
+      - toleriert: Options-Ereignisse (Verfall/Zuteilung/Barausgleich) — IBKR liefert sie
+        gelegentlich erst mit dem Bericht des Folgetags; die Options-Tranche existiert ja.
+      - CASH wird nie geprüft (kein FIFO).
+    """
+    empty = df_raw.iloc[0:0]
+    if last_processed_dt is None or df_raw.empty:
+        return empty, empty
+    earlier = df_raw[(df_raw['assetCategory'] != AssetCategory.CASH)
+                     & (pd.to_datetime(df_raw['dateTime']) < pd.Timestamp(last_processed_dt))]
+    is_option_event = (earlier['assetCategory'] == AssetCategory.OPTION) & \
+                      earlier['status'].isin([s.value for s in OPTION_EVENT_STATUSES])
+    return earlier[~is_option_event], earlier[is_option_event]
+
+
+def process_trades(environment: str, table_pref: str, table_trades_raw, ignore_order: bool = False) -> bool:
     """
     Verarbeitet Trades aus der RAW-Tabelle und aktualisiert Open/Closed Trades
 
@@ -99,6 +161,9 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
         environment: Trading Environment ('money', 'paper', 'test')
         table_pref: Tabellen-Prefix für Multi-User Support
         table_trades_raw:
+        ignore_order: Verarbeiten, auch wenn Trades in falscher Reihenfolge vorliegen
+    Returns:
+        False, wenn die Verarbeitung wegen falscher Reihenfolge angehalten wurde, sonst True
     Raises:
         ValueError: Bei ungültigen Parametern
     """
@@ -128,7 +193,29 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
 
     if df_raw.empty:
         print_log(logger, "Keine neuen Trades zum Verarbeiten gefunden", True)
-        return
+        return True
+
+    # ===== REIHENFOLGE PRÜFEN =====
+    last_processed_dt = db.get_last_processed_raw_datetime(env_up, table_trades_raw)
+    blocking, tolerated = find_out_of_order_trades(df_raw, last_processed_dt)
+    if not tolerated.empty:
+        logger.info(f"Hinweis: {len(tolerated)} Options-Ereignis(se) (Verfall/Zuteilung/Barausgleich) "
+                    f"liegen vor dem zuletzt verarbeiteten Trade ({last_processed_dt}) — unkritisch, "
+                    f"werden verarbeitet")
+    if not blocking.empty:
+        first = blocking.iloc[0]
+        msg = (f"{env_up}: {len(blocking)} neue(r) Trade(s) liegen zeitlich VOR dem zuletzt verarbeiteten "
+               f"Trade ({last_processed_dt}), ältester: {first['dateTime']} {first['symbol']}. "
+               f"Verarbeitung gegen den aktuellen Stand kann falsche Positionen erzeugen "
+               f"(z. B. Verkauf ohne Bestand).")
+        if ignore_order:
+            logger.warning(msg + f" Wird wegen {IGNORE_ORDER_FLAG} trotzdem verarbeitet.")
+        else:
+            logger.error(msg)
+            logger.error(f"{env_up} wird NICHT verarbeitet. Empfohlen: Environment neu aufbauen "
+                         f"(reset_IBKR_DB.py + Import mit --from-summary). Bewusst trotzdem verarbeiten: "
+                         f"python -m src.process_ibkr_trades {environment} {table_pref} {IGNORE_ORDER_FLAG}")
+            return False
 
     first_trade_date = df_raw.iloc[0]['dateTime']
     tracker = InventoryTracker(logger, db, table_pref,
@@ -213,6 +300,7 @@ def process_trades(environment: str, table_pref: str, table_trades_raw):
     logger.info("=" * 80)
     logger.info("Trade-Verarbeitung abgeschlossen")
     logger.info("=" * 80)
+    return True
 
 
 def _resolve_split_holdings_symbol(trade: Dict[str, Any]) -> str:
@@ -424,39 +512,8 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             repo.insert_closed_trade(cl_trade)
 
             repo.mark_trade_processed(TABLE_TRADES_OPEN, tr['id'])
-            netcash = Decimal('0')
-            proceeds = Decimal('0')
-            commission = Decimal('0')
-            link_id_2c = cl_trade.get("linkID")
-            if cl_trade["assetCategory"] == AssetCategory.OPTION:
-                if cl_trade["status"] == TradeStatus.EXPIRED:
-                    action = LedgerAction.OPTION_EXPIRATION
-                elif cl_trade["status"] == TradeStatus.ASSIGNED:
-                    action = LedgerAction.OPTION_EXERCISE
-                    # linkID erzeugen und im Tracker merken, damit der folgende STK-Open
-                    # (aus dem Assignment) denselben linkID bekommt
-                    link_id_2c = cl_trade.get("linkID") or str(uuid.uuid4())
-                    underlying = cl_trade.get("underlyingSymbol") or cl_trade.get("symbol")
-                    if underlying in tracker.holdings:
-                        tracker.holdings[underlying]['pending_link_id'] = link_id_2c
-                        tracker.holdings[underlying]['pending_link_time'] = new_trade.get("dateTime")
-                elif cl_trade["status"] == TradeStatus.CASH_SETTLED:
-                    action = LedgerAction.CASH_SETTLEMENT
-                    # das bewegte Cash ist im proceedsClose gespeichert!!
-                    # netcash und commission = 0!! (BookTrade hat ibCommission=0)
-                    netcash = to_decimal(cl_trade.get("netCashClose"))
-                    proceeds = to_decimal(cl_trade.get("proceedsClose"))
-                    commission = close_commission_2c  # BookTrade → 0
-                else:
-                    action = _close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose"))
-                    netcash = to_decimal(cl_trade.get("netCashClose"))
-                    proceeds = to_decimal(cl_trade.get("proceedsClose"))
-                    commission = close_commission_2c
-            else:
-                action = _close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose"))
-                netcash = to_decimal(cl_trade.get("netCashClose"))
-                proceeds = to_decimal(cl_trade.get("proceedsClose"))
-                commission = close_commission_2c
+            action, netcash, proceeds, commission, link_id_2c = _close_booking(
+                cl_trade, new_trade, tracker, close_commission_2c)
 
             tracker.link_to_campaign_new(
                 assetCategory=cl_trade.get("assetCategory"),
@@ -502,9 +559,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 
             ClosedTradeSchema.log_closed_trade(cl_trade, "Close", False)
 
-
-            # das muss überprüft werden !!
-            cl_trade["status"] = TradeStatus.CLOSED
+            # Status des schließenden Events (Closed/Expired/Assigned/CashSettled) bleibt erhalten
             repo.insert_closed_trade(cl_trade)
             repo.mark_trade_processed(TABLE_TRADES_OPEN, tr['id'])
 
@@ -521,18 +576,20 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 
             # Nur die Schließ-Kommission (new_trade) — Opening-Kommission bereits beim TRADE_OPEN gebucht
             close_commission_2a = to_decimal(new_trade.get('ibCommission'))
+            action_2a, netcash_2a, proceeds_2a, commission_2a, link_id_2a = _close_booking(
+                cl_trade, new_trade, tracker, close_commission_2a, partial=True)
 
             tracker.link_to_campaign_new(
                 assetCategory=cl_trade.get("assetCategory"),
                 campaign_id=campaign_id,
                 source_table="TRADES_OPEN",
                 source_id=tr['id'],
-                netcash=to_decimal(cl_trade.get("netCashClose")),
-                proceeds=to_decimal(cl_trade.get("proceedsClose")),
-                commission=close_commission_2a,
+                netcash=netcash_2a,
+                proceeds=proceeds_2a,
+                commission=commission_2a,
                 pnl=to_decimal(cl_trade.get('profit')),
                 quantity=new_trade.get("quantity"),
-                action=_close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose"), partial=True),
+                action=action_2a,
                 dateTime=cl_trade.get("dateTimeClose"),
                 conid=cl_trade.get("conid"),
                 currency=new_trade.get("currency", "USD"),
@@ -544,7 +601,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 multiplier=cl_trade.get("multiplier"),
                 put_call=cl_trade.get("putCall"),
                 buy_sell=cl_trade.get("buySellClose"),
-                link_id=cl_trade.get("linkID")
+                link_id=link_id_2a
             )
 
             remaining_qty = Decimal('0')
@@ -562,21 +619,22 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
             cl_trade = OpenTradeSchema.to_closed_trade(tr, new_trade, close_ratio_of_new)
 
             ClosedTradeSchema.log_closed_trade(cl_trade, "Close", False)
-            # das muss überprüft werden !!
-            cl_trade["status"] = TradeStatus.CLOSED
+            # Status des schließenden Events (Closed/Expired/Assigned/CashSettled) bleibt erhalten
             repo.insert_closed_trade(cl_trade)
+            action_2b, netcash_2b, proceeds_2b, commission_2b, link_id_2b = _close_booking(
+                cl_trade, new_trade, tracker, close_commission_2b)
 
             tracker.link_to_campaign_new(
                 assetCategory=cl_trade.get("assetCategory"),
                 campaign_id=campaign_id,
                 source_table="TRADES_OPEN",
                 source_id=tr['id'],
-                netcash=to_decimal(cl_trade.get("netCashClose")),
-                proceeds=to_decimal(cl_trade.get("proceedsClose")),
-                commission=close_commission_2b,
+                netcash=netcash_2b,
+                proceeds=proceeds_2b,
+                commission=commission_2b,
                 pnl=to_decimal(cl_trade.get("profit")),
                 quantity=-cl_trade.get("quantity"),
-                action=_close_action(cl_trade.get("assetCategory"), cl_trade.get("putCall"), cl_trade.get("buySellClose")),
+                action=action_2b,
                 dateTime=cl_trade.get("dateTimeClose"),
                 conid=cl_trade.get("conid"),
                 currency=cl_trade.get("currency", "USD"),
@@ -588,7 +646,7 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
                 multiplier=cl_trade.get("multiplier"),
                 put_call=cl_trade.get("putCall"),
                 buy_sell=cl_trade.get("buySellClose"),
-                link_id=cl_trade.get("linkID")
+                link_id=link_id_2b
             )
 
             # 2. Den verbleibenden Rest des Tranche berechnen und weitermachen
@@ -645,12 +703,15 @@ def process_raw_trade(log, raw_data, repo, tracker, campaign_id):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 2:
+    ignore_order = IGNORE_ORDER_FLAG in sys.argv[1:]
+    args = [a for a in sys.argv[1:] if a != IGNORE_ORDER_FLAG]
+    results = []
+    if args:
         # CLI-Override: explizites Environment hat Vorrang vor pipeline.toml
-        env          = sys.argv[1].lower()
-        table_prefix = sys.argv[2] if len(sys.argv) >= 3 else TABLE_PREFIX
+        env          = args[0].lower()
+        table_prefix = args[1] if len(args) >= 2 else TABLE_PREFIX
         logger.info(f"CLI-Modus: {env} / {table_prefix}")
-        process_trades(env, table_prefix, TABLE_TRADES_RAW)
+        results.append(process_trades(env, table_prefix, TABLE_TRADES_RAW, ignore_order))
     else:
         # Auto-Modus: alle aktiven Targets aus pipeline.toml
         targets = load_active_targets()
@@ -658,4 +719,8 @@ if __name__ == "__main__":
             print("Keine aktiven Targets in pipeline.toml gefunden.")
             sys.exit(0)
         for t in targets:
-            process_trades(t["environment"], t["prefix"], TABLE_TRADES_RAW)
+            results.append(process_trades(t["environment"], t["prefix"], TABLE_TRADES_RAW, ignore_order))
+    # Exit-Code 1, wenn ein Environment wegen falscher Reihenfolge angehalten wurde —
+    # run_pipeline.py meldet den Schritt dann als FEHLER
+    if False in results:
+        sys.exit(1)

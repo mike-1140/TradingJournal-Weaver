@@ -111,7 +111,7 @@ Den Import kann ich jederzeit von Hand anstoßen (ein einziger Befehl) oder auto
 
 Das TradingJournal ist im täglichen Einsatz und wird laufend weiterentwickelt. Mit der Veröffentlichung des Quellcodes wünsche ich mir Rückmeldungen aus der Praxis — gerade auch zu Lücken in der Dokumentation.
 
-**Wohin mit Fragen und Fehlermeldungen?** Für den Anfang beantworte ich alles direkt im Forum, in dem ich das TradingJournal vorstelle. Fragen, die öfter kommen, sammle ich und fasse sie zu einer FAQ (häufig gestellte Fragen) zusammen. Erst in einem späteren Schritt läuft das Melden von Fehlern und das Vorschlagen von Änderungen über GitHub (Issues und Pull Requests).
+**Wohin mit Fragen und Fehlermeldungen?** Am besten ins Forum, in dem ich das TradingJournal vorstelle — dort beantworte ich alles direkt. Fragen, die öfter kommen, sammle ich und fasse sie zu einer FAQ (häufig gestellte Fragen) zusammen. Wer ein GitHub-Konto hat, kann Fehler, Ideen und Beispieldaten auch als Issue melden (es gibt Vorlagen dafür) oder Änderungen als Pull Request vorschlagen.
 
 ## Kleines Begriffs-Lexikon
 

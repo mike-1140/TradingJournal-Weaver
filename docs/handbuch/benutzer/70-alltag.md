@@ -107,6 +107,18 @@ Abschnitt 8). Dasselbe gilt sinngemäß, wenn Dateien länger liegen geblieben s
 Konto erst später in `accounts.toml` eingetragen wurde, während für dasselbe Environment schon
 neuere Trades verarbeitet waren.
 
+**Das Journal passt darauf auf:** Liegt ein neu importierter Trade zeitlich vor dem zuletzt
+verarbeiteten, verarbeitet die Pipeline dieses Environment **nicht** und meldet im Schritt
+*process* einen Fehler mit Datum und Symbol des ältesten betroffenen Trades. Die anderen
+Environments laufen normal weiter. Ausgenommen sind Verfall, Zuteilung und Barausgleich von
+Optionen — IBKR liefert sie gelegentlich erst mit dem Bericht des Folgetags; das ist unkritisch
+und steht nur als Hinweis im Protokoll. Wer weiß, was er tut, kann die Verarbeitung erzwingen
+(**[PowerShell]** im Ordner `TradingJournal-Weaver`):
+
+```powershell
+python -m src.process_ibkr_trades money dein_user_ --reihenfolge-ignorieren
+```
+
 > [!WARNING]
 > **Ist es schon passiert, hilft nur ein Neuaufbau des Environments** (`reset_IBKR_DB.py` und
 > Import aus der Sammeldatei, siehe Abschnitt 4, „Alles neu aufbauen“). Die Sammeldatei ist nach Datum sortiert und

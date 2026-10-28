@@ -525,12 +525,6 @@ und geschlossener Trades zeigen verknüpfte Trades mit gleicher `linkID` an.
 - **Ausübung eigener Optionen** (*Exercise*): Der Parser vergibt keine `linkID`, der Aktien-Trade
   wird nicht gesucht. Nur im Fall 2c erzeugt die Verarbeitung eine `linkID` für den Ledger-Eintrag
   des nächsten eröffnenden Aktien-Trades; in `trades_close`/`trades_open` bleibt sie leer.
-- **Teilschließungen** (Fall 2a/2b, z. B. 1 von 2 Kontrakten zugeteilt oder eine in zwei
-  Tranchen eröffnete Option auf einmal verfallen): Der Status in `trades_close` wird auf `Closed`
-  überschrieben, das Ledger schreibt eine normale Schließung statt `OPTION_EXERCISE` /
-  `OPTION_EXPIRATION`, und es gibt keine `pending_link_id`. `closedBy` bleibt richtig
-  (`ASSIGNMENT`/`EXPIRY`). In den Echtdaten kommt das bisher nur bei Verfall vor (8 Einträge
-  `status=Closed, closedBy=EXPIRY` über alle Environments).
 - **Ohne Aktien-Gegenstück** (z. B. Barausgleich) bleibt die `linkID` des Options-Eintrags ohne
   Partner. Ältere Datenbestände lassen sich mit `dev/migrate_backfill_assignment_linkid.py`
   nachträglich verknüpfen (idempotent).
@@ -574,9 +568,15 @@ for trade in trades:
 `trades_raw.processed=0` (`DBAccess.get_all_raw_trades`: `ORDER BY dateTime ASC, symbol ASC`).
 Innerhalb eines Laufs sind Dateireihenfolge, Quelle (`incoming_mail`/`incoming_api`) und
 Mehrfachlieferungen (Checksum-Dedup beim Import) deshalb irrelevant. Bereits verarbeitete Trades
-werden aber nicht neu einsortiert, und es gibt **keinen Guard** gegen nachträglich ankommende
-ältere Trades: Ein Trade mit `dateTime` vor dem jüngsten verarbeiteten Trade desselben
-Environments läuft gegen den aktuellen `trades_open`-/Tracker-Stand. Beispiel: Kauf 02.03. kommt
+werden aber nicht neu einsortiert: Ein Trade mit `dateTime` vor dem jüngsten verarbeiteten Trade
+desselben Environments liefe gegen den aktuellen `trades_open`-/Tracker-Stand. Davor schützt ein
+**Guard** in `process_trades()` (`find_out_of_order_trades()`, seit 2026-10-28): Liegen
+unverarbeitete Trades (ohne CASH) vor `MAX(dateTime)` der verarbeiteten
+(`DBAccess.get_last_processed_raw_datetime`), wird das Environment nicht verarbeitet, das Modul
+endet mit Exit-Code 1 (`run_pipeline.py` meldet *process* als FEHLER). Ausgenommen sind
+Options-Ereignisse (`OPT` mit Status `Expired`/`Assigned`/`CashSettled`), die IBKR gelegentlich
+erst mit dem Folgebericht liefert — nur Hinweis im Log; die Aktie aus einer Zuteilung bleibt
+geprüft. Erzwingen: `--reihenfolge-ignorieren`. Beispiel ohne Guard: Kauf 02.03. kommt
 nach dem bereits verarbeiteten Verkauf 10.03. → der Verkauf hat zuvor ohne Bestand per Fall 1
 eine Short-Tranche eröffnet, der Kauf schließt sie (Fall 2c) — Bestand 0, aber Richtung,
 `dateTimeOpen`/`dateTimeClose` und Kampagnenzuordnung falsch. Im Regelbetrieb tritt das nicht auf
@@ -683,6 +683,13 @@ Aktion: INSERT trades_close (Tranche komplett, status=Closed)
           → nächste Tranche der Schleife
         Kampagne: TRADE_CLOSE_FULL im Ledger je Tranche
 ```
+
+Bei **Optionen** übernehmen alle drei Fälle (2a, 2b, 2c) den Status des schließenden Events:
+Verfall, Zuteilung oder Barausgleich stehen in `trades_close` als `Expired` / `Assigned` /
+`CashSettled`, im Ledger als `OPTION_EXPIRATION` / `OPTION_EXERCISE` / `CASH_SETTLEMENT` — auch
+wenn nur ein Teil der Tranche betroffen ist (z. B. 2 von 5 Kontrakten zugeteilt) oder ein Event
+mehrere Tranchen schließt. Bei einer Zuteilung wird zusätzlich die `linkID` für den folgenden
+Aktien-Trade gemerkt (§ 5.5).
 
 #### Umkehrung (Reversal): Restmenge nach allen Tranchen
 ```

@@ -21,16 +21,6 @@ Wird eine Grenze behoben, verschwindet sie aus diesem Kapitel.
 
 ### 1.1 Import und Verarbeitung
 
-#### Keine Warnung bei Trades in falscher Reihenfolge
-
-Kommen ältere Trades erst an, nachdem jüngere schon verarbeitet sind, werden sie gegen den
-aktuellen Stand gebucht — Positionen, Richtung und Kampagnen stimmen dann nicht mehr. Im
-Regelbetrieb passiert das nicht; relevant beim Nachholen alter Daten. Abhilfe: Neuaufbau des
-Environments.
-*Schon vorgekommen:* nein. *Details:* Benutzerhandbuch [Alltag mit dem
-TradingJournal](../benutzer/70-alltag.md), Abschnitt 1; [Architektur und
-Import-Pipeline](10-architektur-und-pipeline.md), § 6.1.
-
 #### Andere Kapitalmaßnahmen werden nicht eigens behandelt
 
 Nur Splits (`RS`, `FS`, `SS`) haben eine eigene Logik. Fusionen, Spin-offs, Symbolwechsel usw.
@@ -52,15 +42,6 @@ wird stillschweigend nicht erfasst.
 „`account_snapshots`“.
 
 ### 1.2 Optionen: Verfall, Ausübung, Zuteilung
-
-#### Status geht bei Teilschließung verloren
-
-Wird nur ein Teil einer Options-Position zugeteilt oder verfällt eine in mehreren Tranchen
-eröffnete Option auf einmal, steht im abgeschlossenen Trade *Closed* statt *Assigned* bzw.
-*Expired*, und das Ledger zeigt eine normale Schließung. Gewinn/Verlust und Abschlussart
-(`closedBy`) stimmen.
-*Schon vorgekommen:* ja, bei Verfall. *Details:* [Architektur und
-Import-Pipeline](10-architektur-und-pipeline.md), § 5.5 „Grenzen“.
 
 #### Ausübung eigener Optionen ohne Verknüpfung zur Aktie
 
@@ -150,11 +131,11 @@ im eigenen Konto hat, kann sehr helfen — mit der **Flex-Query-XML** des betref
    Kurse und Mengen bitte lassen, sonst ist der Fall nicht nachvollziehbar.
 3. Den Fall melden: kurz beschreiben, was passiert ist (z. B. „Reverse Split 1:10 auf XYZ
    während offener Short-Put-Position“), was das Journal anzeigt und was richtig wäre — die
-   anonymisierte Datei anhängen. **Für den Anfang** am besten im Forum, in dem das
-   TradingJournal vorgestellt wurde; wiederkehrende Fragen fließen dort in eine FAQ ein. **In
-   einem späteren Schritt** laufen solche Meldungen als Issue im GitHub-Repository
-   `TradingJournal-Weaver` (siehe [Vorstellung](../vorstellung/10-vorstellung.md), Abschnitt
-   „Status“).
+   anonymisierte Datei anhängen. Am besten im **Forum**, in dem das TradingJournal vorgestellt
+   wurde; wiederkehrende Fragen fließen dort in eine FAQ ein. Wer ein GitHub-Konto hat, kann
+   stattdessen im Repository `TradingJournal-Weaver` ein Issue mit der Vorlage
+   [„Beispiel für ungetesteten Fall“](https://github.com/mike-1140/TradingJournal-Weaver/issues/new?template=beispiel.yml)
+   anlegen — sie fragt Fall-Nummer, Ablauf und die Anonymisierung ab.
 
 > [!CAUTION]
 > Die Flex-Query-XML enthält vollständige Handelsdaten. Vor dem Hochladen prüfen, dass die

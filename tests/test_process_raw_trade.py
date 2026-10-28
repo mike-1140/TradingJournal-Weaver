@@ -322,3 +322,78 @@ class TestCashDevisentauschOhneLedger:
         assert fake_repo._open_trades == []
         assert (TABLE_TRADES_RAW, 901) in fake_repo.processed
         assert (TABLE_TRADES_RAW, 902) in fake_repo.processed
+
+
+class TestOptionsStatusBeiTeilschliessung:
+    """Regressionstest (gefunden 2026-10-20, behoben 2026-10-28): Fall 2a (Teilschliessung) und
+    2b (Schliessung ueber mehrere Tranchen) setzten den Status pauschal auf 'Closed' und buchten
+    eine normale Schliessung -- ein verfallener/zugeteilter/barausgeglichener Leg verlor damit
+    Expired/Assigned/CashSettled, im Ledger fehlte OPTION_EXPIRATION/_EXERCISE/CASH_SETTLEMENT,
+    bei Teil-Zuteilung fehlte die gemerkte linkID fuer die Aktie. Echtdaten: SPXW-Spreads mit
+    2 Kontrakten, als 2 Tranchen eroeffnet und in einer Buchung verfallen."""
+
+    EXPIRY = datetime(2025, 9, 11, 16, 20)
+
+    def _seed_short_put(self, fake_repo, qty, trade_id):
+        return fake_repo.seed_open_trade(
+            symbol="SPXW P6545", assetCategory="OPT", quantity=Decimal(qty), putCall="P",
+            strike=Decimal("6545"), expiry=self.EXPIRY, multiplier=Decimal("100"),
+            tradePrice=Decimal("1.00"), netCash=Decimal("100") * -Decimal(qty),
+            proceeds=Decimal("100") * -Decimal(qty), ibCommission=Decimal("-1.00"),
+            dateTime=datetime(2025, 9, 10, 10, 0), buySell="SELL", currency="USD",
+            fxRateToBase=Decimal("1"), tradeID=trade_id, underlyingSymbol="SPXW",
+        )
+
+    def _event(self, qty, status, link_id=None, **extra):
+        return _raw_trade(
+            id=950, symbol="SPXW P6545", assetCategory="OPT", quantity=Decimal(qty), putCall="P",
+            strike=Decimal("6545"), expiry=self.EXPIRY, multiplier=Decimal("100"), buySell="BUY",
+            tradePrice=Decimal("0"), netCash=Decimal("0"), proceeds=Decimal("0"),
+            ibCommission=Decimal("0"), dateTime=self.EXPIRY, tradeID="E950", status=status,
+            linkID=link_id, underlyingSymbol="SPXW", **extra,
+        )
+
+    def test_verfall_ueber_zwei_tranchen_fall_2b(self, dummy_logger, fake_repo, fake_tracker):
+        self._seed_short_put(fake_repo, "-1", "O1")
+        self._seed_short_put(fake_repo, "-1", "O2")
+
+        process_raw_trade(dummy_logger, self._event("2", "Expired"), fake_repo, fake_tracker, campaign_id=1)
+
+        assert [c["status"] for c in fake_repo.closed_trades] == ["Expired", "Expired"]
+        assert [c["action"] for c in fake_tracker.ledger_calls] == [LedgerAction.OPTION_EXPIRATION] * 2
+
+    def test_teil_verfall_fall_2a(self, dummy_logger, fake_repo, fake_tracker):
+        self._seed_short_put(fake_repo, "-2", "O1")
+
+        process_raw_trade(dummy_logger, self._event("1", "Expired"), fake_repo, fake_tracker, campaign_id=1)
+
+        [closed] = fake_repo.closed_trades
+        assert closed["status"] == "Expired"
+        [ledger_call] = fake_tracker.ledger_calls
+        assert ledger_call["action"] == LedgerAction.OPTION_EXPIRATION
+
+    def test_teil_zuteilung_merkt_linkid_fuer_die_aktie(self, dummy_logger, fake_repo, fake_tracker):
+        fake_tracker.holdings["SPXW"] = {}
+        self._seed_short_put(fake_repo, "-2", "O1")
+
+        process_raw_trade(dummy_logger, self._event("1", "Assigned", link_id="L-TEIL"), fake_repo, fake_tracker, campaign_id=1)
+
+        [closed] = fake_repo.closed_trades
+        assert closed["status"] == "Assigned"
+        [ledger_call] = fake_tracker.ledger_calls
+        assert ledger_call["action"] == LedgerAction.OPTION_EXERCISE
+        assert ledger_call["link_id"] == "L-TEIL"
+        assert fake_tracker.holdings["SPXW"]["pending_link_id"] == "L-TEIL"
+
+    def test_barausgleich_ueber_zwei_tranchen(self, dummy_logger, fake_repo, fake_tracker):
+        self._seed_short_put(fake_repo, "-1", "O1")
+        self._seed_short_put(fake_repo, "-1", "O2")
+        event = self._event("2", "CashSettled")
+        event.update(netCash=Decimal("-1500"), proceeds=Decimal("-1500"))
+
+        process_raw_trade(dummy_logger, event, fake_repo, fake_tracker, campaign_id=1)
+
+        assert [c["status"] for c in fake_repo.closed_trades] == ["CashSettled", "CashSettled"]
+        assert [c["action"] for c in fake_tracker.ledger_calls] == [LedgerAction.CASH_SETTLEMENT] * 2
+        # das bewegte Cash bleibt in der Buchung (je Tranche die Haelfte)
+        assert sum(c["netcash"] for c in fake_tracker.ledger_calls) == Decimal("-1500")

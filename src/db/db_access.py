@@ -180,6 +180,18 @@ class DBAccess:
         """
         return self.read_query(sql, {"env": env_up})
 
+    def get_last_processed_raw_datetime(self, env_up: str, table: str):
+        """Zeitpunkt des jüngsten bereits verarbeiteten Raw-Trades (ohne CASH), None wenn keiner."""
+        full_table = self._prefixed(table)
+        row = self.fetch_one(f"""
+            SELECT MAX(dateTime) AS last_dt
+            FROM {full_table}
+            WHERE processed = 1
+              AND environment = :env
+              AND assetCategory <> 'CASH'
+        """, {"env": env_up})
+        return row["last_dt"] if row else None
+
     def _get_existing_checksums(self, table: str, checksums) -> set:
         if not checksums:
             return set()
