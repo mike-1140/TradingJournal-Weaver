@@ -6,6 +6,7 @@ CREATE TABLE `__PREFIX__trade_planner` (
   `id`            int(11) NOT NULL AUTO_INCREMENT,
   `environment`   ENUM('MONEY','PAPER','TEST','AUTOM_MONEY','AUTOM_PAPER') NOT NULL,
   `campaign_id`   int(11) DEFAULT NULL, -- Verknüpfung zur echten Kampagne (trading_campaigns), nullable da nicht jeder Eintrag verknüpft ist
+  `opened_at`     datetime DEFAULT NULL, -- Eröffnung innerhalb der Kampagne, zu der dieser Eintrag gehört (Zahlen kommen aus dem Ledger)
   `underlying`    varchar(20) NOT NULL,
   `date_open`     date NOT NULL,
   `price_open`    decimal(10,2) DEFAULT NULL,

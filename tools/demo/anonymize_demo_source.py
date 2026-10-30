@@ -72,7 +72,7 @@ SOURCE_FILES = [
 ]
 
 # Basiswerte, die in der Demo gar nicht vorkommen sollen (alle Elemente entfernt)
-EXCLUDE_UNDERLYINGS = {"TLT"}
+EXCLUDE_UNDERLYINGS = {"TLT", "TQQQ"}
 
 # Abgeschlossene Kampagnen 2026 fuer --examples: (Basiswert, erster Tag, letzter Tag).
 # Nur Kampagnen, die nach dem letzten Trade der SOURCE_FILES (10.02.2026) beginnen und

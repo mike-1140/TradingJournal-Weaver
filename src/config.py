@@ -32,6 +32,15 @@ def read_positive_int_env(name: str, default: int) -> int:
 # Wirkt nur auf künftige Verarbeitung — bestehende Kampagnen erst nach einem Neuaufbau.
 MAX_GAP_DAYS = read_positive_int_env("MAX_GAP_DAYS", 10)
 
+# Pipeline-Schritt "enrich" (src/enrich_greeks.py): Delta/IV/IVR/IVP über die TWS-API.
+# Verbindung nur lesend; eigene clientId, damit andere TWS-Anwendungen nicht gestört werden.
+TWS_HOST = os.getenv("TWS_HOST", "127.0.0.1").strip() or "127.0.0.1"
+TWS_PORT = read_positive_int_env("TWS_PORT", 7497)          # 7497 = Papierkonto, 7496 = Echtgeld
+TWS_CLIENT_ID = read_positive_int_env("TWS_CLIENT_ID", 630)
+GREEKS_RATE = float(os.getenv("GREEKS_RATE", "0.04").strip() or "0.04")   # risikofreier Zins (Näherung)
+# Zeitzone der dateTime-Werte aus der Flex Query (IBKR-Standard: New York)
+GREEKS_TRADE_TZ = os.getenv("GREEKS_TRADE_TZ", "America/New_York").strip() or "America/New_York"
+
 
 # === Ablageordner für IBKR-Berichte ===
 # Definiert in src/utils/data_dirs.py (schlank, auch für den Minimal-Abruf-Client) und hier nur
@@ -125,6 +134,8 @@ TABLE_CAMPAIGN_LEDGER = os.getenv("TABLE_CAMPAIGN_LEDGER", "campaign_ledger")
 TABLE_TRADING_CAMPAIGNS = os.getenv("TABLE_TRADING_CAMPAIGNS", "trading_campaigns")
 TABLE_ACCOUNT_SNAPSHOTS = os.getenv("TABLE_ACCOUNT_SNAPSHOTS", "account_snapshots")
 TABLE_TRADE_PLANNER = os.getenv("TABLE_TRADE_PLANNER", "trade_planner")
+TABLE_TRADE_GREEKS = os.getenv("TABLE_TRADE_GREEKS", "trade_greeks")   # abgeleitet (enrich), nicht in reset_IBKR_DB
+TABLE_IV_HISTORY = os.getenv("TABLE_IV_HISTORY", "iv_history")         # abgeleitet (enrich), nicht in reset_IBKR_DB
 TABLE_PSYCHOLOGY_RULESETS   = os.getenv("TABLE_PSYCHOLOGY_RULESETS",   "psychology_rulesets")
 TABLE_PSYCHOLOGY_RULES      = os.getenv("TABLE_PSYCHOLOGY_RULES",      "psychology_rules")
 TABLE_PSYCHOLOGY_ENTRIES    = os.getenv("TABLE_PSYCHOLOGY_ENTRIES",    "psychology_entries")

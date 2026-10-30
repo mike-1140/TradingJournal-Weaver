@@ -106,8 +106,13 @@ Etikett auf jeder Karte.
 ![Kampagne: Kennzahlen, Trade Log und P&L-Verlauf](img/15-rundgang/07-kampagne-detail.png)
 
 - Kennzahlen: Aktien- und Optionsbestand, Cashflow, Kommission, Brutto- und Netto-P&L.
-- **Trade Log** (markiert): der verknüpfte Log-Eintrag mit Strategie, Begründung (Rationale)
-  und Exit-Plan — so stehen Plan und Ergebnis nebeneinander.
+- **Eröffnungen & Kommentare** (markiert): je Eröffnung ein Block — alle zum selben Zeitpunkt
+  eröffneten Legs (Put, Spread, Iron Condor) oder ein Aktienkauf. Die Zahlen kommen aus den
+  Buchungen: Legs, Prämie in Dollar, Prämie beim Schließen, Gebühren, Ausgang (geschlossen,
+  verfallen, zugeteilt) und P&L. Darunter steht dein Kommentar oder der Knopf **Kommentar**; im
+  Kopf die Angabe, wie viele Eröffnungen kommentiert sind. Eine Zuteilung ist keine eigene
+  Eröffnung, und Aktien-P&L steht nur in der Summe der Kampagne, weil eine Aufteilung auf Put und
+  Call willkürlich wäre. Ein Wheel erscheint so als Folge seiner Puts und Calls.
 - **P&L-Verlauf** als Stufendiagramm: der aufgelaufene realisierte P&L je Ereignistag.
 - **Tages-Übersicht:** je Tag Buchungen, Cashflow, Kommission, P&L und Ereignisse wie Verfall.
 - **Transaktions-Historie:** jede Buchung im Klartext (z. B. „Put Prämie: 5x – ON 44,5 P …“),
@@ -148,22 +153,34 @@ und welchem Ausstiegsszenario.
 ![Trade Log mit Hinweis auf undokumentierte Kampagnen](img/15-rundgang/11-log.png)
 
 - **Hinweisbox** (markiert): Kampagnen der letzten 30 Tage ohne Log-Eintrag. **Dokumentieren**
-  öffnet ein Formular, das mit den Daten der Kampagne vorausgefüllt ist und sie automatisch
-  verknüpft. Die Zahl neben *Log* im Menü zählt genau diese Kampagnen.
+  öffnet den Kommentar zur ersten Eröffnung der Kampagne; weitere Eröffnungen kommentierst du auf
+  der Kampagnen-Seite. Die Zahl neben *Log* im Menü zählt genau diese Kampagnen.
 - **Kacheln** für offene und geschlossene Einträge sowie den realisierten Gewinn, darunter die
-  Tabelle aller Einträge mit Filter nach Underlying und Status.
+  Tabelle aller Einträge mit Filter nach Underlying und Status. Bei verknüpften Einträgen kommen
+  Status und P&L aus den Buchungen.
 
-**Neuer Eintrag:**
+**Eintrag zu einer Eröffnung:**
 
 ![Neuer Log-Eintrag](img/15-rundgang/12-log-formular.png)
 
-- **Kopfdaten:** Datum, Underlying, Kurs und Gebühren bei Eröffnung, IV-Perzentil (IVP) und
-  IV-Rang (IVR), Strategie, Exit-Plan bzw. Regeln und die Begründung (*Rationale*) in eigenen
-  Worten.
-- **Legs:** die Beine des Trades mit Restlaufzeit (DTE), Strike, Delta, Prämie, Gebühren und
-  maximalem Risiko.
-- **Trade schließen:** ergänzt Kurs, Prämie, realisiertes Ergebnis und Notizen — so schließt sich
-  der Kreis vom Plan zum Ausgang.
+- **Oben die Zahlen aus den Buchungen,** nur zur Anzeige: Legs mit Strike, Prämie, Delta und DTE,
+  Prämie der Eröffnung und beim Schließen in Dollar, Gebühren, maximales Risiko beim Vertical,
+  Ausgang und P&L (**brutto**, wie in Kampagnen, Spreads und Statistik). Du trägst sie nicht ein,
+  sie können also nicht von den Buchungen abweichen.
+- **Dein Kommentar:** Strategie, Exit-Plan bzw. Regeln, Begründung (*Rationale*) und Notizen. Jede
+  Eröffnung hat ihren eigenen Eintrag; ein Folgetrade im selben Underlying bekommt also einen
+  eigenen Kommentar.
+- **Kurs und IV:** Ist im Weaver der optionale Schritt `enrich` eingerichtet (siehe
+  [Alltag mit dem TradingJournal](70-alltag.md), Abschnitt 1, „Delta und IV-Rang automatisch“),
+  stehen Kurs des Basiswerts und IVP/IVR bei Eröffnung und Schließung als berechnete Werte im
+  Feld („aus IBKR berechnet“). Was du selbst einträgst, gilt; ohne `enrich` bleiben die Felder
+  für deine Eingabe.
+
+**Eintrag ohne Kampagne:** Vor dem Import, oder wenn keine Kampagne passt, steht das volle Formular
+bereit: Kopfdaten, Legs und über **Trade schließen** die Abschlussdaten, alles von Hand (Gebühren
+positiv, Ergebnis brutto). Findet das Formular zum Underlying eine Kampagne, kannst du den Eintrag
+verknüpfen. Er gehört dann zur noch nicht kommentierten Eröffnung, die seinem Datum am nächsten
+liegt, und die Zahlen kommen ab dann aus den Buchungen.
 
 ## 8. Psychologie
 

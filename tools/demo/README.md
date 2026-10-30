@@ -44,7 +44,7 @@ Erzeugt `input/demo_source/*.xml` (echte accountId überall durch
 `DU0009999` ersetzt, Datumswerte unverändert, alle Dateinamen auf `flex.*.xml`
 normalisiert — Voraussetzung für den TEST-Modus-Import). Der Ordner liegt bereits
 unter der bestehenden `.gitignore`-Regel `input/`. Basiswerte aus `EXCLUDE_UNDERLYINGS`
-(derzeit `TLT`) werden dabei aus allen Dateien entfernt.
+(derzeit `TLT`, `TQQQ`) werden dabei aus allen Dateien entfernt.
 
 **Beispiele aus einer eigenen Sammeldatei (optional):** `--examples <Sammeldatei.xml>` zieht
 die Kampagnen aus `EXAMPLE_CAMPAIGNS` (Basiswert + Zeitfenster) aus einer Summary-XML und legt
@@ -125,7 +125,8 @@ echte `ibkr_test` treffen):
 ```
 
 **Ergebnis 2026-10-23:** 555 Rohzeilen (2024: 38, 2025: 375, 2026: 142), 90 Kampagnen
-(15 ACTIVE / 2 PENDING / 73 CLOSED), 82 Log- und 27 Psychologie-Einträge, kein TLT.
+(15 ACTIVE / 2 PENDING / 73 CLOSED), 82 Log- und 27 Psychologie-Einträge, kein TLT. **2026-10-30:** TQQQ entfernt
+(Quelle und Demo-DB) → 545 Rohzeilen, 89 Kampagnen, 81 Log-Einträge.
 
 Erwartete Größenordnung: ~210 Trades über alle 19 Dateien, keine Fehler im Log.
 Die Quelldateien werden dabei aus `incoming_mail\` nach `C:\Trade_XML\test\demo_\processed\`

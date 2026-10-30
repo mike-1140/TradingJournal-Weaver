@@ -81,6 +81,8 @@ Werte ausfüllen (siehe `.env.example` für alle Felder):
 | `IBKR_FLEX_QUERIES` | Optional — nur für den zweiten Import-Kanal `get_flexquery_api.py` |
 | `MAX_GAP_DAYS` | Optional — Tage, die eine glattgestellte Kampagne *PENDING* bleibt, bevor sie *CLOSED* wird (Standard `10`, ganze Zahl ≥ 1) |
 | `TRADE_XML_DIR` / `TRADE_CSV_DIR` | Optional — Ablageordner für die IBKR-Berichte (XML bzw. Kontoauszug-CSV). Standard: Windows `C:\Trade_XML` / `C:\Trade_CSV`, Linux/macOS `~/Trade_XML` / `~/Trade_CSV`. Alle Unterordner werden darunter angelegt |
+| `TWS_HOST` / `TWS_PORT` / `TWS_CLIENT_ID` | Optional, nur für den Schritt `enrich` — Verbindung zur TWS bzw. zum IB Gateway (Standard `127.0.0.1`, `7497` = Papierkonto, `630`). Die clientId darf keine andere TWS-Anwendung nutzen |
+| `GREEKS_RATE` / `GREEKS_TRADE_TZ` | Optional, nur für `enrich` — Zins für Black-Scholes (Standard `0.04`) und Zeitzone der Ausführungszeiten aus der Flex Query (Standard `America/New_York`) |
 
 **Sicherheit:** `.env` ist in `.gitignore` — niemals committen.
 

@@ -239,6 +239,30 @@ So ist das zu lesen:
   eingerichtet. Das ist erlaubt, er ist optional (siehe [IBKR einrichten — Flex Queries und
   Kontoauszug](20-ibkr-einrichten.md), Abschnitt 6).
 
+### Delta und IV-Rang automatisch (optional)
+
+Delta, implizite Volatilität (IV), IV-Rang (IVR) und IV-Perzentil (IVP) liefert IBKR in den
+Berichten nicht mit. Der Weaver kann sie **nachträglich** aus der Trader Workstation (TWS)
+berechnen — aus dem Kurs des Basiswerts in der Minute deiner Ausführung und dem Verlauf der
+Volatilität. Beim Trade selbst musst du dafür nichts tun.
+
+Voraussetzungen, einmalig:
+
+1. **[Trader Workstation]** *Datei → Globale Konfiguration → API → Einstellungen*:
+   „ActiveX- und Socket-Clients aktivieren“ einschalten. Der Weaver verbindet sich nur lesend.
+2. **[Text-Editor]** In der `pipeline.toml` den Schritt `enrich` nach `process` eintragen, z. B.
+   `steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "enrich", "summary"]`.
+
+Danach rechnet jeder Pipeline-Lauf die Werte für neue Options-Trades aus, sofern die TWS gerade
+läuft und angemeldet ist. Sie erscheinen im **Log** und auf der Kampagnen-Seite: Delta je Leg sowie Kurs und
+IVR/IVP bei Eröffnung und Schließung (Hinweis „aus IBKR berechnet“). Läuft sie nicht, wird der Schritt übersprungen und beim nächsten Mal
+nachgeholt. Ältere Trades lassen sich einmalig nachholen (**[PowerShell]** im Ordner
+`TradingJournal-Weaver`):
+
+```powershell
+python -m src.enrich_greeks --seit 2025-01-01
+```
+
 ## 2. Nach dem Import: ein typischer Durchgang
 
 Die Daten sind nur die eine Hälfte eines Journals — die andere ist, was du dazu festhältst. Ein
@@ -251,10 +275,10 @@ Durchgang nach dem Import, z. B. am Morgen mit den Daten vom Vortag:
 3. **Kampagnen und Spreads** — bei Bedarf einzelne Positionen genauer ansehen: Verlauf,
    Buchungen, Ergebnis je Spread (Rundgang, Abschnitte 5 und 6).
 4. **Log** — neue Trades dokumentieren. Die Zahl neben *Log* im Menü zeigt, wie viele Kampagnen
-   der letzten 30 Tage noch keinen Eintrag haben; **Dokumentieren** öffnet ein vorausgefülltes
-   Formular. Am wertvollsten ist der Eintrag **vor** dem Trade: Plan, Begründung und
-   Ausstiegsszenario, solange sie frisch sind. Nach dem Schließen trägst du Ergebnis und Notizen
-   nach — so stehen Plan und Ausgang nebeneinander (Rundgang, Abschnitt 7).
+   der letzten 30 Tage noch keinen Eintrag haben; **Dokumentieren** öffnet den Kommentar zu einer
+   Eröffnung: Plan, Begründung und Ausstiegsszenario, solange sie frisch sind. Die Zahlen kommen
+   aus den Buchungen, und weitere Eröffnungen derselben Kampagne kommentierst du auf deren Seite —
+   so stehen Plan und Ausgang nebeneinander (Rundgang, Abschnitt 7).
 5. **Psychologie** — wie kam der Trade zustande? Stimmung, Motivation, Einhaltung der eigenen
    Regeln, Versuchungen und die Lektion. Die Regelwerke dafür legst du einmal an; die
    Auswertung zeigt mit der Zeit, welche Muster Geld kosten (Rundgang, Abschnitt 8).

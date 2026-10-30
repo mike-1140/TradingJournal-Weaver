@@ -58,7 +58,8 @@ Der Split wird erkannt, offene Options-Positionen bleiben aber unter dem alten K
 Ein späterer Verfall oder Rückkauf unter dem neuen Kontrakt eröffnet dann eine falsche
 Gegenposition. Kapitalmaßnahmen mit mehr als zwei Zeilen (mehrere Strikes) passen außerdem nicht
 ins Paar-Schema der Split-Verarbeitung.
-*Schon vorgekommen:* einmal, ohne offene Position. *Details:* [Architektur und
+*Schon vorgekommen:* einmal, bei einem Forward Split mit offenem Spread; zu Reverse Splits mit
+offener Option fehlen noch Daten. *Details:* [Architektur und
 Import-Pipeline](10-architektur-und-pipeline.md), § 6.2 „Fall SPLIT“.
 
 ### 1.4 Spread-Erkennung

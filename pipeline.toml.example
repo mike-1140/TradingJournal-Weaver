@@ -7,8 +7,11 @@
 
 [settings]
 # Schritte in Ausfuehrungsreihenfolge (Standard-Pipeline, ohne reset)
-# Moegliche Werte: fetch_emails | fetch_api | snapshot_csv | import | process | summary | reset
+# Moegliche Werte: fetch_emails | fetch_api | snapshot_csv | import | process | enrich | summary | reset
+# "enrich" (optional, nach "process"): Delta/IV/IVR/IVP fuer Options-Trades ueber die TWS-API —
+# nur eintragen, wo TWS oder IB Gateway laeuft (sonst wird der Schritt nur uebersprungen).
 steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summary"]
+# steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "enrich", "summary"]
 
 # --- User-Konfiguration ---
 # Fuer jeden User, der auf DIESER Maschine verarbeitet werden soll: environments = Liste

@@ -20,6 +20,7 @@ them into a structured trading journal with P&L, campaign tracking, and open/clo
 | `tools/maintenance/reset_IBKR_DB.py` | First-time DB setup from `sql/` schema files (destruktiv!) |
 | `tools/maintenance/cleanup_stale_positions.py` | Entfernt liegengebliebene offene Positionen (Open importiert, Close nie) rückstandsfrei aus `trades_open`/`campaign_ledger`/`trades_raw` inkl. Kampagnen-Korrektur; Dry-Run ist Standard, löschen nur mit `--ids/--symbols/--older-than/--all` + `--execute` |
 | `run_pipeline.py` | Orchestriert alle Steps laut `pipeline.toml` |
+| `src/enrich_greeks.py` | Optionaler Step `enrich`: Delta/IV/IVR/IVP je Options-Trade über die TWS-API (`ib_async`, nur lesend, clientId 630) → `trade_greeks`/`iv_history` (abgeleitet, legt Tabellen selbst an, NICHT in reset_IBKR_DB) |
 
 **Import-Routing:** `import_ibkr_trades.py` scannt `C:\Trade_XML\incoming_mail\` (Mail) UND
 `C:\Trade_XML\incoming_api\` (FlexQuery Web-API) gleichwertig, kein Dateinamen-Filter mehr.

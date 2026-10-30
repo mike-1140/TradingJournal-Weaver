@@ -347,6 +347,7 @@ def _handle_split_trade(trade: Dict[str, Any], split_buffer: Dict, repo,
                   f"für {trade.get('symbol')}", True
                   )
         del split_buffer[aid]
+        repo.mark_trade_processed(table_trades_raw, trade["id"])
         return 'processed'
     else:
         # Nur erster Teil, warte auf zweiten
@@ -402,7 +403,7 @@ def process_stock_split(repo, trade, tracker, campaign_id):
             pnl=0.0,
             quantity=added_qty,
             action=LedgerAction.STOCK_SPLIT,
-            dateTime=tr.get("dateTime"),
+            dateTime=trade.get("dateTime"),
             conid=tr.get("conid"),
             currency=tr.get("currency", "USD"),
             fxRateToBase=tr.get("fxRateToBase", 1),

@@ -194,6 +194,7 @@ python run_pipeline.py --users dein_user   # nur User dein_user
 [settings]
 steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "summary"]
 #        ↑ Phase 0 Mail  ↑ Phase 0 API ↑ Snapshots    ↑ Phase 1  ↑ Phase 2  ↑ Phase 3
+# optional nach "process": "enrich" (Delta/IV/IVR/IVP über die TWS-API, § 6.5)
 
 [users.dein_user]
 environments = ["money", "paper", "autom_money", "autom_paper"]
@@ -720,12 +721,14 @@ PENDING/ACTIVE-Wechsel aus):
 ```
 1. _handle_split_trade(): Zeilen je actionID puffern
      erster Teil  → warten, als verarbeitet markieren
-     zweiter Teil → Faktor = |Menge neu| / |Menge alt|, Symbol = neues Symbol
+     zweiter Teil → Faktor = |Menge neu| / |Menge alt|, Symbol = neues Symbol,
+                    ebenfalls als verarbeitet markieren
 2. process_stock_split(): alle offenen Tranchen des Symbols (trades_open, processed=0)
      quantity   = quantity × Faktor
      tradePrice = tradePrice / Faktor          (Einstand gesamt bleibt gleich)
      Menge 0    → Tranche geschlossen (processed=1), nicht als 0-Menge stehen lassen
-     Ledger     → STOCK_SPLIT, inventory_delta = neue − alte Menge, kein Cash, kein P&L
+     Ledger     → STOCK_SPLIT mit dem Datum des Splits, inventory_delta = neue − alte Menge,
+                  kein Cash, kein P&L
 3. Tracker: Bestand der Kampagne × Faktor, danach Flat-Check (Bestand 0 → PENDING)
 ```
 
@@ -747,15 +750,16 @@ liefert.
 
 - **Optionen auf die gesplittete Aktie** werden erkannt (`is_split=1`), aber offene
   Options-Tranchen werden nicht umgestellt: `process_stock_split()` sucht nach dem *neuen*
-  Options-Symbol, die Tranche steht aber unter dem alten. Bisher nur einmal vorgekommen
-  (PAPER, TQQQ-Forward-Split 20.11.2025) — ohne offene Position, daher ohne Auswirkung.
+  Options-Symbol, die Tranche steht aber unter dem alten. Einmal mit offener Position vorgekommen
+  (PAPER, TQQQ-Forward-Split 2:1 am 20.11.2025, Bull Put Spread 75/85). So steht das im XML:
+  je Leg eine `CorporateAction`-Zeile mit gemeinsamer `actionID`, ohne `.OLD`-Zeilen; Symbol mit
+  neuem Strike (37,5/42,5), `quantity` nur der **Zuwachs** (+1 beim Long, −1 beim Short), `conid`
+  unverändert. Das Paar-Schema behandelt die zwei Legs dann als altes und neues Symbol (Faktor 1,
+  also keine Umstellung). Der Verfall am 19.12. mit je 2 Kontrakten trifft über den
+  `conid`-Rückfall die alte Tranche mit 1 Kontrakt. Für **Reverse Splits** mit offener Option
+  liegen noch keine Daten vor.
 - **Mehr als zwei Zeilen je `actionID`** (z. B. mehrere Options-Strikes in einer
   Kapitalmaßnahme) passen nicht ins Paar-Schema; ab der dritten Zeile beginnt ein neues Paar.
-- Der zweite Teil des Paares wird im selben Lauf nicht als verarbeitet markiert; der nächste
-  Lauf puffert ihn allein („warte auf zweiten Teil“) und markiert ihn dann — ohne
-  Auswirkung auf die Daten.
-- Der Ledger-Eintrag `STOCK_SPLIT` trägt das **Eröffnungsdatum der Tranche**, nicht das
-  Split-Datum (CYN: Ledger 10.02.2025, Split 18.02.2025).
 - **Andere Kapitalmaßnahmen** (Fusion, Spin-off, Symbolwechsel) bekommen `is_split=0` und
   würden wie normale Trades (Preis 0) durch die FIFO-Logik laufen — eine eigene Behandlung gibt
   es nicht. In den Echtdaten bisher nicht vorgekommen.
@@ -857,6 +861,52 @@ funktioniert für alle Abschlussarten — auch für Cash Settlement, bei dem `ne
 `proceeds` aber den Barausgleich enthält. Alle P&L-Felder (`trades_close.profit`,
 `campaign_ledger.realized_pnl`) sind deshalb **brutto**; die Kommission steht immer separat.
 
+### 6.5 Optional: Anreicherung `enrich_greeks.py` (Delta, IV, IVR, IVP)
+
+Die Flex Query liefert zu einer Options-Ausführung weder Griechen noch implizite Volatilität
+noch den Kurs des Basiswerts. Der Pipeline-Schritt `enrich` (nach `process`, nur wenn in
+`pipeline.toml` unter `steps` eingetragen) rekonstruiert sie **nachträglich** über die TWS-API
+(`ib_async`):
+
+1. **Basiswert-Kurs zur Ausführungsminute:** historische 1-Minuten-Kurse (`TRADES`, nur
+   Handelszeit) für Aktie/ETF (`SMART`) bzw. Index (`SPX`/`SPXW` → SPX an CBOE, analog NDX, RUT,
+   XSP, VIX).
+2. **IV und Delta der Option:** Black-Scholes (europäisch, ohne Dividende, Zins `GREEKS_RATE`)
+   aus dem tatsächlichen Ausführungspreis — IV per Nullstellensuche, daraus das Delta.
+   Restlaufzeit bis Verfall 16:00 New York; Ausführungszeiten gelten als `GREEKS_TRADE_TZ`.
+3. **IVR / IVP:** aus den IV-Tageswerten des Basiswerts (`OPTION_IMPLIED_VOLATILITY`) über das
+   Jahr bis zum Handelstag; unter 20 Tageswerten bleibt es leer.
+
+Berücksichtigt werden Options-Trades mit Ausführungspreis > 0, aber **nicht** Verfall,
+Zuteilung oder Barausgleich (Status `Expired`/`Assigned`/`CashSettled`). Je Lauf die neuesten
+noch nicht angereicherten Trades der letzten 14 Tage (`--seit` für Rückwirkendes, `--max`
+begrenzt je Ziel); Abfragen sind gedrosselt (Abfragegrenzen von IBKR).
+
+**Ergebnis** in zwei Tabellen je Prefix, beide **abgeleitet** und deshalb nicht in
+`reset_IBKR_DB.py` — `enrich_greeks.py` legt sie selbst an und berechnet nach einem Neuaufbau
+einfach neu:
+
+| Tabelle | Inhalt |
+|---|---|
+| `trade_greeks` | je `tradeID`: Basiswert-Kurs, IV der Option, Delta, IV des Basiswerts, IVR, IVP, Zahl der IV-Tage, Hinweis bei fehlenden Daten (`error`), Zeitpunkt |
+| `iv_history` | Zwischenspeicher der IV-Tageswerte je Basiswert und Tag (für IVR/IVP auch zu anderen Tagen, z. B. bei der Schließung) |
+
+Trades mit Hinweis werden nicht bei jedem Lauf erneut abgefragt, sondern nur mit
+`--fehler-wiederholen`.
+
+**Verbindung:** nur lesend (`readonly=True`, keine Order-Aufrufe) zu `TWS_HOST:TWS_PORT` mit
+eigener `TWS_CLIENT_ID` (Standard 630). Ist keine TWS / kein IB Gateway erreichbar, endet der
+Schritt mit einem Hinweis und Exit-Code 0 — der Rest der Pipeline läuft weiter, beim nächsten
+Lauf wird nachgeholt. **Daten-Berechtigung** (Machbarkeitsprobe 2026-10-29, Papierkonto):
+historische Minutenkurse und IV-Historie für Index und Aktien ohne Zusatz-Abo verfügbar, auch
+mehr als zwei Jahre zurück. Live-Griechen (`modelGreeks`) würden dagegen ein API-Marktdaten-Abo
+brauchen und werden nicht genutzt.
+
+**Genauigkeit:** Black-Scholes ist für amerikanische Aktienoptionen eine Näherung (Abweichung
+vor allem tief im Geld und vor Dividenden); SPX-Monatsoptionen werden am Morgen abgerechnet
+(AM-Settlement), gerechnet wird einheitlich bis 16:00. Für Journal-Werte wie „Delta 0,16“
+genügt das.
+
 ---
 
 ## 7. Kernkonzepte
@@ -948,13 +998,16 @@ trades_open       ← Aktive FIFO-Tranchen
 symbols           ← Instrument-Referenzdata (conid, ISIN, ...)
 trades_fx         ← FX-Trades (separat)
 account_snapshots ← Kontostand-Snapshots (aus CSV)
+
+trade_greeks      ← optional: Delta/IV/IVR/IVP je Options-Trade (enrich, abgeleitet, § 6.5)
+iv_history        ← optional: IV-Tageswerte je Basiswert (enrich, Zwischenspeicher)
 ```
 
 Dazu die Tabellen, die nur TradingJournal schreibt (Eingaben in der Oberfläche):
 
 | Tabelle | Inhalt (UI) | Angelegt von |
 |---|---|---|
-| `trade_planner`, `trade_planner_legs` | **Log**: Plan, Begründung, Exit-Plan, Ergebnis je Eintrag bzw. dessen Legs; optional per `campaign_id` mit einer Kampagne verknüpft | `reset_IBKR_DB.py` (wird beim Neuaufbau mit geleert) |
+| `trade_planner`, `trade_planner_legs` | **Log**: Kommentar (Begründung, Exit-Plan, Notizen) je Eröffnung, per `campaign_id` + `opened_at` einer Eröffnung der Kampagne zugeordnet; die Zahlen liest `App\Support\CampaignOpenings` aus `campaign_ledger`. Die Zahlenspalten und `trade_planner_legs` gelten nur noch für Einträge ohne Kampagne | `reset_IBKR_DB.py` (wird beim Neuaufbau mit geleert) |
 | `psychology_rulesets`, `psychology_rules` | **Psychologie → Regelwerke** | `tools/maintenance/setup_psychology_tables.py` (nicht durch `reset_IBKR_DB.py` berührt) |
 | `psychology_entries`, `psychology_compliance_results` | **Psychologie → Einträge**, Einhaltung je Regel und Eintrag | wie oben |
 
@@ -1510,6 +1563,7 @@ TradingJournal-Weaver/
 │   ├── migrate_running_balance.py ← Migration: cum_pnl/cum_commission/cum_premium
 │   ├── migrate_add_campaign_id_to_trade_planner.py
 │   ├── migrate_add_fees_open_to_trade_planner.py
+│   ├── migrate_add_opened_at_to_trade_planner.py ← Log-Eintrag → Eröffnung; setzt bestehende Einträge auf die erste Eröffnung
 │   ├── migrate_add_open_types_to_psychology.py
 │   ├── migrate_backfill_assignment_linkid.py
 │   ├── compare_tat_ibkr.py      ← manueller TAT-vs-IBKR-Abgleich

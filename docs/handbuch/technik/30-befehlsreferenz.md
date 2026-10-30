@@ -202,6 +202,7 @@ python run_pipeline.py --config meine_pipeline.toml
 | `snapshot_csv` | `src.import_csv_snapshots` | Einmal gesamt (intern pipeline.toml) |
 | `import` | `src.import_ibkr_trades` | Ohne `--users`/`--envs`: einmal gesamt. Mit Filter: pro passendem User × Environment |
 | `process` | `src.process_ibkr_trades` | Einmal gesamt (intern pipeline.toml) |
+| `enrich` | `src.enrich_greeks` | Einmal gesamt (intern pipeline.toml), optional — braucht TWS |
 | `summary` | `src.xml_append_summary` | Einmal gesamt (intern pipeline.toml) |
 | `reset` | `tools.maintenance.reset_IBKR_DB` | User × Environment ⚠️ destruktiv |
 
@@ -352,6 +353,40 @@ python -m src.process_ibkr_trades money dein_user_ --reihenfolge-ignorieren
 desselben Environments, wird dieses Environment nicht verarbeitet (Exit-Code 1, die übrigen
 laufen weiter). Ausgenommen: Verfall/Zuteilung/Barausgleich von Optionen. Hintergrund:
 [Architektur und Import-Pipeline](10-architektur-und-pipeline.md), § 6.1.
+
+---
+
+## enrich_greeks.py — Delta, IV, IVR, IVP über die TWS-API (optional)
+
+Rekonstruiert für Options-Trades den Basiswert-Kurs zur Ausführungsminute, IV und Delta der
+Option sowie IVR/IVP des Basiswerts und schreibt sie nach `trade_greeks` (Details:
+[Architektur und Import-Pipeline](10-architektur-und-pipeline.md), § 6.5). Braucht eine
+laufende TWS bzw. IB Gateway mit aktivierter API; ohne sie wird der Schritt übersprungen
+(Exit-Code 0). Verbindung nur lesend.
+
+```bash
+# Auto-Modus: alle Ziele aus pipeline.toml, neue Options-Trades der letzten 14 Tage
+python -m src.enrich_greeks
+
+# Einzelnes Ziel
+python -m src.enrich_greeks paper dein_user_
+
+# Rückwirkend, in Etappen (je Lauf höchstens 300 Trades je Ziel, die neuesten zuerst)
+python -m src.enrich_greeks --seit 2025-01-01 --max 300
+
+# Trades mit gespeichertem Hinweis (z. B. fehlende Daten) erneut versuchen
+python -m src.enrich_greeks --fehler-wiederholen
+```
+
+**Argumente:**
+| Argument | Wert | Pflicht |
+|---|---|---|
+| 1 / 2 | Environment / Table-Prefix (CLI-Override) | Nein |
+| `--seit` | Datum `JJJJ-MM-TT` (Standard: vor 14 Tagen) | Nein |
+| `--max` | höchstens so viele Trades je Ziel (Standard 200) | Nein |
+| `--fehler-wiederholen` | Trades mit Hinweis erneut berechnen | Nein |
+
+In der Pipeline als Step `enrich` nach `process` (in `pipeline.toml` unter `steps` eintragen).
 
 ---
 
