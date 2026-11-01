@@ -9,6 +9,8 @@ CREATE TABLE `__PREFIX__psychology_entries` (
     `trade_id`        VARCHAR(70)   DEFAULT NULL,
     `opt_strategyID`  VARCHAR(50)   DEFAULT NULL,
     `trade_type`      ENUM('open','closed','open_spread','spread') DEFAULT NULL,
+    `campaign_id`     int(11)       DEFAULT NULL,
+    `opened_at`       DATETIME      DEFAULT NULL,
     `ruleset_id`      int(11)       DEFAULT NULL,
     `symbol`          VARCHAR(100)  NOT NULL,
     `trade_date`      DATE          NOT NULL,
@@ -25,5 +27,6 @@ CREATE TABLE `__PREFIX__psychology_entries` (
     PRIMARY KEY (`id`),
     INDEX (`environment`, `trade_date`),
     INDEX (`symbol`),
-    INDEX (`motivation`)
+    INDEX (`motivation`),
+    INDEX `idx_campaign_opening` (`campaign_id`, `opened_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -62,7 +62,7 @@ nachsehen möchte, startet sie einfach dann — es geht nichts verloren:
   die morgens schon die Vortagesdaten sehen wollen.
 
 Der einzige Nachteil: Das Journal zeigt immer den Stand des letzten Laufs. Dashboard,
-Kampagnen und die Liste der noch nicht dokumentierten Trades im Trade Log sind entsprechend
+Kampagnen und die Kennzeichen für noch nicht dokumentierte Eröffnungen sind entsprechend
 alt.
 
 > [!TIP]
@@ -179,7 +179,8 @@ So ist das zu lesen:
   Anlauf.
 - **„Token-Wechsel — warte 30s“:** Vor jedem Wechsel auf einen anderen Prüfcode wartet der
   Abruf absichtlich 30 Sekunden. Deshalb dauert der ganze Lauf rund 100 Sekunden, obwohl jede
-  einzelne Query in ein bis elf Sekunden fertig ist.
+  einzelne Query in ein bis elf Sekunden fertig ist. Gewartet wird nur vor echten Anfragen: Ein
+  zweiter Lauf am selben Tag überspringt die schon geholten Berichte ohne Pause.
 - **Dateiname:** Kontonummer, Datum, Name der Query, letzte vier Ziffern der Query-ID. Das Datum
   ist der **erste** Tag im Bericht — hier der 12.10., weil die Query die letzten 8 Tage abruft.
   Der Teil `_8_` stammt aus dem Namen der Query (`act_money_api_8`) und hat sonst keine
@@ -246,15 +247,26 @@ Berichten nicht mit. Der Weaver kann sie **nachträglich** aus der Trader Workst
 berechnen — aus dem Kurs des Basiswerts in der Minute deiner Ausführung und dem Verlauf der
 Volatilität. Beim Trade selbst musst du dafür nichts tun.
 
-Voraussetzungen, einmalig:
+**Die TWS muss laufen und angemeldet sein,** und zwar auf demselben PC wie die Pipeline. Es genügt
+der Paper-Modus, die TWS liefert hier nur Marktdaten. Einmalig einzurichten:
 
 1. **[Trader Workstation]** *Datei → Globale Konfiguration → API → Einstellungen*:
    „ActiveX- und Socket-Clients aktivieren“ einschalten. Der Weaver verbindet sich nur lesend.
-2. **[Text-Editor]** In der `pipeline.toml` den Schritt `enrich` nach `process` eintragen, z. B.
+2. **[Text-Editor]** Der Weaver erwartet die TWS auf Port `7497`, dem Standard im Paper-Modus. Wer
+   die TWS im Live-Modus startet (Standard `7496`), trägt in der `.env` des Weavers
+   `TWS_PORT=7496` ein. Der Wert muss zum „Socket-Port“ in den API-Einstellungen passen.
+3. **[Text-Editor]** In der `pipeline.toml` den Schritt `enrich` nach `process` eintragen, z. B.
    `steps = ["fetch_emails", "fetch_api", "snapshot_csv", "import", "process", "enrich", "summary"]`.
 
+> [!NOTE]
+> **Marktdaten:** Getestet ist das bisher nur mit einem Konto mit Marktdaten-Abo. Ohne Abo kann
+> IBKR die Abfrage ablehnen, und ein Paper-Konto braucht eventuell die Freigabe der Marktdaten
+> des Echtgeld-Kontos in der Kontoverwaltung. Die Pipeline läuft dann trotzdem durch, nur bleiben
+> die Werte leer. Das wird nicht von selbst wiederholt: Sind die Marktdaten freigeschaltet, einmal
+> `python -m src.enrich_greeks --fehler-wiederholen --seit 2025-01-01` ausführen.
+
 Danach rechnet jeder Pipeline-Lauf die Werte für neue Options-Trades aus, sofern die TWS gerade
-läuft und angemeldet ist. Sie erscheinen im **Log** und auf der Kampagnen-Seite: Delta je Leg sowie Kurs und
+läuft und angemeldet ist. Sie erscheinen im Log-Fenster einer Eröffnung: Delta je Leg sowie Kurs und
 IVR/IVP bei Eröffnung und Schließung (Hinweis „aus IBKR berechnet“). Läuft sie nicht, wird der Schritt übersprungen und beim nächsten Mal
 nachgeholt. Ältere Trades lassen sich einmalig nachholen (**[PowerShell]** im Ordner
 `TradingJournal-Weaver`):
@@ -274,21 +286,16 @@ Durchgang nach dem Import, z. B. am Morgen mit den Daten vom Vortag:
    Symbole, wochenweise, ohne jede Kampagne einzeln öffnen zu müssen.
 3. **Kampagnen und Spreads** — bei Bedarf einzelne Positionen genauer ansehen: Verlauf,
    Buchungen, Ergebnis je Spread (Rundgang, Abschnitte 5 und 6).
-4. **Log** — neue Trades dokumentieren. Die Zahl neben *Log* im Menü zeigt, wie viele Kampagnen
-   der letzten 30 Tage noch keinen Eintrag haben; **Dokumentieren** öffnet den Kommentar zu einer
-   Eröffnung: Plan, Begründung und Ausstiegsszenario, solange sie frisch sind. Die Zahlen kommen
-   aus den Buchungen, und weitere Eröffnungen derselben Kampagne kommentierst du auf deren Seite —
-   so stehen Plan und Ausgang nebeneinander (Rundgang, Abschnitt 7).
-5. **Psychologie** — wie kam der Trade zustande? Stimmung, Motivation, Einhaltung der eigenen
-   Regeln, Versuchungen und die Lektion. Die Regelwerke dafür legst du einmal an; die
+4. **Log** — neue Trades dokumentieren. Auf der Seite *Kampagnen* zeigt der Filter **Nicht
+   dokumentiert**, wo noch etwas fehlt. In der Transaktions-Historie öffnet der Knopf einer Eröffnung
+   das Log-Fenster: Plan, Begründung und Ausstiegsszenario, solange sie frisch sind. Die Zahlen kommen
+   aus den Buchungen — so stehen Plan und Ausgang nebeneinander (Rundgang, Abschnitt 7).
+5. **Psychologie** — im selben Fenster, Reiter *Psychologie*: Wie kam der Trade zustande? Stimmung,
+   Motivation, Einhaltung der eigenen Regeln und Versuchungen. Die Regelwerke dafür legst du einmal an; die
    Auswertung zeigt mit der Zeit, welche Muster Geld kosten (Rundgang, Abschnitt 8).
 
 Log und Psychologie ergänzen sich: Das **Log** hält Plan und Ergebnis **je Trade** fest, die
 **Psychologie** misst über die Zeit, wie diszipliniert du deinen Regeln folgst.
-
-> [!TIP]
-> Für den schnellen Eintrag zwischendurch gibt es oben in jeder Seite den gelben Knopf
-> **Neuer Eintrag** ([Rundgang durch die App](15-rundgang.md), Abschnitt 1).
 
 ## 3. Kampagnen: offen, wartend, geschlossen
 

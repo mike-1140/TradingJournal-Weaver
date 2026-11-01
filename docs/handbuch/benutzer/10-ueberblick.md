@@ -372,8 +372,8 @@ gelaufen ist — ein Neuladen der Seite genügt.
 | **Analyse → Stats / Aktivität**                 | Auswertungen je Zeitraum, chronologische Buchungsliste               | `campaign_ledger`                                  |
 | **Analyse → FX-Trades**                         | Währungstausch-Trades                                                | `trades_fx`                                        |
 | **Analyse → Raw Data**                          | Trades im Originalzustand von IBKR                                   | `trades_raw`                                       |
-| **Log**                                         | eigene Planung und Reflexion, verknüpfbar mit Kampagnen              | `trade_planner` + Kampagnen                        |
-| **Psychologie**                                 | Regelwerke und Regel-Einhaltung je Trade                             | `psychology_*` + Trades                            |
+| **Log** (Knopf in der Buchungszeile)            | eigene Planung und Reflexion je Eröffnung einer Kampagne             | `trade_planner` + Kampagnen                        |
+| **Psychologie** (Reiter im Log-Fenster)         | Regelwerke und Regel-Einhaltung je Eröffnung                         | `psychology_*` + Trades                            |
 
 **Währungen:** Angezeigt wird die Handelswährung (bei US-Werten USD). Die Euro-Werte führt
 TradingJournal-Weaver im Hintergrund mit; beide Währungen gleichzeitig zeigen derzeit nur die

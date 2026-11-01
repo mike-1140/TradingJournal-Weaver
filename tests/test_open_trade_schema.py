@@ -6,6 +6,9 @@
 from decimal import Decimal
 from datetime import datetime
 
+import pytest
+
+from src.trade_schemas.closed_trade import ClosedTradeSchema
 from src.trade_schemas.open_trade import OpenTradeSchema
 from src.trade_enums import TradeStatus
 
@@ -96,3 +99,27 @@ class TestStatusValidierungMitEnum:
         errors = OpenTradeSchema.validate(_open_trade(status="KOMPLETT_FALSCH"))
 
         assert "Invalid status for open trade" in errors
+
+
+class TestTeilschliessungLeererStatus:
+    """Fehler seit v1.3.0: Rohdaten liefern ueber pandas fuer normale Trades status=NaN.
+    partial_close_new_open() liess NaN durch, die Pruefung lehnte den Datensatz ab und die
+    Verarbeitung brach bei jeder normalen Teilschliessung ab."""
+
+    @pytest.mark.parametrize("leer", [float("nan"), None, ""])
+    def test_leerer_status_wird_closed(self, leer):
+        ratio = Decimal("6") / Decimal("10")
+
+        result = OpenTradeSchema.partial_close_new_open(_open_trade(), _close_data(status=leer), ratio)
+
+        assert result["status"] == "Closed"
+        assert result["closedBy"] == "BUY"
+        assert ClosedTradeSchema.validate(result) == []
+
+    def test_status_des_ereignisses_bleibt_erhalten(self):
+        ratio = Decimal("6") / Decimal("10")
+
+        result = OpenTradeSchema.partial_close_new_open(_open_trade(), _close_data(status="Assigned"), ratio)
+
+        assert result["status"] == "Assigned"
+        assert result["closedBy"] == "ASSIGNMENT"

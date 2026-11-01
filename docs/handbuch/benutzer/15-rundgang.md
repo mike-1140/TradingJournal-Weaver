@@ -17,10 +17,9 @@ links. Kurze Erklärungen zu jeder Seite gibt es auch direkt in der App unter **
 
 | Nr. | Element | Wofür |
 |---|---|---|
-| 1 | **Neuer Eintrag** (gelb) | öffnet sofort ein neues Formular im [Log](#7-log--das-entscheidungsjournal), um eine Trade-Idee festzuhalten, solange sie frisch ist |
-| 2 | **Zeitraum** (hier „Alle Daten“) | grenzt fast jede Liste, Kennzahl und jedes Diagramm auf ein Zeitfenster ein; die Beschriftung zeigt die aktuelle Auswahl |
-| 3 | **Environment-Badge** | zeigt, in welchem Datenbereich du gerade bist (`MONEY`, `PAPER`, `TEST`, `AUTOM_MONEY`, `AUTOM_PAPER`) |
-| 4 | **Environment-Umschalter** und **Zahnrad** (auf dem Dashboard) | wechselt den Datenbereich bzw. wählt aus, welche Kacheln das Dashboard zeigt — siehe [Erster Start — UI-Erstkonfiguration](60-erster-start.md) |
+| 1 | **Zeitraum** (hier „Alle Daten“) | grenzt fast jede Liste, Kennzahl und jedes Diagramm auf ein Zeitfenster ein; die Beschriftung zeigt die aktuelle Auswahl |
+| 2 | **Environment-Badge** | zeigt, in welchem Datenbereich du gerade bist (`MONEY`, `PAPER`, `TEST`, `AUTOM_MONEY`, `AUTOM_PAPER`) |
+| 3 | **Environment-Umschalter** und **Zahnrad** (auf dem Dashboard) | wechselt den Datenbereich bzw. wählt aus, welche Kacheln das Dashboard zeigt — siehe [Erster Start — UI-Erstkonfiguration](60-erster-start.md) |
 
 ![Zeitraum wählen](img/15-rundgang/02-zeitraum.png)
 
@@ -28,8 +27,7 @@ Der **Zeitraum** bietet eine Schnellauswahl (letzte 13 Wochen, 6 Monate, seit Ja
 alle Daten), ganze Jahre oder einen frei gewählten Zeitraum. Die Auswahl bleibt bestehen, bis du
 sie änderst.
 
-Das Menü links lässt sich über die Doppelpfeile oben einklappen; die Zahl neben **Log** zählt
-Kampagnen, die noch nicht im Log dokumentiert sind (siehe Abschnitt 7).
+Das Menü links lässt sich über die Doppelpfeile oben einklappen.
 
 ## 2. Dashboard
 
@@ -94,8 +92,11 @@ beschreibt [Überblick — vom Trade bis zur Auswertung](10-ueberblick.md)).
 
 **Liste:** eine Karte je Kampagne mit Symbol, Startdatum, Status (*Aktiv*, *Pending*,
 *Geschlossen*), Brutto- und Netto-P&L, Bestand, Erlösen (Proceeds) und Kommission. Das
-**Log-Badge** zeigt, ob die Kampagne schon im Log dokumentiert ist (grün hinterlegt = ja). Oben
-umschalten zwischen offenen, geschlossenen und allen Kampagnen; das Suchfeld durchsucht alle.
+**Log-Kennzeichen** zeigt, wie viele Eröffnungen dokumentiert sind (z. B. `1/2`, grün = alle). Oben
+umschalten zwischen offenen, geschlossenen und allen Kampagnen; **Nicht dokumentiert** zeigt nur
+Kampagnen mit mindestens einer Eröffnung ohne Eintrag. Das Suchfeld durchsucht alle Kampagnen
+unabhängig von Status und Zeitraum und zeigt jede als eigene Karte. Über alle Kampagnen eines Symbols
+hinweg führt der Klick auf das Symbol auf der Karte.
 Daneben filtert eine zweite Knopfreihe nach **Art**: *Aktien* (nur Aktien), *Wheel* (Aktien und
 Optionen, mit oder ohne Zuteilung), *Optionen* (nur Einzeloptionen) und *Spreads* (mindestens ein
 Leg gehört zu einem Spread). Die Art wird aus allen Buchungen der Kampagne bestimmt und steht als
@@ -103,21 +104,19 @@ Etikett auf jeder Karte.
 
 **Detailseite** (Klick auf eine Karte):
 
-![Kampagne: Kennzahlen, Trade Log und P&L-Verlauf](img/15-rundgang/07-kampagne-detail.png)
+![Kampagne: Kennzahlen und P&L-Verlauf](img/15-rundgang/07-kampagne-detail.png)
 
 - Kennzahlen: Aktien- und Optionsbestand, Cashflow, Kommission, Brutto- und Netto-P&L.
-- **Eröffnungen & Kommentare** (markiert): je Eröffnung ein Block — alle zum selben Zeitpunkt
-  eröffneten Legs (Put, Spread, Iron Condor) oder ein Aktienkauf. Die Zahlen kommen aus den
-  Buchungen: Legs, Prämie in Dollar, Prämie beim Schließen, Gebühren, Ausgang (geschlossen,
-  verfallen, zugeteilt) und P&L. Darunter steht dein Kommentar oder der Knopf **Kommentar**; im
-  Kopf die Angabe, wie viele Eröffnungen kommentiert sind. Eine Zuteilung ist keine eigene
-  Eröffnung, und Aktien-P&L steht nur in der Summe der Kampagne, weil eine Aufteilung auf Put und
-  Call willkürlich wäre. Ein Wheel erscheint so als Folge seiner Puts und Calls.
+- **Dokumentation und Summen:** wie viele Eröffnungen dokumentiert sind; bei Aktien in der Kampagne
+  zusätzlich P&L von Optionen und Aktien sowie der offene Bestand. Aktien-P&L steht nur in dieser
+  Summe, weil eine Aufteilung auf Put und Call willkürlich wäre.
 - **P&L-Verlauf** als Stufendiagramm: der aufgelaufene realisierte P&L je Ereignistag.
 - **Tages-Übersicht:** je Tag Buchungen, Cashflow, Kommission, P&L und Ereignisse wie Verfall.
 - **Transaktions-Historie:** jede Buchung im Klartext (z. B. „Put Prämie: 5x – ON 44,5 P …“),
   mit Mengenänderung, P&L und laufendem Bestand, gruppiert nach Tag mit Tagessumme.
   Zusammengehörige Buchungen (etwa beide Beine einer Rollposition) sind farbig hinterlegt.
+  In der Spalte **Log** trägt jede Eröffnung einen Knopf: grün = dokumentiert, gelb umrandet = noch
+  nicht (siehe [Abschnitt 7](#7-log--das-entscheidungsjournal)).
 
 ![Kampagne: Transaktions-Historie](img/15-rundgang/08-kampagne-buchungen.png)
 
@@ -147,61 +146,74 @@ geschlossenen — Ergebnis.
 ## 7. Log — das Entscheidungsjournal
 
 Der Kern eines Trading-Journals: Nicht nur das Ergebnis zählt, sondern der Gedanke dahinter.
-Hier hältst du fest, **warum** ein Trade eingegangen wurde — mit welchem Plan, welcher Erwartung
-und welchem Ausstiegsszenario.
+Dokumentiert wird direkt dort, wo der Trade steht: in der **Buchungszeile der Eröffnung**.
 
-![Trade Log mit Hinweis auf undokumentierte Kampagnen](img/15-rundgang/11-log.png)
+**Knopf in der Zeile:** Eine Eröffnung sind alle zum selben Zeitpunkt eröffneten Legs (Put, Spread,
+Iron Condor) oder ein Aktienkauf. Jede hat in der Transaktions-Historie einer Kampagne genau einen
+Knopf, ebenso in der Symbol-Ansicht und unter *Aktivität*; weitere Legs zeigen nur einen kleinen Pfeil.
+Aktien aus einer Zuteilung haben keinen Knopf, weil sie keine eigene Entscheidung sind. Ein Folgetrade
+im selben Underlying hat seinen eigenen Knopf, ein Wheel erscheint als Folge seiner Puts und Calls.
 
-- **Hinweisbox** (markiert): Kampagnen der letzten 30 Tage ohne Log-Eintrag. **Dokumentieren**
-  öffnet den Kommentar zur ersten Eröffnung der Kampagne; weitere Eröffnungen kommentierst du auf
-  der Kampagnen-Seite. Die Zahl neben *Log* im Menü zählt genau diese Kampagnen.
-- **Kacheln** für offene und geschlossene Einträge sowie den realisierten Gewinn, darunter die
-  Tabelle aller Einträge mit Filter nach Underlying und Status. Bei verknüpften Einträgen kommen
-  Status und P&L aus den Buchungen.
+**Das Fenster** hat die Reiter *Trade* und *Psychologie* (siehe Abschnitt 8) und einen gemeinsamen
+Knopf zum Speichern. Es lässt sich an der Kopfzeile verschieben und an der rechten unteren Ecke
+vergrößern:
 
-**Eintrag zu einer Eröffnung:**
-
-![Neuer Log-Eintrag](img/15-rundgang/12-log-formular.png)
+![Log-Fenster](img/15-rundgang/12-log-formular.png)
 
 - **Oben die Zahlen aus den Buchungen,** nur zur Anzeige: Legs mit Strike, Prämie, Delta und DTE,
   Prämie der Eröffnung und beim Schließen in Dollar, Gebühren, maximales Risiko beim Vertical,
   Ausgang und P&L (**brutto**, wie in Kampagnen, Spreads und Statistik). Du trägst sie nicht ein,
-  sie können also nicht von den Buchungen abweichen.
-- **Dein Kommentar:** Strategie, Exit-Plan bzw. Regeln, Begründung (*Rationale*) und Notizen. Jede
-  Eröffnung hat ihren eigenen Eintrag; ein Folgetrade im selben Underlying bekommt also einen
-  eigenen Kommentar.
+  sie können also nicht von den Buchungen abweichen. Wurde ein Spread zugeteilt und sind die Aktien
+  im selben Moment wieder glatt, zählt deren P&L mit; bleiben die Aktien liegen, steht ihr P&L nur
+  in der Summe der Kampagne.
+- **Dein Eintrag:** Strategie, Exit-Plan bzw. Regeln, Begründung (*Rationale*) und Notizen. Sobald
+  die Eröffnung geschlossen ist, kommt **Abschluss / Lessons Learned** dazu.
 - **Kurs und IV:** Ist im Weaver der optionale Schritt `enrich` eingerichtet (siehe
   [Alltag mit dem TradingJournal](70-alltag.md), Abschnitt 1, „Delta und IV-Rang automatisch“),
   stehen Kurs des Basiswerts und IVP/IVR bei Eröffnung und Schließung als berechnete Werte im
-  Feld („aus IBKR berechnet“). Was du selbst einträgst, gilt; ohne `enrich` bleiben die Felder
-  für deine Eingabe.
+  Feld. Was du selbst einträgst, gilt; ohne `enrich` bleiben die Felder für deine Eingabe.
 
-**Eintrag ohne Kampagne:** Vor dem Import, oder wenn keine Kampagne passt, steht das volle Formular
-bereit: Kopfdaten, Legs und über **Trade schließen** die Abschlussdaten, alles von Hand (Gebühren
-positiv, Ergebnis brutto). Findet das Formular zum Underlying eine Kampagne, kannst du den Eintrag
-verknüpfen. Er gehört dann zur noch nicht kommentierten Eröffnung, die seinem Datum am nächsten
-liegt, und die Zahlen kommen ab dann aus den Buchungen.
+**Alle Einträge lesen:** Unter **Analyse → Trade-Kommentare** stehen alle Einträge untereinander, mit
+Filter nach Underlying und Status; Status und P&L kommen aus den Buchungen. Dort lassen sich Einträge
+auch löschen.
+
+![Trade-Kommentare](img/15-rundgang/11-log.png)
+
+**Einträge ohne Kampagne:** Aus früheren Versionen können solche Einträge vorhanden sein. Sie lassen
+sich unter *Trade-Kommentare* weiter bearbeiten und mit einer passenden Kampagne verknüpfen; sie
+gehören dann zur noch nicht kommentierten Eröffnung, die ihrem Datum am nächsten liegt. Neue Einträge
+entstehen nur noch über den Knopf in der Zeile.
+
+Psychologie-Einträge aus früheren Versionen ordnet das Update ihrer Eröffnung zu und übernimmt die
+Lektion in *Abschluss / Lessons Learned*. Was sich nicht zuordnen lässt, steht unter
+*Trade-Kommentare* in einem eigenen Kasten und bleibt dort bearbeitbar.
 
 ## 8. Psychologie
 
 Das Modul trennt bewusst das **Ergebnis** eines Trades von der Frage, **wie** er zustande kam.
 Ein Gewinn aus einer disziplinierten Entscheidung und einer aus einem Impuls sehen im P&L gleich
-aus — hier wird sichtbar, welcher es war. Das Menü hat vier Punkte:
+aus — hier wird sichtbar, welcher es war.
+
+**Erfasst wird im Log-Fenster,** im Reiter **Psychologie** derselben Eröffnung (siehe
+[Abschnitt 7](#7-log--das-entscheidungsjournal)): Stimmung vor und nach dem Trade (Skala 1–5),
+Motivation (System, FOMO, Revenge, Langeweile, Impuls), Marktlage, Einhaltung der Regeln und
+Versuchungen. Nichts davon ist Pflicht: Ohne Angaben entsteht kein Psychologie-Eintrag, und die
+Regeln zählen nur, wenn du mindestens eine angekreuzt hast. Ein Punkt am Knopf zeigt, dass die
+Psychologie ausgefüllt ist. Die Lektion steht im Reiter *Trade* unter **Abschluss / Lessons
+Learned**. Unter *Analyse → Trade-Kommentare* siehst du Motivation, Stimmung und Regeln beim
+jeweiligen Eintrag; das Löschen entfernt beides.
+
+![Log-Fenster: Reiter Psychologie](img/15-rundgang/13-log-psychologie.png)
+
+Im Menü stehen zwei Punkte:
 
 - **Regelwerke:** die Maßstäbe — Regelwerke (Name, Strategie, aktiv/inaktiv) mit Einzelregeln
   und ihrem Fehlertyp (Gier, Angst, Hoffnung, Impuls, Disziplin). Am besten zuerst einrichten.
-- **Neuer Eintrag:** Symbol, Datum, P&L, Stimmung vor und nach dem Trade (Skala 1–5), Motivation
-  (System, FOMO, Revenge, Langeweile, Impuls), Marktlage, Einhaltung jeder Regel, Versuchungen
-  und die Lektion, die du mitnimmst.
-- **Einträge:** Kacheln (Anzahl, P&L, Trefferquote, Anteil mit Versuchung) und je Eintrag eine
-  Zeile mit Motivation, Anzahl der Versuchungen (⚡), der Regel-Einhaltung als Punkte (grün =
-  eingehalten, rot = gebrochen), P&L und Lektion.
-
-![Psychologie: Einträge](img/15-rundgang/13-psychologie.png)
-
 - **Auswertung:** vier Diagramme machen Muster sichtbar — *Cost of Emotion* (Ø P&L je
   Motivation), *Emotional Sweet Spot* (Ø P&L je Stimmung), *Compliance-Performance* (Ø P&L je
   Grad der Regel-Einhaltung) und *Regelversuchungen* (wie oft welche Regel in Versuchung führte).
+  Das P&L kommt aus den Buchungen der Eröffnung, noch offene zählen nicht mit. Oben steht, zu wie
+  vielen dokumentierten Eröffnungen die Psychologie ausgefüllt ist.
 
 ![Psychologie: Auswertung](img/15-rundgang/14-psychologie-auswertung.png)
 

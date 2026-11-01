@@ -431,16 +431,18 @@ def main() -> int:
 
     t_run_start = time.monotonic()
     cnt = 0
-    prev_token = None
-    for i, (token, qid) in enumerate(queries):
-        if i > 0:
-            if token != prev_token:
-                logger.info(f"Token-Wechsel — warte {TOKEN_DELAY}s zur Sicherheit ...")
-                time.sleep(TOKEN_DELAY)
-            else:
-                time.sleep(QUERY_DELAY)
+    prev_token = None   # Token der letzten echten Anfrage
+    for token, qid in queries:
+        # Heute schon geholt: keine Anfrage an IBKR, also auch keine Pause
+        if not _already_fetched_today(qid):
+            if prev_token is not None:
+                if token != prev_token:
+                    logger.info(f"Token-Wechsel — warte {TOKEN_DELAY}s zur Sicherheit ...")
+                    time.sleep(TOKEN_DELAY)
+                else:
+                    time.sleep(QUERY_DELAY)
+            prev_token = token
         cnt += _fetch_query(token, qid, logger)
-        prev_token = token
     logger.info(f"Fertig: {cnt} neue FlexQuery-Datei(en) gespeichert — Laufzeit gesamt {_elapsed(t_run_start)}")
     return cnt
 

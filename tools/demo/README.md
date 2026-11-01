@@ -90,9 +90,11 @@ vor die Beispiele aus 3c. Kommen die Beispiele zuerst, landen ihre Trades in ein
 „offenen“ alten Kampagne desselben Basiswerts statt in einer eigenen (2026-10-23 so bei MARA und
 SOFI passiert).
 
-**3a — bisherige Demo-Quellen:**
+**3a — bisherige Demo-Quellen** (die Verfallsdatei eines früheren Laufs zuerst entfernen, sonst
+wird sie hier schon eingelesen und schließt Positionen doppelt):
 
 ```powershell
+Remove-Item input\demo_source\flex.demo_close_expired_options.xml -ErrorAction SilentlyContinue
 Copy-Item input\demo_source\*.xml C:\Trade_XML\incoming_mail\
 .venv\Scripts\python -m src.import_ibkr_trades test demo_
 .venv\Scripts\python -m src.process_ibkr_trades test demo_
@@ -126,7 +128,12 @@ echte `ibkr_test` treffen):
 
 **Ergebnis 2026-10-23:** 555 Rohzeilen (2024: 38, 2025: 375, 2026: 142), 90 Kampagnen
 (15 ACTIVE / 2 PENDING / 73 CLOSED), 82 Log- und 27 Psychologie-Einträge, kein TLT. **2026-10-30:** TQQQ entfernt
-(Quelle und Demo-DB) → 545 Rohzeilen, 89 Kampagnen, 81 Log-Einträge.
+(Quelle und Demo-DB) → 545 Rohzeilen, 89 Kampagnen, 81 Log-Einträge. **2026-10-31:** doppelte Options-Trades entfernt
+→ 506 Rohzeilen, 89 Kampagnen, 91 Log-Einträge (mit den Lektionen aus der Psychologie).
+**2026-11-01:** komplett neu aufgebaut → 506 Rohzeilen, 89 Kampagnen (15 ACTIVE / 2 PENDING /
+72 CLOSED), 90 Log- und 23 Psychologie-Einträge, jeder einer Eröffnung zugeordnet, P&L 5.719,00 $.
+Einige Test-Quellen schreiben Options-Symbole mit einem Leerzeichen; `anonymize_demo_source`
+vereinheitlicht das, damit die Checksum-Prüfung denselben Trade aus zwei Berichten erkennt.
 
 Erwartete Größenordnung: ~210 Trades über alle 19 Dateien, keine Fehler im Log.
 Die Quelldateien werden dabei aus `incoming_mail\` nach `C:\Trade_XML\test\demo_\processed\`

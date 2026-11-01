@@ -32,7 +32,7 @@ def is_empty(elem):
     return (len(elem) == 0) and (not elem.text or elem.text.strip() == "")
 
 
-def process_flex_file(xml_path, db, repo, logger, environment: str) -> int | tuple[int | Any, int]:
+def process_flex_file(xml_path, db, repo, logger, environment: str) -> tuple[int | Any, int]:
     """
     Liest eine FlexQuery-XML-Datei und verarbeitet JEDES <FlexStatement> einzeln.
     - liest nur die Trades aus dem jeweiligen Statement
@@ -49,12 +49,12 @@ def process_flex_file(xml_path, db, repo, logger, environment: str) -> int | tup
         root = tree.getroot()
     except Exception as e:
         logger.error(f"❌ Fehler beim Einlesen von {xml_path.name}: {e}")
-        return 0
+        return 0, 0
 
     flex_statements = root.findall(".//FlexStatement")
     if not flex_statements:
         logger.warning(f"⚠️ Keine <FlexStatement>-Sektionen in {xml_path.name}.")
-        return 0
+        return 0, 0
 
     total_inserted = 0
     some_entries = 0

@@ -11,6 +11,7 @@
 # Siehe tools/demo/README.md fuer den vollstaendigen Ablauf.
 
 import argparse
+import re
 import sys
 import xml.etree.ElementTree as ET
 from datetime import date, datetime
@@ -73,6 +74,8 @@ SOURCE_FILES = [
 
 # Basiswerte, die in der Demo gar nicht vorkommen sollen (alle Elemente entfernt)
 EXCLUDE_UNDERLYINGS = {"TLT", "TQQQ"}
+
+OPTION_SYMBOL = re.compile(r"^([A-Z0-9.]+) +(\d{6}[CP]\d{8})$")
 
 # Abgeschlossene Kampagnen 2026 fuer --examples: (Basiswert, erster Tag, letzter Tag).
 # Nur Kampagnen, die nach dem letzten Trade der SOURCE_FILES (10.02.2026) beginnen und
@@ -171,6 +174,16 @@ def demo_filename(src_name: str) -> str:
     return f"flex.{stem}"
 
 
+def normalize_option_symbol(symbol: str) -> str:
+    """
+    Options-Symbole auf die IBKR-Schreibweise bringen (Basiswert auf 6 Stellen aufgefuellt). Manche
+    Test-Quellen enthalten nur ein Leerzeichen; liegt derselbe Trade auch in einem normalen Bericht
+    vor, greift die Checksum-Pruefung beim Import sonst nicht und er wird doppelt verarbeitet.
+    """
+    match = OPTION_SYMBOL.match(symbol or "")
+    return f"{match.group(1):<6}{match.group(2)}" if match else symbol
+
+
 def anonymize_file(src_path: Path, dest_path: Path, keep=not_excluded) -> int:
     """
     Kopiert eine FlexQuery-XML-Datei, entfernt alle Eintraege, fuer die keep()
@@ -187,6 +200,8 @@ def anonymize_file(src_path: Path, dest_path: Path, keep=not_excluded) -> int:
         if "accountId" in elem.attrib:
             elem.set("accountId", FAKE_ACCOUNT_ID)
             replaced += 1
+        if "symbol" in elem.attrib:
+            elem.set("symbol", normalize_option_symbol(elem.get("symbol")))
 
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     tree.write(dest_path, encoding="UTF-8", xml_declaration=True)

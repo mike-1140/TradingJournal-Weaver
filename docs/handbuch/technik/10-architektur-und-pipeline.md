@@ -247,7 +247,7 @@ IBKR_ACTIVITY_SUBJECT_DE=Kontoauszug
 
 **Wichtig:** Phase 0 ist optional — XML/CSV-Dateien können auch manuell in die Eingangsverzeichnisse kopiert werden. Die nachfolgenden Phasen 1 und 2 sind davon unabhängig. Ein Namensmuster ist im Normalbetrieb **nicht** erforderlich (siehe Phase 1) — nur der dedizierte TEST-Modus verlangt `flex.*.xml`.
 
-**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der Flex-Query-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` als zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Ist die API-Query mit denselben Sektionen eingerichtet wie die Mail-Query (Trades, Option Exercises/Assignments/Expirations, Corporate Actions), liefert sie auch `OptionEAE`/BookTrades und CorporateActions. Timing: Der Report wird bei Anfrage on-demand generiert, es gibt kein festes Tages-Zeitfenster — die Daten des Vortags stehen in der Regel schon am frühen Morgen bereit. Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt.
+**Zweiter Kanal `fetch_api` (`get_flexquery_api.py`):** Abruf der Flex-Query-XMLs direkt über die IBKR-Web-API (`.env`: `IBKR_FLEX_QUERIES=token:query_id,...`), läuft in `pipeline.toml` gleichwertig neben `fetch_emails` als zweite produktive Quelle für `trades_raw`. Schreibt nach `C:\Trade_XML\incoming_api\` (getrennt von `incoming_mail\`, damit beide Quellen unabhängig nachvollziehbar bleiben); der `import`-Step scannt **beide** Ordner. Checksum-Dedup verhindert doppelte Trades, falls dieselben Daten über beide Kanäle ankommen. Ist die API-Query mit denselben Sektionen eingerichtet wie die Mail-Query (Trades, Option Exercises/Assignments/Expirations, Corporate Actions), liefert sie auch `OptionEAE`/BookTrades und CorporateActions. Timing: Der Report wird bei Anfrage on-demand generiert, es gibt kein festes Tages-Zeitfenster — die Daten des Vortags stehen in der Regel schon am frühen Morgen bereit. Retry-Logik fängt die kurze "noch in Verarbeitung"-Phase ab (typisch wenige Sekunden, bis ~30s bei Accounts mit geringerer IBKR-Priorität, z.B. Paper-Konten). Damit auch ein unabhängiger zweiter Kanal für Ausfallsicherheit, falls die Mail an einem Tag ausbleibt. Pausen (zwischen Queries `QUERY_DELAY`, beim Token-Wechsel `TOKEN_DELAY` = 30 s) gelten nur vor echten Anfragen: Schon heute geholte Queries werden ohne Anfrage und ohne Pause übersprungen.
 
 ---
 
@@ -307,6 +307,8 @@ Der Flex-Parser ist der **Orchestrator** der Import-Phase. Er koordiniert alle S
 
 ```
 process_flex_file(xml_path, db, repo, logger, environment)
+│   Eine Datei ohne Tagesberichte oder mit Parse-Fehler zählt als leer (Rückgabe 0, 0) und
+│   bricht den Import nicht ab.
 │
 ├── 1. Extrahiere Rohdaten (parallel als DataFrames):
 │   ├── extract_trades_for_db()          → df_trades
@@ -660,6 +662,11 @@ Aktion: INSERT trades_close (60 Stück, status=Closed)
         Kampagne: TRADE_CLOSE_PARTIAL im Ledger
 ```
 
+Normale Trades haben in `trades_raw` keinen Status; über pandas kommt er als `NaN` an.
+`to_closed_trade()` und `partial_close_new_open()` machen daraus `Closed`. (In `v1.3.0` und `v1.4.0`
+fehlte das in `partial_close_new_open()`, die Verarbeitung brach bei Teilschließungen mit einem
+`ValidationError` ab; behoben in `v1.5.0`.)
+
 **Schlüsselkonzept: Ratio-Skalierung**
 ```python
 ratio = close_qty / open_qty  # z.B. 60/100 = 0.6
@@ -897,10 +904,16 @@ Trades mit Hinweis werden nicht bei jedem Lauf erneut abgefragt, sondern nur mit
 **Verbindung:** nur lesend (`readonly=True`, keine Order-Aufrufe) zu `TWS_HOST:TWS_PORT` mit
 eigener `TWS_CLIENT_ID` (Standard 630). Ist keine TWS / kein IB Gateway erreichbar, endet der
 Schritt mit einem Hinweis und Exit-Code 0 — der Rest der Pipeline läuft weiter, beim nächsten
-Lauf wird nachgeholt. **Daten-Berechtigung** (Machbarkeitsprobe 2026-10-29, Papierkonto):
-historische Minutenkurse und IV-Historie für Index und Aktien ohne Zusatz-Abo verfügbar, auch
-mehr als zwei Jahre zurück. Live-Griechen (`modelGreeks`) würden dagegen ein API-Marktdaten-Abo
-brauchen und werden nicht genutzt.
+Lauf wird nachgeholt. Die TWS muss auf demselben Rechner laufen (`TWS_HOST` Standard
+`127.0.0.1`); der Paper-Modus genügt (`TWS_PORT` Standard `7497`, Live-Modus `7496`).
+
+**Daten-Berechtigung:** Die Machbarkeitsprobe (2026-10-29, Papierkonto) lieferte historische
+Minutenkurse und IV-Historie für Index und Aktien, auch mehr als zwei Jahre zurück. Das Konto hat
+allerdings ein Marktdaten-Abo; **ohne Abo ist es ungetestet.** IBKR kann die Abfrage dann ablehnen,
+ein Papierkonto braucht eventuell die Marktdaten-Freigabe des Echtgeld-Kontos. Fehlende Daten
+brechen den Lauf nicht ab: Die Werte bleiben leer, `trade_greeks.error` nennt den Grund (z. B.
+„kein Basiswert-Kurs“, „zu wenig IV-Historie“), und der Trade wird nur mit `--fehler-wiederholen`
+erneut abgefragt. Live-Griechen (`modelGreeks`) werden nicht genutzt.
 
 **Genauigkeit:** Black-Scholes ist für amerikanische Aktienoptionen eine Näherung (Abweichung
 vor allem tief im Geld und vor Dividenden); SPX-Monatsoptionen werden am Morgen abgerechnet
@@ -1007,9 +1020,9 @@ Dazu die Tabellen, die nur TradingJournal schreibt (Eingaben in der Oberfläche)
 
 | Tabelle | Inhalt (UI) | Angelegt von |
 |---|---|---|
-| `trade_planner`, `trade_planner_legs` | **Log**: Kommentar (Begründung, Exit-Plan, Notizen) je Eröffnung, per `campaign_id` + `opened_at` einer Eröffnung der Kampagne zugeordnet; die Zahlen liest `App\Support\CampaignOpenings` aus `campaign_ledger`. Die Zahlenspalten und `trade_planner_legs` gelten nur noch für Einträge ohne Kampagne | `reset_IBKR_DB.py` (wird beim Neuaufbau mit geleert) |
+| `trade_planner`, `trade_planner_legs` | **Log**: Kommentar (Begründung, Exit-Plan, Notizen) je Eröffnung, per `campaign_id` + `opened_at` einer Eröffnung der Kampagne zugeordnet; die Zahlen liest `App\Support\CampaignOpenings` aus `campaign_ledger`. Eingabe im Fenster `App\Livewire\Log\OpeningLogModal`, Knopf je Buchungszeile über `App\Support\OpeningMarkers`. Die Zahlenspalten und `trade_planner_legs` gelten nur noch für Einträge ohne Kampagne | `reset_IBKR_DB.py` (wird beim Neuaufbau mit geleert) |
 | `psychology_rulesets`, `psychology_rules` | **Psychologie → Regelwerke** | `tools/maintenance/setup_psychology_tables.py` (nicht durch `reset_IBKR_DB.py` berührt) |
-| `psychology_entries`, `psychology_compliance_results` | **Psychologie → Einträge**, Einhaltung je Regel und Eintrag | wie oben |
+| `psychology_entries`, `psychology_compliance_results` | **Reiter Psychologie im Log-Fenster**, per `campaign_id` + `opened_at` einer Eröffnung zugeordnet; Einhaltung je Regel und Eintrag. Die Auswertung nimmt das P&L aus dem Ledger; `lesson` wird nur noch bei nicht zugeordneten Einträgen genutzt | wie oben |
 
 ### 8.2 Schlüsseltabellen im Detail
 
@@ -1565,6 +1578,7 @@ TradingJournal-Weaver/
 │   ├── migrate_add_fees_open_to_trade_planner.py
 │   ├── migrate_add_opened_at_to_trade_planner.py ← Log-Eintrag → Eröffnung; setzt bestehende Einträge auf die erste Eröffnung
 │   ├── migrate_add_open_types_to_psychology.py
+│   ├── migrate_add_opening_to_psychology.py ← Psychologie-Eintrag → Eröffnung; Lektion nach `trade_planner.lessons_learned`
 │   ├── migrate_backfill_assignment_linkid.py
 │   ├── compare_tat_ibkr.py      ← manueller TAT-vs-IBKR-Abgleich
 │   └── setup.py                 ← veraltet/ungenutzt (echter Weg: requirements.txt)

@@ -335,12 +335,12 @@ class OpenTradeSchema(BaseSchema):
         closed_trade['ROI'] = to_decimal(calculate_roi(net_cash_open, profit))
 
         # Set status
-        closed_trade['status'] = close_data.get('status', 'Closed')
-        if closed_trade['status'] in (None, ''):
-            closed_trade['status'] = 'Closed'
+        status = close_data.get('status', 'Closed')
+        if pd.isna(status) or status in ('', None):
+            status = 'Closed'
+        closed_trade['status'] = status
 
         # closedBy aus status und buySellClose ableiten
-        status = closed_trade['status']
         if status in ('Expired', 'CashSettled'):
             closed_trade['closedBy'] = 'EXPIRY'
         elif status == 'Assigned':

@@ -28,7 +28,7 @@ Vorlage [„Beispiel für ungetesteten Fall“](https://github.com/mike-1140/Tra
 
 | Nr. | Fall | Bisher gesehen | Dringlichkeit |
 |---|---|---|---|
-| 1 | Aktiensplit während einer offenen Option oder eines Spreads | einmal, ohne offene Position | **hoch** — verfälscht Positionen |
+| 1 | Forward Split während einer offenen Option oder eines Spreads | einmal, mit offenem Spread | **hoch** — verfälscht Positionen |
 | 2 | Forward Split und `SS`-Split bei Aktien | nur Reverse Splits | mittel |
 | 3 | Teil-Zuteilung (z. B. 2 von 5 verkauften Puts) | nie | niedrig — Code angepasst, Bestätigung mit echten Daten fehlt |
 | 4 | Vorzeitige Zuteilung des verkauften Beins eines Spreads | bei einer einzelnen Option ja, bei einem Spread nie | mittel |
@@ -37,10 +37,12 @@ Vorlage [„Beispiel für ungetesteten Fall“](https://github.com/mike-1140/Tra
 | 7 | Rolls und schließende Combo-Orders: Feld `openCloseIndicator` | ja, aber Feld ungeprüft | mittel |
 | 8 | Futures und Optionen auf Futures | nie | niedrig |
 | 9 | Konto mit anderer Basiswährung als EUR | nie | niedrig |
+| 10 | Schritt `enrich` ohne Marktdaten-Abo | nie, mein Konto hat ein Abo | mittel — betrifft nur Delta und IV-Rang |
+| 11 | Reverse Split mit offener Option | nie | **hoch** — verfälscht Positionen |
 
 ---
 
-## 1. Aktiensplit während einer offenen Option oder eines Spreads
+## 1. Forward Split während einer offenen Option oder eines Spreads
 
 **Worum es geht:** Bei einem Split passt die Börse laufende Optionen an — je nach Verhältnis
 ändern sich Anzahl, Ausübungspreis, Multiplikator oder Symbol des Kontrakts (bei krummen
@@ -50,8 +52,9 @@ erkennt den Split, stellt aber **offene Options-Positionen nicht auf den neuen K
 späterer Verfall oder Rückkauf unter dem neuen Kontrakt würde dann eine falsche Gegenposition
 eröffnen.
 
-**Bisher gesehen** — der einzige Fall: TQQQ, Forward Split 2:1 am 20.11.2025 (Paper-Konto). Im
-Abschnitt *Kapitalmaßnahmen* standen genau zwei Options-Zeilen mit derselben `actionID`:
+**Bisher gesehen** — der einzige Fall: TQQQ, Forward Split 2:1 am 20.11.2025 (Paper-Konto), mit
+offenem Bull Put Spread 75/85, 1 Kontrakt. Im Abschnitt *Kapitalmaßnahmen* standen genau zwei
+Options-Zeilen mit derselben `actionID`:
 
 ```xml
 <CorporateAction type="FS" actionID="160563833" reportDate="20/11/2025" assetCategory="OPT"
@@ -62,18 +65,20 @@ Abschnitt *Kapitalmaßnahmen* standen genau zwei Options-Zeilen mit derselben `a
   description="TQQQ(US74347X8314) SPLIT 2 FOR 1 (TQQQ 251219P00042500, TQQQ 19DEC25 42.5 P, )" />
 ```
 
-Das passt nicht zum erwarteten Bild „alter Kontrakt raus, neuer Kontrakt rein“: Es sind zwei
-**verschiedene** Ausübungspreise (37,5 und 42,5) mit Menge +1 und −1, und kein Kontrakt mit
-halbiertem Ausübungspreis oder doppelter Anzahl. Ob das die beiden Beine eines Spreads waren, ob
-die angepassten Kontrakte an einem anderen Tag oder in einem anderen Abschnitt kamen, ist offen.
+Das passt nicht zum erwarteten Bild „alter Kontrakt raus, neuer Kontrakt rein“: Je Bein gibt es
+genau eine Zeile, das Symbol trägt schon den neuen Ausübungspreis (37,5 und 42,5), und `quantity`
+ist nur der **Zuwachs** (+1 beim gekauften, −1 beim verkauften Bein). Der Verfall am 19.12. kam
+dann mit je 2 Kontrakten. Ob IBKR das bei anderen Verhältnissen und bei einer einzelnen Option
+genauso meldet, ist offen.
 
 **Fragen:**
 
-1. Welche Zeilen liefert IBKR im Abschnitt *Kapitalmaßnahmen* für eine **offene Option** bei einem
-   Split — eine Zeile für den alten und eine für den neuen Kontrakt, oder anders?
-2. Wie sieht der **neue Kontrakt** aus: halbierter Ausübungspreis und doppelte Anzahl, gleicher
-   Ausübungspreis mit geändertem Multiplikator, oder ein Sondersymbol (z. B. `TQQQ1`)?
-3. Bei einem **Spread** (mehrere Beine): eine Zeile je Bein, alle mit derselben `actionID`?
+1. Welche Zeilen liefert IBKR im Abschnitt *Kapitalmaßnahmen* für eine **einzelne offene Option**
+   bei einem Split? Ebenfalls nur der Zuwachs?
+2. Wie sieht der **neue Kontrakt** bei krummen Verhältnissen aus (z. B. 3:2): geänderter
+   Multiplikator oder ein Sondersymbol (z. B. `TQQQ1`)?
+3. Bei einem Spread oder mehreren Positionen mit **mehr als zwei Beinen**: alle Zeilen mit
+   derselben `actionID`?
 4. Wie meldet IBKR später den **Verfall, die Zuteilung oder den Rückkauf** des angepassten
    Kontrakts — unter welchem Symbol und mit welcher Menge?
 
@@ -246,3 +251,42 @@ und Spalten wie „EUR“ wären dann falsch beschriftet.
 welche Stellen sind irreführend beschriftet?
 
 **Was hilft:** eine Beschreibung mit Screenshot (Beträge dürfen geschwärzt sein).
+
+---
+
+## 10. Schritt `enrich` ohne Marktdaten-Abo
+
+**Worum es geht:** Der optionale Schritt `enrich` holt historische Minutenkurse des Basiswerts und
+die IV-Historie aus der TWS und berechnet daraus Delta, IV, IVR und IVP. Mein Konto hat ein
+Marktdaten-Abo, deshalb kann ich nicht prüfen, ob es auch ohne geht. Der Code kommt damit klar,
+wenn nichts zurückkommt (die Werte bleiben leer, in `trade_greeks.error` steht ein Hinweis), aber
+welche Antwort IBKR dann gibt, weiß ich nicht.
+
+**Fragen:**
+
+1. Liefert die TWS **ohne Marktdaten-Abo** die Werte, oder bleiben sie leer? Unterscheidet sich das
+   zwischen Aktien und Indizes (SPX)?
+2. Funktioniert es im **Paper-Modus**, wenn die Marktdaten des Echtgeld-Kontos nicht freigegeben
+   sind?
+
+**Was hilft:** ein Lauf von `python -m src.enrich_greeks --seit JJJJ-MM-TT` und die Texte aus der
+Spalte `error` der Tabelle `trade_greeks`, dazu kurz, welche Abos das Konto hat.
+
+---
+
+## 11. Reverse Split mit offener Option
+
+**Worum es geht:** Für Reverse Splits (Zusammenlegung) ist nur der Fall **ohne** offene Option
+geprüft (Beispiel unter Nr. 2), für offene Optionen gibt es bisher nur den Forward Split unter
+Nr. 1. Bei einer Zusammenlegung ändert sich der Kontrakt anders: Meist bleibt die Anzahl gleich und
+die Option liefert weniger Aktien, oft unter einem Sondersymbol.
+
+**Fragen:**
+
+1. Welche Zeilen liefert IBKR im Abschnitt *Kapitalmaßnahmen* für die offene Option?
+2. Wie heißt der angepasste Kontrakt, und wie viele Aktien liefert er?
+3. Unter welchem Symbol und mit welcher Menge kommt später der Verfall, die Zuteilung oder der
+   Rückkauf?
+
+**Was hilft:** die XML-Datei des Split-Tags und die des späteren Verfalls bzw. Rückkaufs, dazu
+kurz die Position vor dem Split.

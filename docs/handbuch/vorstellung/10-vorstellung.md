@@ -141,7 +141,7 @@ Das TradingJournal ist im täglichen Einsatz und wird laufend weiterentwickelt. 
 | **Repository (Repo)** | Ein Projektordner auf GitHub, in dem der gesamte Quellcode samt Änderungsgeschichte liegt. Das TradingJournal besteht aus zwei Repos. |
 | **Rollen** | Eine laufende Optionsposition schließen und gleichzeitig eine neue mit späterem Verfall und/oder anderem Basispreis eröffnen. |
 | **Spread** | Kombination mehrerer Optionen auf denselben Basiswert, die zusammen gekauft bzw. verkauft werden (z. B. Bull Put Spread, Iron Condor). |
-| **Trade Log** | Das Entscheidungsjournal der App (Menüpunkt *Log*): Vor oder nach einem Trade festhalten, warum man ihn eingeht und wie er geplant ist. |
+| **Trade Log** | Das Entscheidungsjournal der App (Knopf in der Buchungszeile einer Eröffnung): festhalten, warum man einen Trade eingeht und wie er geplant ist. |
 | **Vibe-Coding** | Programmieren im Dialog mit einer KI: Man beschreibt, was entstehen soll, die KI schreibt den Code, man prüft und steuert nach. |
 | **Wheel-Strategie** | Optionsstrategie: Puts verkaufen, bei Zuteilung die Aktien übernehmen und darauf Calls verkaufen, bis die Aktien wieder abgegeben werden. |
 | **XML** | Ein Textformat für strukturierte Daten — so liefert IBKR die Flex-Query-Berichte. |

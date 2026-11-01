@@ -269,6 +269,9 @@ Ohne `IBKR_FLEX_QUERIES` in `.env` ist der Schritt ein No-Op (kein Fehler, Exit-
 kann also gefahrlos im Standard-Pipeline-Lauf aktiv bleiben, auch wenn (noch) nicht für
 alle Accounts ein Token/Query konfiguriert ist.
 
+Eine Query, die heute schon geholt wurde, wird ohne Anfrage und ohne Pause übersprungen. Die Pausen
+(auch die 30 Sekunden beim Token-Wechsel) gelten nur vor echten Anfragen.
+
 ---
 
 ## import_csv_snapshots.py — account_snapshots
@@ -361,8 +364,10 @@ laufen weiter). Ausgenommen: Verfall/Zuteilung/Barausgleich von Optionen. Hinter
 Rekonstruiert für Options-Trades den Basiswert-Kurs zur Ausführungsminute, IV und Delta der
 Option sowie IVR/IVP des Basiswerts und schreibt sie nach `trade_greeks` (Details:
 [Architektur und Import-Pipeline](10-architektur-und-pipeline.md), § 6.5). Braucht eine
-laufende TWS bzw. IB Gateway mit aktivierter API; ohne sie wird der Schritt übersprungen
-(Exit-Code 0). Verbindung nur lesend.
+laufende TWS bzw. IB Gateway mit aktivierter API auf demselben Rechner (Paper-Modus genügt, Port
+über `TWS_PORT`); ohne sie wird der Schritt übersprungen (Exit-Code 0). Verbindung nur lesend.
+Ohne Marktdaten-Berechtigung (ohne Abo ungetestet) bleiben die Werte leer, mit Hinweis in
+`trade_greeks.error`; nachholen mit `--fehler-wiederholen`.
 
 ```bash
 # Auto-Modus: alle Ziele aus pipeline.toml, neue Options-Trades der letzten 14 Tage
